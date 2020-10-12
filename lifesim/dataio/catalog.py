@@ -5,6 +5,8 @@ import numpy as np
 import pandas as pd
 from astropy.io import fits
 
+from lifesim.modules.habitable import compute_habitable_zone
+
 # todo Documentation
 class Catalog(object):
     """Gets and prints the spreadsheet's header columns
@@ -67,6 +69,9 @@ class Catalog(object):
         self.read_ppop(input_path=input_path)
         self.stype = None
         self.get_stype()
+        self.create_mask()
+        compute_habitable_zone(catalog=self,
+                               model='MS')
 
     def remove_distance(self,
                         stype: str,
@@ -305,3 +310,14 @@ class Catalog(object):
         _, temp = np.unique(self.data.nstar, return_index=True)
         self.masks['stars'] = np.zeros_like(self.data.nstar, dtype=bool)
         self.masks['stars'][temp] = True
+
+    def safe_add(self,
+                 name: str,
+                 data: np.ndarray):
+        if data.ndim != 1:
+            raise ValueError('Only one-dimensional data can be added')
+        if data.shape[0] != self.data.nstar.shape[0]:
+            raise ValueError('Creation of ragged database is supressed')
+        if name in self.data.keys():
+            raise ValueError('Data can not be overwritten in safe mode')
+        self.data[name] = data

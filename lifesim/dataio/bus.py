@@ -18,8 +18,9 @@ class Module(object):
     def __init__(self,
                  name: str):
         self.name = name
-        self.plugs = {}
         self.m_type = 'plugin'
+        self.f_type = None  # functionality type of plugin
+        self.data = None
 
 
 class PrimaryModule(Module):
@@ -27,10 +28,50 @@ class PrimaryModule(Module):
                  name: str):
         super().__init__(name=name)
         self.m_type = 'primary'
+        self.sockets = {}
+        self.socket_f_type = {}
+        self.socket_data = {}
 
     def connect_plugin(self,
-                      plugin: Module):
-        self.plugs[plugin.name] = plugin
+                       plugin: Module):
+        if plugin.f_type not in self.socket_f_type.keys():
+            raise ValueError('Primary module does not accept plugin of this type')
+        connected = False
+        for _, name in enumerate(self.socket_f_type[plugin.f_type]):
+            if self.sockets[name] is None:
+                self.sockets[name] = plugin
+                plugin.data = self.socket_data[name]
+                connected = True
+            else:
+                pass
+        if not connected:
+            raise AttributeError('All available sockets are already occupied')
+
+    def add_socket(self,
+                   name: str,
+                   f_type: str,
+                   data: dict):
+        if name in self.sockets.keys():
+            raise ValueError('This socket already exists')
+        self.sockets[name] = None
+        if f_type in self.socket_f_type.keys():
+            self.socket_f_type[f_type].append(name)
+        else:
+            self.socket_f_type[f_type] = [name]
+        self.socket_data[name] = data
+
+    def run_socket(self,
+                   name: str):
+        if name not in self.sockets.keys():
+            raise ValueError('This socket does not exist')
+        self.sockets[name].run()
+
+    def update_socket(self,
+                      name: str,
+                      data: dict):
+        if name not in self.sockets.keys():
+            raise ValueError('This socket does not exist')
+        self.socket_data[name].update(data)
 
 
 class Bus(object):
@@ -60,19 +101,3 @@ class Bus(object):
 
         self.cables.append(Cable(name_primary=name_primary,
                                  name_plugin=name_plugin))
-
-
-
-if __name__ == '__main__':
-    b = Bus()
-    pm = PrimaryModule('Prim')
-    plugin = Module('Plug')
-    b.add_module(pm)
-    b.add_module(plugin)
-    b.connect(('Prim', 'Plug'))
-
-
-
-
-
-
