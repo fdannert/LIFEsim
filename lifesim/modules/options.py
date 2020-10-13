@@ -27,6 +27,9 @@ class Options(object):
         self.other = {'image_size': 0,
                       'wl_optimal': 0.}
 
+        self.models = {'localzodi': '',
+                       'habitable': ''}
+
     def set_scenario(self,
                      case: str):
 
@@ -39,6 +42,9 @@ class Options(object):
 
         self.other['image_size'] = 512
         self.other['wl_optimal'] = 15
+
+        self.models['localzodi'] = 'darwinsim'
+        self.models['habitable'] = 'MS'
 
         if case == 'baseline':
             self.array['diameter'] = 2.

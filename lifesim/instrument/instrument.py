@@ -1,4 +1,7 @@
+import time
+
 import numpy as np
+
 from lifesim.modules.options import Options
 from lifesim.archive.catalog import Catalog
 from lifesim.dataio.bus import PrimaryModule
@@ -10,6 +13,8 @@ class Instrument(PrimaryModule):
                  options: Options):
         super().__init__(name=name)
         self.options = options
+
+        # Get array parameters from options for faster calculation
         self.bl = self.options.array['baseline']
 
         self.telescope_area = np.pi * (self.options.array['diameter'] / 2.) ** 2 * 4.
@@ -30,6 +35,17 @@ class Instrument(PrimaryModule):
                                    [self.bl / 2, 6 * self.bl / 2., 1.],
                                    [-self.bl / 2, 6 * self.bl / 2., 1.]])
 
+        # self.planet_offset = [int(self.options.other['image_size'] / 2), int(self.options.other['image_size'] * 3 / 4)]
+        # self.t_step = self.t_tot / self.rot_steps
+
+        # coordinate maps for faster calculations
+        self.x_map = np.tile(np.array(range(0, self.options.other['image_size'])),
+                             (self.options.other['image_size'], 1))
+        self.y_map = self.x_map.T
+        self.r_square_map = ((self.x_map - (self.options.other['image_size'] - 1) / 2) ** 2
+                             + (self.y_map - (self.options.other['image_size'] - 1) / 2) ** 2)
+        self.r_map = np.sqrt(self.r_square_map)
+
         self.add_socket(name='transmission_generator',
                         f_type='transmission',
                         data={'wl': self.wl_bins,
@@ -37,6 +53,19 @@ class Instrument(PrimaryModule):
                               'image_size': self.options.other['image_size'],
                               'bl': self.bl,
                               'map_selection': 'tm3'})
+
+        self.add_socket(name='p_noise_source_1',
+                        f_type='photon_noise',
+                        data={'lz_model': self.options.models['localzodi'],
+                              'image_size': self.options.other['image_size'],
+                              'radius_map': self.r_map,
+                              'wl_bins': self.wl_bins,
+                              'wl_edges': self.wl_bin_edges,
+                              'hfov': self.hfov})
+
+        # List of data for photon noise plugin:
+        #   nstar, catalog, bl, wl_bins, wl_edges
+        #   lz_model, lat, image_size, transmission map, radius_map, wl_bins, wl_edges, hfov
 
     def get_wl_bins_const_spec_res(self):
         wl_edge = self.options.array['wl_min']
@@ -68,8 +97,8 @@ class Instrument(PrimaryModule):
                         nstar: int,
                         c: Catalog):
 
-        HZcenter_rad = c.data.hz_center[c.data.nstar == nstar][0] \
-                       / c.data.distance_s[c.data.nstar == nstar][0] \
+        HZcenter_rad = c.data.hz_center[c.data.nstar == nstar].to_numpy()[0] \
+                       / c.data.distance_s[c.data.nstar == nstar].to_numpy()[0] \
                        / (3600 * 180) * np.pi  # in rad
 
         # put first transmission peak of optimal wl on center of HZ
@@ -88,15 +117,27 @@ class Instrument(PrimaryModule):
                 c: Catalog):
 
         c.data['snr_1h'] = np.zeros_like(c.data.nstar, dtype=float)
+        self.update_socket(name='p_noise_source_1',
+                           data={'c': c})
 
-        for _, n in enumerate(np.where(c.masks['stars'])[0]):
+        for i, n in enumerate(np.where(c.masks['stars'])[0]):
             nstar = c.data.nstar[n]
             self.adjust_bl_to_hz(nstar=nstar,
                                  c=c)
+            t = time.time()
             self.update_socket(name='transmission_generator',
                                data={'bl': self.bl})
             self.run_socket(name='transmission_generator')
             tm3 = self.sockets['transmission_generator'].tm3
+            print(time.time()-t)
+            self.update_socket(name='p_noise_source_1',
+                               data={'nstar': nstar,
+                                     'bl': self.bl,
+                                     't_map': tm3})
+            self.run_socket(name='p_noise_source_1')
+            if i == 20:
+                break
+
             a=1
 
     # def get_SNR1h(self, n_max=np.inf, multiprocessing=False):

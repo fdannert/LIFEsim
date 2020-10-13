@@ -4,8 +4,10 @@ import sys
 import numpy as np
 import pandas as pd
 from astropy.io import fits
+from astropy.coordinates import SkyCoord, BarycentricMeanEcliptic
 
 from lifesim.modules.habitable import compute_habitable_zone
+from lifesim.modules.options import Options
 
 # todo Documentation
 class Catalog(object):
@@ -19,7 +21,8 @@ class Catalog(object):
     """
 
     def __init__(self,
-                 input_path: str):
+                 input_path: str,
+                 options: Options):
         """Gets and prints the spreadsheet's header columns
 
         Parameters
@@ -70,8 +73,11 @@ class Catalog(object):
         self.stype = None
         self.get_stype()
         self.create_mask()
+        if input_path[-5:] != '.fits':
+            self.equitorial_to_ecliptic()
         compute_habitable_zone(catalog=self,
-                               model='MS')
+                               model=options.models['habitable'])
+
 
     def remove_distance(self,
                         stype: str,
@@ -303,7 +309,9 @@ class Catalog(object):
                                       'temp_s': hdu[1].data.Ts.astype(float),
                                       'distance_s': hdu[1].data.Ds.astype(float),
                                       'ra': hdu[1].data.RA.astype(float),
-                                      'dec': hdu[1].data.Dec.astype(float)})
+                                      'dec': hdu[1].data.Dec.astype(float),
+                                      'lat': hdu[1].data.lat.astype(float),
+                                      'lon': hdu[1].data.lon.astype(float)})
             hdu.close()
 
     def create_mask(self):
@@ -321,3 +329,9 @@ class Catalog(object):
         if name in self.data.keys():
             raise ValueError('Data can not be overwritten in safe mode')
         self.data[name] = data
+
+    def equitorial_to_ecliptic(self):
+        coord = SkyCoord(self.data.ra, self.data.dec, frame='icrs', unit='deg')
+        coord_ec = coord.transform_to(BarycentricMeanEcliptic())
+        self.data['lon'] = np.array(coord_ec.lon.radian)
+        self.data['lat'] = np.array(coord_ec.lat.radian)
