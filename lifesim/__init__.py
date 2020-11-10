@@ -5,3 +5,4 @@ from lifesim.dataio.bus import Cable, Module, PrimaryModule, Bus
 from lifesim.instrument.transmission import TransmissionMap
 from lifesim.instrument.pn_star import PhotonNoiseStar
 from lifesim.instrument.pn_localzodi import PhotonNoiseLocalzodi
+from lifesim.instrument.pn_exozodi import PhotonNoiseExozodi

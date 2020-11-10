@@ -7,11 +7,12 @@ from lifesim.modules.util import black_body
 
 def get_localzodi_leakage(lz_model: str,
                           lat_s: float,
+                          telescope_area: float,
                           image_size: int,
                           t_map: np.ndarray,
                           radius_map: np.ndarray,
                           wl_bins: np.ndarray,
-                          wl_edges: np.ndarray,
+                          wl_width: np.ndarray,
                           hfov: np.ndarray):
     # TODO Implement longitude dependence of localzodi
 
@@ -35,16 +36,19 @@ def get_localzodi_leakage(lz_model: str,
     ap = np.where(radius_map <= image_size / 2, 1, 0)
 
     if lz_model == "glasse":
-        lz_flux_sr = epsilon * black_body(mode='clean', 
-                                          wl_edges=wl_edges, 
+        lz_flux_sr = epsilon * black_body(mode='wavelength',
+                                          bins=wl_bins,
+                                          width=wl_width,
                                           temp=temp)
 
     elif lz_model == "darwinsim":
-        b_tot = black_body(mode='clean',
-                           wl_edges=wl_edges,
+        b_tot = black_body(mode='wavelength',
+                           bins=wl_bins,
+                           width=wl_width,
                            temp=temp_eff) + a \
-               * black_body(mode='clean',
-                            wl_edges=wl_edges,
+               * black_body(mode='wavelength',
+                            bins=wl_bins,
+                            width=wl_width,
                             temp=temp_sun) \
                * (radius_sun_au / 1.5) ** 2
         lz_flux_sr = tau * b_tot * np.sqrt(
@@ -55,7 +59,7 @@ def get_localzodi_leakage(lz_model: str,
     lz_flux = lz_flux_sr * (np.pi * hfov ** 2)
 
     lz_leak = (ap * t_map).sum(axis=(-2, -1)) / ap.sum(
-    ) * lz_flux
+    ) * lz_flux * telescope_area
     return lz_leak
 
 
@@ -70,9 +74,10 @@ class PhotonNoiseLocalzodi(Module):
         mask = self.data['c'].data.nstar == self.data['nstar']
         self.noise = get_localzodi_leakage(lz_model=self.data['lz_model'],
                                            lat_s=self.data['c'].data.lat[mask].to_numpy()[0],
+                                           telescope_area=self.data['telescope_area'],
                                            image_size=self.data['image_size'],
                                            t_map=self.data['t_map'],
                                            radius_map=self.data['radius_map'],
                                            wl_bins=self.data['wl_bins'],
-                                           wl_edges=self.data['wl_edges'],
+                                           wl_width=self.data['wl_width'],
                                            hfov=self.data['hfov'])

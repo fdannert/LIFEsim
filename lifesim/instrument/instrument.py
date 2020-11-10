@@ -27,7 +27,7 @@ class Instrument(PrimaryModule):
 
         self.hfov_mas = self.hfov * (3600000. * 180.) / np.pi
         self.rpp = (2 * self.hfov) / self.options.other['image_size']  # Radians per pixel
-        self.maspp = (2 * self.hfov_mas) / self.options.other['image_size']  # mas per pixel
+        self.mas_pix = (2 * self.hfov_mas) / self.options.other['image_size']  # mas per pixel
 
         # apertures defines the telescope positions (and *relative* radius)
         self.apertures = np.array([[-self.bl / 2, -6 * self.bl / 2., 1.],
@@ -60,12 +60,15 @@ class Instrument(PrimaryModule):
                               'image_size': self.options.other['image_size'],
                               'radius_map': self.r_map,
                               'wl_bins': self.wl_bins,
-                              'wl_edges': self.wl_bin_edges,
-                              'hfov': self.hfov})
+                              'wl_width': self.wl_bin_widths,
+                              'wl_bin_edges': self.wl_bin_edges,
+                              'hfov': self.hfov,
+                              'telescope_area': self.telescope_area,
+                              'mas_pix': self.mas_pix})
 
         # List of data for photon noise plugin:
-        #   nstar, catalog, bl, wl_bins, wl_edges
-        #   lz_model, lat, image_size, transmission map, radius_map, wl_bins, wl_edges, hfov
+        #   nstar, catalog, bl, wl_bins, wl_width
+        #   lz_model, lat, image_size, transmission map, radius_map, wl_bins, wl_width, hfov
 
     def get_wl_bins_const_spec_res(self):
         wl_edge = self.options.array['wl_min']
@@ -88,7 +91,7 @@ class Instrument(PrimaryModule):
             wl_bin_edges.append(wl_edge)
 
         wl_bins = np.array(wl_bins) * 1e-6  # in m
-        wl_bin_widths = np.array(wl_bin_widths)  # in microns
+        wl_bin_widths = np.array(wl_bin_widths) * 1e-6  # in m
         wl_bin_edges = np.array(wl_bin_edges) * 1e-6  # in m
 
         return wl_bins, wl_bin_widths, wl_bin_edges

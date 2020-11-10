@@ -10,8 +10,9 @@ def get_stellar_leakage(radius_s: float,
                         distance_s: float,
                         temp_s: float,
                         bl: float,
+                        telescope_area: float,
                         wl_bins: np.ndarray,
-                        wl_edges: np.ndarray,
+                        wl_width: np.ndarray,
                         image_size: int = 50,
                         map_selection: str = 'tm3'):
     if map_selection not in ['tm1', 'tm2', 'tm3', 'tm4']:
@@ -36,11 +37,12 @@ def get_stellar_leakage(radius_s: float,
     star_px = np.where(r_square_map < (image_size / 2) ** 2, 1, 0)
 
     sl = (star_px * tm_star).sum(axis=(-2, -1)) / star_px.sum(
-    ) * black_body(wl=wl_edges,
+    ) * black_body(bins=wl_bins,
+                   width=wl_width,
                    temp=temp_s,
                    radius=radius_s,
                    distance=distance_s,
-                   mode='star')
+                   mode='star') * telescope_area
     return sl
 
 
@@ -57,5 +59,6 @@ class PhotonNoiseStar(Module):
                                          distance_s=self.data['c'].data.distance_s[mask].to_numpy()[0],
                                          temp_s=self.data['c'].data.temp_s[mask].to_numpy()[0],
                                          bl=self.data['bl'],
+                                         telescope_area=self.data['telescope_area'],
                                          wl_bins=self.data['wl_bins'],
-                                         wl_edges=self.data['wl_edges'])
+                                         wl_width=self.data['wl_width'])
