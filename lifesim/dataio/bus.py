@@ -42,8 +42,7 @@ class PrimaryModule(Module):
                 self.sockets[name] = plugin
                 plugin.data = self.socket_data[name]
                 connected = True
-            else:
-                pass
+                break
         if not connected:
             raise AttributeError('All available sockets are already occupied')
 
@@ -61,10 +60,14 @@ class PrimaryModule(Module):
         self.socket_data[name] = data
 
     def run_socket(self,
-                   name: str):
+                   name: str,
+                   **kwargs):
         if name not in self.sockets.keys():
             raise ValueError('This socket does not exist')
-        self.sockets[name].run()
+        if len(kwargs) == 0:
+            self.sockets[name].run()
+        else:
+            self.sockets[name].run(kwargs)
 
     def update_socket(self,
                       name: str,

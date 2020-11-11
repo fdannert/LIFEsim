@@ -50,6 +50,28 @@ def fast_transmission(wl, hfov_mas, image_size, bl, map_selection):
     return tm1, tm2, tm3, tm4, tm_chop
 
 
+def transm_curve(bl, wl, ang_sep_as, phi_n=360):
+    wl = np.array([wl])  # wavelength in m
+    if wl.shape[-1] > 1:
+        wl = np.reshape(wl, (wl.shape[-1], 1))
+
+    ang_sep_rad = ang_sep_as / (3600 * 180) * np.pi
+    phi_lin = np.linspace(0, 2 * np.pi, phi_n,
+                          endpoint=False)  # 1D array with azimuthal coordinates
+    L = bl / 2
+
+    transm_curve = np.sin(2 * np.pi * L / wl * ang_sep_rad * np.cos(phi_lin)) ** 2 * np.sin(
+        24 * np.pi * L / wl * ang_sep_rad * np.sin(phi_lin))
+
+    return transm_curve
+
+
+def transm_eff(bl, wl, ang_sep_as):
+    tc = transm_curve(bl, wl, ang_sep_as)
+    transm_eff = np.sqrt((tc ** 2).mean(axis=-1))
+    return transm_eff
+
+
 class TransmissionMap(Module):
     def __init__(self,
                  name: str):
@@ -59,14 +81,23 @@ class TransmissionMap(Module):
 
         self.tm1, self.tm2, self.tm3, self.tm4, self.tm_chop = None, None, None, None, None
 
+        self.transm_eff = None
         # data needed ['wl', 'hfov_mas', 'image_size', 'bl', 'map_selection']
 
-    def run(self):
-        self.tm1, self.tm2, self.tm3, self.tm4, self.tm_chop = \
-            fast_transmission(wl=self.data['wl'],
-                              hfov_mas=self.data['hfov_mas'],
-                              image_size=self.data['image_size'],
-                              bl=self.data['bl'],
-                              map_selection=self.data['map_selection'])
+    def run(self,
+            args):
+        if args['mode'] == 'map':
+            self.tm1, self.tm2, self.tm3, self.tm4, self.tm_chop = \
+                fast_transmission(wl=self.data['wl'],
+                                  hfov_mas=self.data['hfov_mas'],
+                                  image_size=self.data['image_size'],
+                                  bl=self.data['bl'],
+                                  map_selection=self.data['map_selection'])
+        elif args['mode'] == 'efficiency':
+            self.transm_eff = transm_eff(bl=self.data['bl'],
+                                         wl=self.data['wl'],
+                                         ang_sep_as=self.data['ang_sep_as'])
+        else:
+            raise ValueError('Mode not recognized')
 
 

@@ -25,7 +25,8 @@ class Options(object):
                       'bl_max': 0.}
 
         self.other = {'image_size': 0,
-                      'wl_optimal': 0.}
+                      'wl_optimal': 0.,
+                      'n_plugins': 0}
 
         self.models = {'localzodi': '',
                        'habitable': ''}
@@ -42,6 +43,7 @@ class Options(object):
 
         self.other['image_size'] = 512
         self.other['wl_optimal'] = 15
+        self.other['n_plugins'] = 5
 
         self.models['localzodi'] = 'darwinsim'
         self.models['habitable'] = 'MS'

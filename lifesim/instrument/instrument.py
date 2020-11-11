@@ -5,6 +5,7 @@ import numpy as np
 from lifesim.modules.options import Options
 from lifesim.archive.catalog import Catalog
 from lifesim.dataio.bus import PrimaryModule
+from lifesim.modules.util import black_body
 
 
 class Instrument(PrimaryModule):
@@ -53,18 +54,18 @@ class Instrument(PrimaryModule):
                               'image_size': self.options.other['image_size'],
                               'bl': self.bl,
                               'map_selection': 'tm3'})
-
-        self.add_socket(name='p_noise_source_1',
-                        f_type='photon_noise',
-                        data={'lz_model': self.options.models['localzodi'],
-                              'image_size': self.options.other['image_size'],
-                              'radius_map': self.r_map,
-                              'wl_bins': self.wl_bins,
-                              'wl_width': self.wl_bin_widths,
-                              'wl_bin_edges': self.wl_bin_edges,
-                              'hfov': self.hfov,
-                              'telescope_area': self.telescope_area,
-                              'mas_pix': self.mas_pix})
+        for i in range(self.options.other['n_plugins']):
+            self.add_socket(name='p_noise_source_'+str(i),
+                            f_type='photon_noise',
+                            data={'lz_model': self.options.models['localzodi'],
+                                  'image_size': self.options.other['image_size'],
+                                  'radius_map': self.r_map,
+                                  'wl_bins': self.wl_bins,
+                                  'wl_width': self.wl_bin_widths,
+                                  'wl_bin_edges': self.wl_bin_edges,
+                                  'hfov': self.hfov,
+                                  'telescope_area': self.telescope_area,
+                                  'mas_pix': self.mas_pix})
 
         # List of data for photon noise plugin:
         #   nstar, catalog, bl, wl_bins, wl_width
@@ -117,31 +118,69 @@ class Instrument(PrimaryModule):
 
     # TODO Re-add functionality for calculating the SNR without certain noise term
     def get_snr(self,
-                c: Catalog):
+                c: Catalog,
+                time: int):
 
         c.data['snr_1h'] = np.zeros_like(c.data.nstar, dtype=float)
-        self.update_socket(name='p_noise_source_1',
-                           data={'c': c})
 
+        # Push catalog to photon noise sockets
+        for j in range(self.options.other['n_plugins']):
+            self.update_socket(name='p_noise_source_'+str(j),
+                               data={'c': c})
+
+        # iterate over all stars
         for i, n in enumerate(np.where(c.masks['stars'])[0]):
             nstar = c.data.nstar[n]
+
+            # adjust baseline of array and give new baseline to transmission generator plugin
             self.adjust_bl_to_hz(nstar=nstar,
                                  c=c)
-            t = time.time()
             self.update_socket(name='transmission_generator',
                                data={'bl': self.bl})
-            self.run_socket(name='transmission_generator')
-            tm3 = self.sockets['transmission_generator'].tm3
-            print(time.time()-t)
-            self.update_socket(name='p_noise_source_1',
-                               data={'nstar': nstar,
-                                     'bl': self.bl,
-                                     't_map': tm3})
-            self.run_socket(name='p_noise_source_1')
-            if i == 20:
-                break
 
-            a=1
+            # get transmission map
+            self.run_socket(name='transmission_generator',
+                            mode='map')
+            tm3 = self.sockets['transmission_generator'].tm3
+
+            # update and run the photon noise plugins
+            for j in range(self.options.other['n_plugins']):
+                self.update_socket(name='p_noise_source_'+str(j),
+                                   data={'nstar': nstar,
+                                         'bl': self.bl,
+                                         't_map': tm3})
+                # in most cases, more sockets are initialized than plugins are needed. Running
+                # empty sockets currently throws exceptions
+                # TODO change socket to catch running an empty socket. Throw and catch specific
+                #   exception
+                try:
+                    self.run_socket(name='p_noise_source_'+str(j))
+                except AttributeError:
+                    pass
+
+            for k, n_p in enumerate(np.argwhere((c.data['nstar'].to_numpy() == nstar))):
+                self.update_socket(name='transmission_generator',
+                                   data={'ang_sep_as': c.data['angsep'].to_numpy()[n_p]})
+                self.run_socket(name='transmission_generator',
+                                mode='efficiency')
+
+                # calculate the photon flux originating from the planet
+                flux_planet = self.sockets['transmission_generator'].transm_eff * \
+                              black_body(mode='planet',
+                                         bins=self.wl_bins,
+                                         width=self.wl_bin_widths,
+                                         temp=c.data['temp_p'].to_numpy()[n_p],
+                                         radius=c.data['radius_p'].to_numpy()[n_p],
+                                         distance=c.data['distance_s'].to_numpy()[n_p]) \
+                              * time * self.eff_tot
+
+                # calculate the noise from the background sources agnostic of the noise origin
+                noise_bg = 0
+                for p in range(self.options.other['n_plugins']):
+                    if self.sockets['p_noise_source_'+str(p)] is not None:
+                        noise_bg += self.sockets['p_noise_source_'+str(p)].noise
+                noise_bg = noise_bg * time * self.eff_tot
+            a = 1
 
     # def get_SNR1h(self, n_max=np.inf, multiprocessing=False):
     #

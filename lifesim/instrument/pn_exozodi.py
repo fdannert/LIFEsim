@@ -71,4 +71,5 @@ class PhotonNoiseExozodi(Module):
                                          telescope_area=self.data['telescope_area'],
                                          radius_map=self.data['radius_map'],
                                          wl_bins=self.data['wl_bins'],
-                                         wl_bin_edges=self.data['wl_bin_edges'])
+                                         wl_bin_edges=self.data['wl_bin_edges']) \
+                     * self.data['c'].data['z'][mask].to_numpy()[0]

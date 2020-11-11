@@ -9,7 +9,11 @@ def planck_law(x, temp, mode):
         fgamma = 2 * constants.c / (x**4) / \
            (np.exp(constants.h * constants.c / x / constants.k / temp) - 1)
     elif mode == 'frequency':
-        fgamma = 2 * x**2 / (constants.c**2) / (np.exp(constants.h * x / constants.k / temp))
+        # TODO temp == 0 is unused but still calculated. It thus still throws a runtime warning
+        fgamma = np.where(temp == 0,
+                          0,
+                          2 * x**2 / (constants.c**2) /
+                          (np.exp(constants.h * x / constants.k / temp)))
     else:
         raise ValueError('Mode not recognised')
     return fgamma
@@ -40,7 +44,12 @@ def black_body(mode: str,
         fgamma = planck_law(x=bins,
                             temp=temp,
                             mode='wavelength') * width \
-                 * np.pi * ((radius * constants.R_sun) / (distance * constants.m_per_pc)) ** 2
+                 * np.pi * ((radius * constants.radius_sun) / (distance * constants.m_per_pc)) ** 2
+    elif mode == 'planet':
+        fgamma = planck_law(x=bins,
+                            temp=temp,
+                            mode='wavelength') * width \
+                 * np.pi * ((radius * constants.radius_earth) / (distance * constants.m_per_pc)) ** 2
     elif mode == 'wavelength':
         fgamma = planck_law(x=bins,
                             temp=temp,
