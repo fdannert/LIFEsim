@@ -60,16 +60,20 @@ def transm_curve(bl, wl, ang_sep_as, phi_n=360):
                           endpoint=False)  # 1D array with azimuthal coordinates
     L = bl / 2
 
-    transm_curve = np.sin(2 * np.pi * L / wl * ang_sep_rad * np.cos(phi_lin)) ** 2 * np.sin(
+    transm_curve_chop = np.sin(2 * np.pi * L / wl * ang_sep_rad * np.cos(phi_lin)) ** 2 * np.sin(
         24 * np.pi * L / wl * ang_sep_rad * np.sin(phi_lin))
 
-    return transm_curve
+    transm_curve_tm4 = np.sin(2 * np.pi * L / wl * ang_sep_rad * np.cos(phi_lin)) ** 2 * \
+                       np.cos(12 * np.pi * L / wl * ang_sep_rad * np.sin(phi_lin) + np.pi / 4) ** 2
+
+    return transm_curve_chop, transm_curve_tm4
 
 
 def transm_eff(bl, wl, ang_sep_as):
-    tc = transm_curve(bl, wl, ang_sep_as)
-    transm_eff = np.sqrt((tc ** 2).mean(axis=-1))
-    return transm_eff
+    tc_chop, tc_tm4 = transm_curve(bl, wl, ang_sep_as)
+    transm_eff = np.sqrt((tc_chop ** 2).mean(axis=-1))
+    transm_noise = np.sqrt((tc_tm4 ** 2).mean(axis=-1))
+    return transm_eff, transm_noise
 
 
 class TransmissionMap(Module):
@@ -81,7 +85,7 @@ class TransmissionMap(Module):
 
         self.tm1, self.tm2, self.tm3, self.tm4, self.tm_chop = None, None, None, None, None
 
-        self.transm_eff = None
+        self.transm_eff, self.transm_noise = None, None
         # data needed ['wl', 'hfov_mas', 'image_size', 'bl', 'map_selection']
 
     def run(self,
@@ -94,9 +98,9 @@ class TransmissionMap(Module):
                                   bl=self.data['bl'],
                                   map_selection=self.data['map_selection'])
         elif args['mode'] == 'efficiency':
-            self.transm_eff = transm_eff(bl=self.data['bl'],
-                                         wl=self.data['wl'],
-                                         ang_sep_as=self.data['ang_sep_as'])
+            self.transm_eff, self.transm_noise = transm_eff(bl=self.data['bl'],
+                                                            wl=self.data['wl'],
+                                                            ang_sep_as=self.data['ang_sep_as'])
         else:
             raise ValueError('Mode not recognized')
 

@@ -1,6 +1,7 @@
 import time
 
 import numpy as np
+from tqdm import tqdm
 
 from lifesim.modules.options import Options
 from lifesim.archive.catalog import Catalog
@@ -121,6 +122,7 @@ class Instrument(PrimaryModule):
                 c: Catalog,
                 time: int):
 
+        snr_tot = np.zeros_like(c.data.nstar, dtype=float)
         c.data['snr_1h'] = np.zeros_like(c.data.nstar, dtype=float)
 
         # Push catalog to photon noise sockets
@@ -129,7 +131,7 @@ class Instrument(PrimaryModule):
                                data={'c': c})
 
         # iterate over all stars
-        for i, n in enumerate(np.where(c.masks['stars'])[0]):
+        for i, n in enumerate(tqdm(np.where(c.masks['stars'])[0])):
             nstar = c.data.nstar[n]
 
             # adjust baseline of array and give new baseline to transmission generator plugin
@@ -158,21 +160,23 @@ class Instrument(PrimaryModule):
                 except AttributeError:
                     pass
 
-            for k, n_p in enumerate(np.argwhere((c.data['nstar'].to_numpy() == nstar))):
+            for _, n_p in enumerate(np.argwhere((c.data['nstar'].to_numpy() == nstar))):
                 self.update_socket(name='transmission_generator',
                                    data={'ang_sep_as': c.data['angsep'].to_numpy()[n_p]})
                 self.run_socket(name='transmission_generator',
                                 mode='efficiency')
 
                 # calculate the photon flux originating from the planet
+                flux_planet_thermal = black_body(mode='planet',
+                                                 bins=self.wl_bins,
+                                                 width=self.wl_bin_widths,
+                                                 temp=c.data['temp_p'].to_numpy()[n_p],
+                                                 radius=c.data['radius_p'].to_numpy()[n_p],
+                                                 distance=c.data['distance_s'].to_numpy()[n_p])
                 flux_planet = self.sockets['transmission_generator'].transm_eff * \
-                              black_body(mode='planet',
-                                         bins=self.wl_bins,
-                                         width=self.wl_bin_widths,
-                                         temp=c.data['temp_p'].to_numpy()[n_p],
-                                         radius=c.data['radius_p'].to_numpy()[n_p],
-                                         distance=c.data['distance_s'].to_numpy()[n_p]) \
-                              * time * self.eff_tot
+                              flux_planet_thermal * time * self.eff_tot
+                noise_planet = self.sockets['transmission_generator'].transm_noise * \
+                               flux_planet_thermal * time * self.eff_tot
 
                 # calculate the noise from the background sources agnostic of the noise origin
                 noise_bg = 0
@@ -180,66 +184,10 @@ class Instrument(PrimaryModule):
                     if self.sockets['p_noise_source_'+str(p)] is not None:
                         noise_bg += self.sockets['p_noise_source_'+str(p)].noise
                 noise_bg = noise_bg * time * self.eff_tot
-            a = 1
 
-    # def get_SNR1h(self, n_max=np.inf, multiprocessing=False):
-    #
-    #     self.planets.SNR1h = np.zeros(self.n_p)
-    #     self.planets.SNR1h_sl = np.zeros(self.n_p)
-    #     self.planets.SNR1h_lz = np.zeros(self.n_p)
-    #     self.planets.SNR1h_ez = np.zeros(self.n_p)
-    #     self.planets.is_observed = np.zeros(self.n_p)
-    #     self.planets.t_obs = np.zeros(self.n_p)
-    #
-    #     inds_s, inds_p, t_obs_s = self.get_obs_times(tmax_d=np.inf, tslew_h=10,
-    #                                                  dmax_Mstars=10, mode="const1h")
-    #
-    #     for i in tqdm(range(min(n_max, len(inds_s)))):
-    #         Nstar = inds_s[i]
-    #         ind_p = inds_p[i]
-    #         self.options.t_tot = t_obs_s[i]
-    #
-    #         self.star = Star.init_from_planets(self.planets, ind_p)
-    #         self.lz = Localzodi(model=self.options.lz_model)
-    #         self.ez1z = Disk(star=self.star,
-    #                          options=self.options,
-    #                          maspp=self.inst.maspp,
-    #                          maps=True,
-    #                          norm1z=True)
-    #
-    #         self.inst.adjust_bl_to_HZ(self.star, self.options)
-    #         self.inst.add_transmission_maps(self.options, map_selection="tm3_only")
-    #
-    #         # get photon noise of astro sources. Factor 2 is due to symmetry of TMs 3&4
-    #         N_sl = 2 * self.inst.get_stellar_leakage(self.star, self.options)
-    #         N_lz = 2 * self.inst.get_localzodi_leakage(self.lz, self.star, self.options)
-    #         N_ez1z = 2 * self.inst.get_exozodi_leakage(self.ez1z, self.options)
-    #
-    #         planet_inds_s = np.argwhere((self.planets.Nstar == Nstar))
-    #
-    #         mult_factor = (self.options.t_tot * self.inst.telescope_area *
-    #                        self.inst.wl_bin_widths * self.inst.eff_tot)
-    #
-    #         for i_p in planet_inds_s:
-    #             self.planets.is_observed[i_p] = True
-    #             self.planets.t_obs[i_p] = t_obs_s[i]
-    #
-    #             planet = Planet.init_from_planets(self.planets, i_p)
-    #
-    #             trans_eff_p = tm_gen.transm_eff(self.inst.bl,
-    #                                             self.inst.wl_bins,
-    #                                             planet.ang_sep)
-    #
-    #             Fp = planet.fgamma(wl=self.inst.wl_bins)
-    #             S_p = trans_eff_p * Fp * mult_factor
-    #             N_bg = (N_sl + N_lz + planet.zodis * N_ez1z) * mult_factor
-    #             N_p = S_p
-    #             N_comb = N_bg + N_p
-    #             snr_tot = np.sqrt((S_p ** 2 / N_comb).sum())
-    #
-    #             self.planets.SNR1h[i_p] = snr_tot
-    #             self.planets.SNR1h_sl[i_p] = np.sqrt((S_p ** 2 / (N_sl * mult_factor)).sum())
-    #             self.planets.SNR1h_lz[i_p] = np.sqrt((S_p ** 2 / (N_lz * mult_factor)).sum())
-    #             self.planets.SNR1h_ez[i_p] = np.sqrt(
-    #                 (S_p ** 2 / (N_ez1z * planet.zodis * mult_factor)).sum())
+                # Add up the noise and caluclate the SNR
+                noise = noise_bg + noise_planet
+                snr_tot[n_p] = np.sqrt((flux_planet ** 2 / noise).sum())
+            c.data['snr_1h'] = snr_tot
+
 

@@ -12,7 +12,8 @@ def get_exozodi_leakage(image_size: int,
                         telescope_area: float,
                         radius_map: np.ndarray,
                         wl_bins: np.ndarray,
-                        wl_bin_edges: np.ndarray):
+                        wl_bin_edges: np.ndarray,
+                        t_map: np.ndarray):
 
     alpha = 0.34
     r_in = 0.034422617777777775 * np.sqrt(l_sun)
@@ -52,7 +53,11 @@ def get_exozodi_leakage(image_size: int,
                            temp=temp_map,
                            mode='frequency') * area_m / (distance_s_au**2) * sigma * telescope_area
 
-    return f_nu_disk
+    ap = np.where(radius_map <= image_size/2, 1, 0)
+    # ToDo Integration over steradians might be missing
+    ez_leak = (f_nu_disk * t_map * ap).sum(axis=(-2, -1))
+
+    return ez_leak
 
 
 class PhotonNoiseExozodi(Module):
@@ -71,5 +76,6 @@ class PhotonNoiseExozodi(Module):
                                          telescope_area=self.data['telescope_area'],
                                          radius_map=self.data['radius_map'],
                                          wl_bins=self.data['wl_bins'],
-                                         wl_bin_edges=self.data['wl_bin_edges']) \
+                                         wl_bin_edges=self.data['wl_bin_edges'],
+                                         t_map=self.data['t_map']) \
                      * self.data['c'].data['z'][mask].to_numpy()[0]
