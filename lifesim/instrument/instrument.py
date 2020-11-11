@@ -6,7 +6,8 @@ from tqdm import tqdm
 from lifesim.modules.options import Options
 from lifesim.archive.catalog import Catalog
 from lifesim.dataio.bus import PrimaryModule
-from lifesim.modules.util import black_body
+from lifesim.modules.util import black_body, import_spectrum
+from lifesim.modules.habitable import single_habitable_zone
 
 
 class Instrument(PrimaryModule):
@@ -99,15 +100,12 @@ class Instrument(PrimaryModule):
         return wl_bins, wl_bin_widths, wl_bin_edges
 
     def adjust_bl_to_hz(self,
-                        nstar: int,
-                        c: Catalog):
-
-        HZcenter_rad = c.data.hz_center[c.data.nstar == nstar].to_numpy()[0] \
-                       / c.data.distance_s[c.data.nstar == nstar].to_numpy()[0] \
-                       / (3600 * 180) * np.pi  # in rad
+                        hz_center: float,
+                        distance_s: float):
+        hz_center_rad = hz_center / distance_s / (3600 * 180) * np.pi  # in rad
 
         # put first transmission peak of optimal wl on center of HZ
-        self.bl = 0.589645 / HZcenter_rad * self.options.other['wl_optimal']
+        self.bl = 0.589645 / hz_center_rad * self.options.other['wl_optimal']
 
         self.bl = np.maximum(self.bl, self.options.array['bl_min'])
         self.bl = np.minimum(self.bl, self.options.array['bl_max'])
@@ -133,10 +131,11 @@ class Instrument(PrimaryModule):
         # iterate over all stars
         for i, n in enumerate(tqdm(np.where(c.masks['stars'])[0])):
             nstar = c.data.nstar[n]
+            index_s = np.argwhere((c.data.nstar.to_numpy() == nstar))[0]
 
             # adjust baseline of array and give new baseline to transmission generator plugin
-            self.adjust_bl_to_hz(nstar=nstar,
-                                 c=c)
+            self.adjust_bl_to_hz(hz_center=float(c.data.hz_center[index_s]),
+                                 distance_s=float(c.data.distance_s[index_s]))
             self.update_socket(name='transmission_generator',
                                data={'bl': self.bl})
 
@@ -148,9 +147,14 @@ class Instrument(PrimaryModule):
             # update and run the photon noise plugins
             for j in range(self.options.other['n_plugins']):
                 self.update_socket(name='p_noise_source_'+str(j),
-                                   data={'nstar': nstar,
-                                         'bl': self.bl,
-                                         't_map': tm3})
+                                   data={'bl': self.bl,
+                                         't_map': tm3,
+                                         'radius_s': float(c.data.radius_s[index_s]),
+                                         'distance_s': float(c.data.distance_s[index_s]),
+                                         'temp_s': float(c.data.temp_s[index_s]),
+                                         'lat_s': float(c.data.lat[index_s]),
+                                         'l_sun': float(c.data.l_sun[index_s]),
+                                         'z': float(c.data.z[index_s])})
                 # in most cases, more sockets are initialized than plugins are needed. Running
                 # empty sockets currently throws exceptions
                 # TODO change socket to catch running an empty socket. Throw and catch specific
@@ -178,7 +182,7 @@ class Instrument(PrimaryModule):
                 noise_planet = self.sockets['transmission_generator'].transm_noise * \
                                flux_planet_thermal * time * self.eff_tot
 
-                # calculate the noise from the background sources agnostic of the noise origin
+                # calculate the noise from the background sources
                 noise_bg = 0
                 for p in range(self.options.other['n_plugins']):
                     if self.sockets['p_noise_source_'+str(p)] is not None:
@@ -189,5 +193,79 @@ class Instrument(PrimaryModule):
                 noise = noise_bg + noise_planet
                 snr_tot[n_p] = np.sqrt((flux_planet ** 2 / noise).sum())
             c.data['snr_1h'] = snr_tot
+
+    def get_spectrum(self,
+                     pathtofile: str,
+                     temp_s: float,  # in K
+                     radius_s: float,  # in R_sun
+                     distance_s: float,  # in pc
+                     lat_s: float,  # in radians
+                     z: float,  # in zodis
+                     angsep: float,  # in arcsec
+                     radius_p: float,  # in R_earth
+                     integration_time: float
+                     ):
+        s_in, s_out, l_sun, \
+            hz_in, hz_out, hz_center = single_habitable_zone(model=self.options.models['HZ'],
+                                                             temp_s=temp_s,
+                                                             radius_s=radius_s)
+        self.adjust_bl_to_hz(hz_center=hz_center,
+                             distance_s=distance_s)
+
+        # get transmission map
+        self.update_socket(name='transmission_generator',
+                           data={'bl': self.bl,
+                                 'ang_sep_as': angsep})
+        self.run_socket(name='transmission_generator',
+                        mode='map')
+        self.run_socket(name='transmission_generator',
+                        mode='efficiency')
+        tm3 = self.sockets['transmission_generator'].tm3
+
+        # update and run the photon noise plugins
+        for j in range(self.options.other['n_plugins']):
+            self.update_socket(name='p_noise_source_' + str(j),
+                               data={'bl': self.bl,
+                                     't_map': tm3,
+                                     'radius_s': radius_s,
+                                     'distance_s': distance_s,
+                                     'temp_s': temp_s,
+                                     'lat_s': lat_s,
+                                     'l_sun': l_sun,
+                                     'z': z})
+            # TODO change socket to catch running an empty socket. Throw and catch specific
+            #   exception
+            try:
+                self.run_socket(name='p_noise_source_' + str(j))
+            except AttributeError:
+                pass
+
+        flux_planet_spectrum = import_spectrum(pathtofile=pathtofile,
+                                               wl_bin_edges=self.wl_bin_edges,
+                                               radius_p=radius_p,
+                                               distance_s=distance_s)
+        flux_planet = flux_planet_spectrum \
+                          * self.sockets['transmission_generator'].transm_eff \
+                          * integration_time \
+                          * self.eff_tot
+        noise_planet = flux_planet_spectrum \
+                          * self.sockets['transmission_generator'].transm_noise \
+                          * integration_time \
+                          * self.eff_tot
+
+        # calculate the noise from the background sources
+        noise_bg = 0
+        for p in range(self.options.other['n_plugins']):
+            if self.sockets['p_noise_source_' + str(p)] is not None:
+                noise_bg += self.sockets['p_noise_source_' + str(p)].noise
+        noise_bg = noise_bg * integration_time * self.eff_tot
+
+        # Add up the noise and caluclate the SNR
+        noise = noise_bg + noise_planet
+        snr_spec = np.sqrt((flux_planet ** 2 / noise))
+
+        return snr_spec
+
+
 
 

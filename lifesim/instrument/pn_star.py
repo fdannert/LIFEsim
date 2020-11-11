@@ -54,10 +54,9 @@ class PhotonNoiseStar(Module):
         self.noise = None
 
     def run(self):
-        mask = self.data['c'].data.nstar == self.data['nstar']
-        self.noise = get_stellar_leakage(radius_s=self.data['c'].data.radius_s[mask].to_numpy()[0],
-                                         distance_s=self.data['c'].data.distance_s[mask].to_numpy()[0],
-                                         temp_s=self.data['c'].data.temp_s[mask].to_numpy()[0],
+        self.noise = get_stellar_leakage(radius_s=self.data['radius_s'],
+                                         distance_s=self.data['distance_s'],
+                                         temp_s=self.data['temp_s'],
                                          bl=self.data['bl'],
                                          telescope_area=self.data['telescope_area'],
                                          wl_bins=self.data['wl_bins'],

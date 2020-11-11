@@ -64,3 +64,21 @@ def black_body(mode: str,
         raise ValueError('Mode not recognised')
 
     return fgamma
+
+
+def import_spectrum(pathtofile: str,
+                    wl_bin_edges: np.ndarray,
+                    radius_p: float,
+                    distance_s: float):
+    spec = np.loadtxt(pathtofile).T
+    spec[0] *= 1e-6  # per micron to per m
+    spec[1:] /= 3600.  # hours to seconds
+
+    bins = np.digitize(spec[0], wl_bin_edges)
+    bins_mean = [spec[1][bins == i].mean() for i in range(1, len(wl_bin_edges))]
+    bins_mean = np.array(bins_mean)
+
+    fgamma = bins_mean * np.pi * (
+                (radius_p * constants.radius_earth) / (distance_s * constants.m_per_pc)) ** 2
+
+    return bins_mean

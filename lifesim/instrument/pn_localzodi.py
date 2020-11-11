@@ -71,9 +71,8 @@ class PhotonNoiseLocalzodi(Module):
         self.noise = None
 
     def run(self):
-        mask = self.data['c'].data.nstar == self.data['nstar']
         self.noise = get_localzodi_leakage(lz_model=self.data['lz_model'],
-                                           lat_s=self.data['c'].data.lat[mask].to_numpy()[0],
+                                           lat_s=self.data['lat_s'],
                                            telescope_area=self.data['telescope_area'],
                                            image_size=self.data['image_size'],
                                            t_map=self.data['t_map'],

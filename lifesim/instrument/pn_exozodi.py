@@ -68,14 +68,13 @@ class PhotonNoiseExozodi(Module):
         self.noise = None
 
     def run(self):
-        mask = self.data['c'].data.nstar == self.data['nstar']
         self.noise = get_exozodi_leakage(image_size=self.data['image_size'],
-                                         l_sun=self.data['c'].data.l_sun[mask].to_numpy()[0],
-                                         distance_s=self.data['c'].data.distance_s[mask].to_numpy()[0],
+                                         l_sun=self.data['l_sun'],
+                                         distance_s=self.data['distance_s'],
                                          mas_pix=self.data['mas_pix'],
                                          telescope_area=self.data['telescope_area'],
                                          radius_map=self.data['radius_map'],
                                          wl_bins=self.data['wl_bins'],
                                          wl_bin_edges=self.data['wl_bin_edges'],
                                          t_map=self.data['t_map']) \
-                     * self.data['c'].data['z'][mask].to_numpy()[0]
+                     * self.data['z']
