@@ -206,9 +206,10 @@ class Instrument(PrimaryModule):
                      integration_time: float
                      ):
         s_in, s_out, l_sun, \
-            hz_in, hz_out, hz_center = single_habitable_zone(model=self.options.models['HZ'],
-                                                             temp_s=temp_s,
-                                                             radius_s=radius_s)
+            hz_in, hz_out, \
+            hz_center = single_habitable_zone(model=self.options.models['habitable'],
+                                              temp_s=temp_s,
+                                              radius_s=radius_s)
         self.adjust_bl_to_hz(hz_center=hz_center,
                              distance_s=distance_s)
 
@@ -264,8 +265,7 @@ class Instrument(PrimaryModule):
         noise = noise_bg + noise_planet
         snr_spec = np.sqrt((flux_planet ** 2 / noise))
 
-        return snr_spec
-
+        return [self.wl_bins, snr_spec]
 
 
 
