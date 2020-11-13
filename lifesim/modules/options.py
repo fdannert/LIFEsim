@@ -5,15 +5,6 @@ import numpy as np
 
 class Options(object):
     def __init__(self):
-        self.diameter = None
-        self.quantum_eff = None
-        self.throughput = None
-        self.wl_limits = None
-        self.spec_res = None
-        self.baseline = None
-        self.image_size = None
-        self.wl_optimal = None
-
         self.array = {'diameter': 0.,
                       'quantum_eff': 0.,
                       'throughput': 0.,
@@ -66,18 +57,14 @@ class Options(object):
         else:
             warnings.warn('Option case not recognised, no options set')
 
-    def set_manual(self,
-                   diameter: float,
-                   quantum_eff: float,
-                   throughput: float,
-                   wl_limits: np.ndarray,
-                   spec_res: float,
-                   baseline: float,
-                   image_size: int):
-        self.array['diameter'] = diameter
-        self.array['quantum_eff'] = quantum_eff
-        self.array['throughput'] = throughput
-        self.array['wl_limits'] = wl_limits
-        self.array['spec_res'] = spec_res
-        self.array['baseline'] = baseline
-        self.other['image_size'] = image_size
+    def set_manual(self, **kwargs):
+        for i, key in enumerate(kwargs.keys()):
+            option_set = False
+            for sub_dict in [self.array, self.other, self.models]:
+                if key in sub_dict:
+                    sub_dict[key] = kwargs[key]
+                    option_set = True
+                    break
+            if not option_set:
+                raise ValueError(str(key) + ' is an unknown option')
+
