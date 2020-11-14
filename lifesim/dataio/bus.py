@@ -1,6 +1,7 @@
 # todo Documentation
 
 from typing import Tuple
+import warnings
 
 
 class Cable(object):
@@ -46,6 +47,15 @@ class PrimaryModule(Module):
         if not connected:
             raise AttributeError('All available sockets are already occupied')
 
+    def disconnect_plugin(self,
+                          plugin: Module):
+        if plugin not in self.sockets.values():
+            raise ValueError('Plugin ' + str(plugin.name) + ' not found')
+        for socket in self.sockets.items():
+            if socket[1] is plugin:
+                plugin.data = None
+                self.sockets[socket[0]] = None
+
     def add_socket(self,
                    name: str,
                    f_type: str,
@@ -64,10 +74,13 @@ class PrimaryModule(Module):
                    **kwargs):
         if name not in self.sockets.keys():
             raise ValueError('This socket does not exist')
-        if len(kwargs) == 0:
-            self.sockets[name].run()
+        elif self.sockets[name] is None:
+            warnings.warn('No module run since no plugin connected to socket ' + name)
         else:
-            self.sockets[name].run(kwargs)
+            if len(kwargs) == 0:
+                self.sockets[name].run()
+            else:
+                self.sockets[name].run(kwargs)
 
     def update_socket(self,
                       name: str,
@@ -104,3 +117,28 @@ class Bus(object):
 
         self.cables.append(Cable(name_primary=name_primary,
                                  name_plugin=name_plugin))
+
+    def disconnect(self,
+                   module_names: Tuple[str, str]):
+        if (module_names[0] not in self.modules) or (module_names[1] not in self.modules):
+            raise ValueError('At least one of the specified modules does not exist')
+
+        types = [self.modules[m].m_type for m in module_names]
+        name_primary = module_names[types.index('primary')]
+        name_plugin = module_names[(types.index('primary') + 1) % 2]
+
+        cable_found = False
+        for cab in self.cables:
+            if (cab.name_primary == name_primary) \
+                    and (cab.name_plugin == name_plugin):
+                cable_found = True
+                self.cables.remove(cab)
+                self.modules[name_primary].disconnect_plugin(self.modules[name_plugin])
+
+        if not cable_found:
+            warnings.warn('The specified connection does not exist or was already disconnected')
+
+
+
+
+
