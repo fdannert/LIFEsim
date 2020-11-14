@@ -137,8 +137,3 @@ class Bus(object):
 
         if not cable_found:
             warnings.warn('The specified connection does not exist or was already disconnected')
-
-
-
-
-

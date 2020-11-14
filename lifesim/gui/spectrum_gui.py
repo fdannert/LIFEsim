@@ -5,8 +5,12 @@ from PyQt5.QtWidgets import (QApplication, QDialog, QGroupBox, QSlider, QGridLay
                              QVBoxLayout, QLineEdit, QWidget, QSpinBox, QHBoxLayout,
                              QDoubleSpinBox, QFileDialog, QPushButton, QTabWidget, QCheckBox,
                              QProgressBar)
+from PyQt5.QtGui import QPixmap
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
+
+import lifesim as life
+from lifesim.modules.util import import_spectrum
 
 
 class CustomSlider(QWidget):
@@ -89,6 +93,9 @@ class FileBrowser(QWidget):
         self.filepath = QLineEdit()
         button = QPushButton('Browse...')
 
+        # TODO: Remove
+        self.filepath.setText('/home/felix/Documents/MA/life_sim_share/input_data/planet_spectra/Earth_Clear_R1000_10pc_Björn_Konrad.txt')
+
         button.clicked.connect(self.open_browse)
 
         layout = QHBoxLayout(self)
@@ -108,19 +115,21 @@ class PlotCanvas(FigureCanvasQTAgg):
         super(PlotCanvas, self).__init__(fig)
 
 
-
-
 class Frame(QDialog):
     def __init__(self, parent=None):
         super(Frame, self).__init__(parent)
 
+        # create all sub-widgets (sorted after functionality)
         self.create_instrument()
         self.create_star()
         self.create_planet()
         self.preview_spectrum()
         self.create_simulation()
-        self.create_progress_bar()
+        self.create_scenario()
+        self.create_logo()
+        self.view_spectrum()
 
+        # structure all seeting into one widget
         settings = QWidget()
 
         s_layout = QGridLayout(settings)
@@ -129,18 +138,25 @@ class Frame(QDialog):
         s_layout.addWidget(self.planet, 0, 1)
         s_layout.addWidget(self.s_preview, 1, 1)
 
+        # structure the results in one widget
         results = QWidget()
 
+        r_layout = QVBoxLayout(results)
+        r_layout.addWidget(self.s_result)
+
+        # create the tab widget
         tabs = QTabWidget()
         tabs.addTab(settings, 'Settings')
         tabs.addTab(results, 'Results')
 
+        #structure the sidebar in one widget
         sidebar = QWidget()
         sb_layout = QVBoxLayout(sidebar)
         sb_layout.addWidget(self.simulation, alignment=Qt.AlignTop)
-        sb_layout.addWidget(self.pb)
+        sb_layout.addWidget(self.scenario, alignment=Qt.AlignTop)
+        sb_layout.addWidget(self.logo, alignment=Qt.AlignBottom)
 
-
+        # layout the main body of the frame
         body_layout = QGridLayout()
         body_layout.addWidget(tabs, 0, 1)
         body_layout.addWidget(sidebar, 0, 0)
@@ -148,80 +164,100 @@ class Frame(QDialog):
 
         self.setWindowTitle('LIFEsim lite: Spectrum Simulator')
 
+        # LIFEsim simulator setup
+        self.bus = life.Bus()
+        self.options = life.Options()
+        self.options.set_scenario('baseline')
+
+        inst = life.Instrument(name='LIFE',
+                               options=self.options)
+        self.bus.add_module(module=inst)
+
+        tm = life.TransmissionMap(name='tm')
+        self.bus.add_module(module=tm)
+
+        self.bus.connect(module_names=('LIFE', 'tm'))
+
+        sl = life.PhotonNoiseStar(name='sl')
+        self.bus.add_module(module=sl)
+        lz = life.PhotonNoiseLocalzodi(name='lz')
+        self.bus.add_module(module=lz)
+        ez = life.PhotonNoiseExozodi(name='ez')
+        self.bus.add_module(module=ez)
+
+        a=1
+
     def create_instrument(self):
         self.instrument = QGroupBox('Instrument')
 
-        diameter = DoubleBoxLabel(label='Aperture Diameter',
-                                  maxi=10.,
-                                  mini=0.25,
-                                  step=0.5,
-                                  value=2.5,
-                                  suffix='m')
+        self.diameter = DoubleBoxLabel(label='Aperture Diameter',
+                                       maxi=10.,
+                                       mini=0.25,
+                                       step=0.5,
+                                       value=2.5,
+                                       suffix='m')
 
-        wl_range = DoubleBoxRange(label='Wavelength Range')
+        self.wl_range = DoubleBoxRange(label='Wavelength Range')
 
-        spec_res = BoxLabel(label='Spectral Resolution',
-                            mini=1,
-                            maxi=100,
-                            value=20,
-                            suffix='')
+        self.spec_res = BoxLabel(label='Spectral Resolution',
+                                 mini=1,
+                                 maxi=100,
+                                 value=20,
+                                 suffix='')
 
-
-        layout = QGridLayout()
-        layout.addWidget(diameter, 0, 0)
-        layout.addWidget(wl_range, 1, 0)
-        layout.addWidget(spec_res, 2, 0)
-        # layout.addWidget(b_diameter, 0, 1)
-        # layout.addWidget(b_diameter, 0, 2)
+        layout = QVBoxLayout()
+        layout.addWidget(self.diameter)
+        layout.addWidget(self.wl_range)
+        layout.addWidget(self.spec_res)
         self.instrument.setLayout(layout)
 
     def create_star(self):
         self.star = QGroupBox('Star')
         temp = QWidget()
 
-        temp_s = DoubleBoxLabel(label='Temperature',
-                                mini=0.,
-                                maxi=100000.,
-                                step=100.,
-                                value=5778.,
-                                suffix='K')
-        temp_s.box.setDecimals(0)
+        self.temp_s = DoubleBoxLabel(label='Temperature',
+                                     mini=0.,
+                                     maxi=100000.,
+                                     step=100.,
+                                     value=5778.,
+                                     suffix='K')
+        self.temp_s.box.setDecimals(0)
 
-        radius_s = DoubleBoxLabel(label='Radius',
+        self.radius_s = DoubleBoxLabel(label='Radius',
+                                       mini=0.,
+                                       maxi=2158.,
+                                       step=0.5,
+                                       value=1.,
+                                       suffix='R☉')
+
+        self.distance_s = DoubleBoxLabel(label='Distance',
+                                         mini=0.,
+                                         maxi=50.,
+                                         step=1.,
+                                         value=10.,
+                                         suffix='pc')
+        self.distance_s.box.setDecimals(0)
+
+        self.lat = DoubleBoxLabel(label='Galactic Latitude',
                                   mini=0.,
-                                  maxi=2158.,
-                                  step=0.5,
-                                  value=1.,
-                                  suffix='R☉')
+                                  maxi=2*math.pi,
+                                  step=0.1,
+                                  value=0.,
+                                  suffix='rad')
 
-        distance_s = DoubleBoxLabel(label='Distance',
-                                    mini=0.,
-                                    maxi=50.,
-                                    step=1.,
-                                    value=10.,
-                                    suffix='pc')
-        distance_s.box.setDecimals(0)
-
-        lat = DoubleBoxLabel(label='Galactic Latitude',
-                             mini=0.,
-                             maxi=2*math.pi,
-                             step=0.1,
-                             value=0.,
-                             suffix='rad')
-
-        z = DoubleBoxLabel(label='Exozodis',
-                           mini=0.,
-                           maxi=20.,
-                           step=0.5,
-                           value=1.,
-                           suffix='z')
+        self.z = DoubleBoxLabel(label='Exozodis',
+                                mini=0.,
+                                maxi=20.,
+                                step=0.5,
+                                value=1.,
+                                suffix='z')
 
         layout = QVBoxLayout(temp)
-        layout.addWidget(temp_s)
-        layout.addWidget(radius_s)
-        layout.addWidget(distance_s)
-        layout.addWidget(lat)
-        layout.addWidget(z)
+        layout.addWidget(self.temp_s)
+        layout.addWidget(self.radius_s)
+        layout.addWidget(self.distance_s)
+        layout.addWidget(self.lat)
+        layout.addWidget(self.z)
 
         s_layout = QVBoxLayout(self.star)
         s_layout.addWidget(temp, alignment=Qt.AlignTop)
@@ -229,83 +265,106 @@ class Frame(QDialog):
     def create_planet(self):
         self.planet = QGroupBox('Planet')
 
-        angsep = DoubleBoxLabel(label='Angular Separation',
+        self.angsep = DoubleBoxLabel(label='Angular Separation',
                                 mini=0.,
                                 maxi=1.,
                                 value=0.1,
                                 step=0.1,
                                 suffix='arcsec')
 
-        radius_p = DoubleBoxLabel(label='Radius',
+        self.radius_p = DoubleBoxLabel(label='Radius',
                                   mini=0.,
                                   maxi=10.,
                                   value=1.,
                                   step=0.5,
                                   suffix='R⊕')
 
-        browse = FileBrowser(label='Spectrum')
+        self.browse = FileBrowser(label='Spectrum')
 
-        # browse = QPushButton('Browse...')
-        # browse.clicked.connect(self.open_browse)
-        #
-        # self.filepath1 = QLineEdit()
-
-        layout = QGridLayout()
-        layout.addWidget(angsep, 0, 0)
-        layout.addWidget(radius_p, 1, 0)
-        layout.addWidget(browse, 2, 0)
+        layout = QVBoxLayout()
+        layout.addWidget(self.angsep)
+        layout.addWidget(self.radius_p)
+        layout.addWidget(self.browse)
         self.planet.setLayout(layout)
 
     def preview_spectrum(self):
         self.s_preview = QGroupBox('Spectrum Preview')
-        plot = PlotCanvas(self, width=5, height=4, dpi=100)
-        plot.axes.plot([0, 1, 2, 3, 4], [10, 1, 20, 3, 40])
+        self.p_plot = PlotCanvas(self, width=5, height=4, dpi=100)
+        # self.p_plot.axes.plot([0, 1, 2, 3, 4], [10, 1, 20, 3, 40])
+
+        button = QPushButton('Preview Spectrum')
+        button.clicked.connect(self.show_preview)
 
         layout = QGridLayout()
-        layout.addWidget(plot, 0, 0)
+        layout.addWidget(button, 0, 0)
+        layout.addWidget(self.p_plot, 1, 0)
         self.s_preview.setLayout(layout)
+
+    def view_spectrum(self):
+        self.s_result = QWidget()
+
+        self.r_plot = PlotCanvas(self, width=5, height=4, dpi=100)
+        # self.p_plot.axes.plot([0, 1, 2, 3, 4], [10, 1, 20, 3, 40])
+
+        layout = QVBoxLayout()
+        layout.addWidget(self.r_plot)
+        self.s_result.setLayout(layout)
 
     def create_simulation(self):
         self.simulation = QGroupBox('Simulation')
 
         time_l = QLabel('Integration Time')
 
-        time_b = QDoubleSpinBox()
-        time_b.setMinimum(0.)
-        time_b.setMaximum(17520.)
-        time_b.setSuffix('h')
-        time_b.setSingleStep(1.)
-        time_b.setValue(10.)
+        self.time_b = QDoubleSpinBox()
+        self.time_b.setMinimum(0.)
+        self.time_b.setMaximum(17520.)
+        self.time_b.setSuffix('h')
+        self.time_b.setSingleStep(1.)
+        self.time_b.setValue(10.)
 
         t = QWidget()
         t_layout = QVBoxLayout(t)
         t_layout.addWidget(time_l)
-        t_layout.addWidget(time_b)
+        t_layout.addWidget(self.time_b)
 
         noise_l = QLabel('Noise Sources')
 
-        sl = QCheckBox('Stellar Leakage')
-        lz = QCheckBox('Localzodi')
-        ez = QCheckBox('Exozodi')
-        sl.setChecked(True)
-        lz.setChecked(True)
-        ez.setChecked(True)
+        self.box_sl = QCheckBox('Stellar Leakage')
+        self.box_lz = QCheckBox('Localzodi')
+        self.box_ez = QCheckBox('Exozodi')
+        self.box_sl.setChecked(True)
+        self.box_lz.setChecked(True)
+        self.box_ez.setChecked(True)
 
         noise = QWidget()
         n_layout = QVBoxLayout(noise)
         n_layout.addWidget(noise_l)
-        n_layout.addWidget(sl)
-        n_layout.addWidget(lz)
-        n_layout.addWidget(ez)
+        n_layout.addWidget(self.box_sl)
+        n_layout.addWidget(self.box_lz)
+        n_layout.addWidget(self.box_ez)
 
         simulate = QPushButton('Run Simulation')
+
+        simulate.clicked.connect(self.run_simulation)
 
         layout = QVBoxLayout(self.simulation)
         layout.addWidget(t, alignment=Qt.AlignBottom)
         layout.addWidget(noise, alignment=Qt.AlignBottom)
         layout.addWidget(simulate, alignment=Qt.AlignBottom)
 
-    def create_progress_bar(self):
+    def create_scenario(self):
+        self.scenario = QGroupBox('Set Scenario')
+
+        optimisic = QPushButton('Optimistic')
+        baseline = QPushButton('Baseline')
+        pessimistic = QPushButton('Pessimistic')
+
+        layout = QVBoxLayout(self.scenario)
+        layout.addWidget(optimisic, alignment=Qt.AlignBottom)
+        layout.addWidget(baseline, alignment=Qt.AlignBottom)
+        layout.addWidget(pessimistic, alignment=Qt.AlignBottom)
+
+    def create_progress(self):
         self.pb = QGroupBox('Progress')
 
         self.progress = QProgressBar()
@@ -316,8 +375,78 @@ class Frame(QDialog):
         layout = QVBoxLayout(self.pb)
         layout.addWidget(self.progress, alignment=Qt.AlignHCenter)
 
+    def create_logo(self):
+        self.logo = QWidget()
+
+        image = QLabel()
+        pixmap = QPixmap('logo.png').scaledToWidth(200)
+        image.setPixmap(pixmap)
+
+        website = QLabel('life-space-mission.com')
+
+        layout = QVBoxLayout(self.logo)
+        layout.addWidget(image)
+        layout.addWidget(website)
+
+
+    def update_options(self):
+        self.options.set_manual(diameter=self.diameter.box.value(),
+                                wl_min=self.wl_range.lower.value(),
+                                wl_max=self.wl_range.upper.value(),
+                                spec_res=self.spec_res.box.value())
+        self.bus.modules['LIFE'].apply_options(self.options)
+
+    def show_preview(self):
+        self.update_options()
+        p_spec = import_spectrum(pathtofile=self.browse.filepath.text(),
+                                 wl_bin_edges=self.bus.modules['LIFE'].wl_bin_edges,
+                                 radius_p=self.radius_p.box.value(),
+                                 distance_s=self.distance_s.box.value(),
+                                 clean=True)
+        self.p_plot.axes.cla()
+        self.p_plot.axes.plot(p_spec[0], p_spec[1])
+        self.p_plot.axes.set_xlabel('Wavelength [m]')
+        self.p_plot.axes.set_ylabel('Photon Count [s$^{-1}$]')
+        self.p_plot.draw()
+
+    def show_spectrum(self,
+                      spectrum):
+        self.r_plot.axes.cla()
+        self.r_plot.axes.plot(spectrum[0], spectrum[1])
+        self.r_plot.axes.set_xlabel('Wavelength [m]')
+        self.r_plot.axes.set_ylabel('Signal to Noise Ratio')
+        self.r_plot.draw()
+
+    def run_simulation(self):
+        self.update_options()
+
+        self.bus.disconnect(module_names=('LIFE', 'sl'))
+        self.bus.disconnect(module_names=('LIFE', 'lz'))
+        self.bus.disconnect(module_names=('LIFE', 'ez'))
+        if self.box_sl.isChecked():
+            self.bus.connect(module_names=('LIFE', 'sl'))
+        if self.box_lz.isChecked():
+            self.bus.connect(module_names=('LIFE', 'lz'))
+        if self.box_ez.isChecked():
+            self.bus.connect(module_names=('LIFE', 'ez'))
+
+        r_spec = self.bus.modules['LIFE'].get_spectrum(pathtofile=self.browse.filepath.text(),
+                                                       temp_s=self.temp_s.box.value(),
+                                                       radius_s=self.radius_s.box.value(),
+                                                       distance_s=self.distance_s.box.value(),
+                                                       lat_s=self.lat.box.value(),
+                                                       z=self.z.box.value(),
+                                                       angsep=self.angsep.box.value(),
+                                                       radius_p=self.radius_p.box.value(),
+                                                       integration_time=self.time_b.value()*60*60)
+
+        self.show_spectrum(r_spec)
+
+
 if __name__ == '__main__':
     app = QApplication([])
     gallery = Frame()
     gallery.show()
     app.exec_()
+
+    # <div style="color:darkred;"> <\div>

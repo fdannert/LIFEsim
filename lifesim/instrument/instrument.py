@@ -15,6 +15,29 @@ class Instrument(PrimaryModule):
                  name: str,
                  options: Options):
         super().__init__(name=name)
+
+        # initialize all instrument parameters
+        self.options = options
+        self.bl, self.telescope_area, self.eff_tot = None, None, None
+        self.wl_bins, self.wl_bin_widths, self.wl_bin_edges = None, None, None
+        self.hfov, self.hfov_mas, self.rpp, self.mas_pix = None, None, None, None
+        self.apertures = None
+        self.x_map, self.y_map, self.r_square_map, self.r_map = None, None, None, None
+
+        # create sockets
+        self.add_socket(name='transmission_generator',
+                        f_type='transmission',
+                        data={})
+        for i in range(self.options.other['n_plugins']):
+            self.add_socket(name='p_noise_source_' + str(i),
+                            f_type='photon_noise',
+                            data={})
+
+        # set options
+        self.apply_options(options)
+
+    def apply_options(self,
+                      options: Options):
         self.options = options
 
         # Get array parameters from options for faster calculation
@@ -49,29 +72,24 @@ class Instrument(PrimaryModule):
                              + (self.y_map - (self.options.other['image_size'] - 1) / 2) ** 2)
         self.r_map = np.sqrt(self.r_square_map)
 
-        self.add_socket(name='transmission_generator',
-                        f_type='transmission',
-                        data={'wl': self.wl_bins,
-                              'hfov_mas': self.hfov_mas,
-                              'image_size': self.options.other['image_size'],
-                              'bl': self.bl,
-                              'map_selection': 'tm3'})
+        # push the new options and parameters to the sockets
+        self.update_socket(name='transmission_generator',
+                           data={'wl': self.wl_bins,
+                                 'hfov_mas': self.hfov_mas,
+                                 'image_size': self.options.other['image_size'],
+                                 'bl': self.bl,
+                                 'map_selection': 'tm3'})
         for i in range(self.options.other['n_plugins']):
-            self.add_socket(name='p_noise_source_'+str(i),
-                            f_type='photon_noise',
-                            data={'lz_model': self.options.models['localzodi'],
-                                  'image_size': self.options.other['image_size'],
-                                  'radius_map': self.r_map,
-                                  'wl_bins': self.wl_bins,
-                                  'wl_width': self.wl_bin_widths,
-                                  'wl_bin_edges': self.wl_bin_edges,
-                                  'hfov': self.hfov,
-                                  'telescope_area': self.telescope_area,
-                                  'mas_pix': self.mas_pix})
-
-        # List of data for photon noise plugin:
-        #   nstar, catalog, bl, wl_bins, wl_width
-        #   lz_model, lat, image_size, transmission map, radius_map, wl_bins, wl_width, hfov
+            self.update_socket(name='p_noise_source_' + str(i),
+                               data={'lz_model': self.options.models['localzodi'],
+                                     'image_size': self.options.other['image_size'],
+                                     'radius_map': self.r_map,
+                                     'wl_bins': self.wl_bins,
+                                     'wl_width': self.wl_bin_widths,
+                                     'wl_bin_edges': self.wl_bin_edges,
+                                     'hfov': self.hfov,
+                                     'telescope_area': self.telescope_area,
+                                     'mas_pix': self.mas_pix})
 
     def get_wl_bins_const_spec_res(self):
         wl_edge = self.options.array['wl_min']
@@ -105,7 +123,7 @@ class Instrument(PrimaryModule):
         hz_center_rad = hz_center / distance_s / (3600 * 180) * np.pi  # in rad
 
         # put first transmission peak of optimal wl on center of HZ
-        self.bl = 0.589645 / hz_center_rad * self.options.other['wl_optimal']
+        self.bl = 0.589645 / hz_center_rad * self.options.other['wl_optimal']*10**(-6)
 
         self.bl = np.maximum(self.bl, self.options.array['bl_min'])
         self.bl = np.minimum(self.bl, self.options.array['bl_max'])
@@ -234,12 +252,8 @@ class Instrument(PrimaryModule):
                                      'lat_s': lat_s,
                                      'l_sun': l_sun,
                                      'z': z})
-            # TODO change socket to catch running an empty socket. Throw and catch specific
-            #   exception
-            try:
-                self.run_socket(name='p_noise_source_' + str(j))
-            except AttributeError:
-                pass
+
+            self.run_socket(name='p_noise_source_' + str(j))
 
         flux_planet_spectrum = import_spectrum(pathtofile=pathtofile,
                                                wl_bin_edges=self.wl_bin_edges,
