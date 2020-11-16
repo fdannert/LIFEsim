@@ -9,6 +9,7 @@ def get_exozodi_leakage(image_size: int,
                         l_sun: float,
                         distance_s: float,
                         mas_pix: float,
+                        z: float,
                         telescope_area: float,
                         radius_map: np.ndarray,
                         wl_bins: np.ndarray,
@@ -35,7 +36,7 @@ def get_exozodi_leakage(image_size: int,
                         278.3 * (l_sun ** 0.25) / np.sqrt(r_au), 0)
 
     sigma = np.where(r_cond,
-                     area_m * sigma_zero *
+                     area_m * sigma_zero * z *
                      (r_au / r_0) ** (-alpha), 0)
 
     freq_bins = constants.c / np.array([wl_bins])
@@ -45,7 +46,7 @@ def get_exozodi_leakage(image_size: int,
     freq_bin_edges = constants.c / np.array(wl_bin_edges)
     freq_widths = []
     for i in range(freq_bin_edges.shape[0]-1):
-        freq_widths.append(freq_bin_edges[i+1]-freq_bin_edges[i])
+        freq_widths.append(freq_bin_edges[i]-freq_bin_edges[i+1])
     freq_widths = np.array(freq_widths)
 
     f_nu_disk = black_body(bins=freq_bins,
@@ -72,9 +73,11 @@ class PhotonNoiseExozodi(Module):
                                          l_sun=self.data['l_sun'],
                                          distance_s=self.data['distance_s'],
                                          mas_pix=self.data['mas_pix'],
+                                         z=self.data['z'],
                                          telescope_area=self.data['telescope_area'],
                                          radius_map=self.data['radius_map'],
                                          wl_bins=self.data['wl_bins'],
                                          wl_bin_edges=self.data['wl_bin_edges'],
                                          t_map=self.data['t_map']) \
-                     * self.data['z']
+                     # TODO: is it correct to exclude it here?
+                     # * self.data['z']

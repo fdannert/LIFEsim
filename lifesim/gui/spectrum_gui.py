@@ -119,6 +119,29 @@ class Frame(QDialog):
     def __init__(self, parent=None):
         super(Frame, self).__init__(parent)
 
+        # LIFEsim simulator setup
+        self.bus = life.Bus()
+        self.options = life.Options()
+        self.options.set_scenario('baseline')
+
+        inst = life.Instrument(name='LIFE',
+                               options=self.options)
+        self.bus.add_module(module=inst)
+
+        tm = life.TransmissionMap(name='tm')
+        self.bus.add_module(module=tm)
+
+        self.bus.connect(module_names=('LIFE', 'tm'))
+
+        sl = life.PhotonNoiseStar(name='sl')
+        self.bus.add_module(module=sl)
+        lz = life.PhotonNoiseLocalzodi(name='lz')
+        self.bus.add_module(module=lz)
+        ez = life.PhotonNoiseExozodi(name='ez')
+        self.bus.add_module(module=ez)
+
+        # ----- GUI Setup ------
+
         # create all sub-widgets (sorted after functionality)
         self.create_instrument()
         self.create_star()
@@ -129,14 +152,18 @@ class Frame(QDialog):
         self.create_logo()
         self.view_spectrum()
 
-        # structure all seeting into one widget
+        # structure all setting into one widget
+        planet_star = QWidget()
+
+        ps_layout = QHBoxLayout(planet_star)
+        ps_layout.addWidget(self.star)
+        ps_layout.addWidget(self.planet)
+
         settings = QWidget()
 
-        s_layout = QGridLayout(settings)
-        s_layout.addWidget(self.instrument, 0, 0)
-        s_layout.addWidget(self.star, 1, 0)
-        s_layout.addWidget(self.planet, 0, 1)
-        s_layout.addWidget(self.s_preview, 1, 1)
+        s_layout = QVBoxLayout(settings)
+        s_layout.addWidget(self.instrument, alignment=Qt.AlignTop)
+        s_layout.addWidget(planet_star, alignment=Qt.AlignTop)
 
         # structure the results in one widget
         results = QWidget()
@@ -164,27 +191,6 @@ class Frame(QDialog):
 
         self.setWindowTitle('LIFEsim lite: Spectrum Simulator')
 
-        # LIFEsim simulator setup
-        self.bus = life.Bus()
-        self.options = life.Options()
-        self.options.set_scenario('baseline')
-
-        inst = life.Instrument(name='LIFE',
-                               options=self.options)
-        self.bus.add_module(module=inst)
-
-        tm = life.TransmissionMap(name='tm')
-        self.bus.add_module(module=tm)
-
-        self.bus.connect(module_names=('LIFE', 'tm'))
-
-        sl = life.PhotonNoiseStar(name='sl')
-        self.bus.add_module(module=sl)
-        lz = life.PhotonNoiseLocalzodi(name='lz')
-        self.bus.add_module(module=lz)
-        ez = life.PhotonNoiseExozodi(name='ez')
-        self.bus.add_module(module=ez)
-
         a=1
 
     def create_instrument(self):
@@ -194,7 +200,7 @@ class Frame(QDialog):
                                        maxi=10.,
                                        mini=0.25,
                                        step=0.5,
-                                       value=2.5,
+                                       value=2,
                                        suffix='m')
 
         self.wl_range = DoubleBoxRange(label='Wavelength Range')
@@ -205,11 +211,14 @@ class Frame(QDialog):
                                  value=20,
                                  suffix='')
 
-        layout = QVBoxLayout()
-        layout.addWidget(self.diameter)
-        layout.addWidget(self.wl_range)
-        layout.addWidget(self.spec_res)
-        self.instrument.setLayout(layout)
+        line = QWidget()
+        l_layout = QHBoxLayout(line)
+        l_layout.addWidget(self.diameter, alignment=Qt.AlignLeft)
+        l_layout.addWidget(self.spec_res, alignment=Qt.AlignLeft)
+
+        layout = QVBoxLayout(self.instrument)
+        layout.addWidget(line)
+        layout.addWidget(self.wl_range, alignment=Qt.AlignHCenter)
 
     def create_star(self):
         self.star = QGroupBox('Star')
@@ -222,6 +231,7 @@ class Frame(QDialog):
                                      value=5778.,
                                      suffix='K')
         self.temp_s.box.setDecimals(0)
+        self.temp_s.label.setToolTip('Test Tip')
 
         self.radius_s = DoubleBoxLabel(label='Radius',
                                        mini=0.,
@@ -242,7 +252,7 @@ class Frame(QDialog):
                                   mini=0.,
                                   maxi=2*math.pi,
                                   step=0.1,
-                                  value=0.,
+                                  value=0.79,
                                   suffix='rad')
 
         self.z = DoubleBoxLabel(label='Exozodis',
@@ -279,11 +289,28 @@ class Frame(QDialog):
                                   step=0.5,
                                   suffix='R⊕')
 
+        self.radius_spec = DoubleBoxLabel(label='Reference Radius',
+                                       mini=0.,
+                                       maxi=10.,
+                                       value=1.,
+                                       step=0.5,
+                                       suffix='R⊕')
+
+        self.d_spec = DoubleBoxLabel(label='Reference Distance',
+                                         mini=0.,
+                                         maxi=50.,
+                                         step=1.,
+                                         value=10.,
+                                         suffix='pc')
+        self.d_spec.box.setDecimals(0)
+
         self.browse = FileBrowser(label='Spectrum')
 
         layout = QVBoxLayout()
         layout.addWidget(self.angsep)
         layout.addWidget(self.radius_p)
+        layout.addWidget(self.radius_spec)
+        layout.addWidget(self.d_spec)
         layout.addWidget(self.browse)
         self.planet.setLayout(layout)
 
@@ -356,8 +383,11 @@ class Frame(QDialog):
         self.scenario = QGroupBox('Set Scenario')
 
         optimisic = QPushButton('Optimistic')
+        optimisic.clicked.connect(self.set_scenario_opt)
         baseline = QPushButton('Baseline')
+        baseline.clicked.connect(self.set_scenario_bas)
         pessimistic = QPushButton('Pessimistic')
+        pessimistic.clicked.connect(self.set_scenario_pes)
 
         layout = QVBoxLayout(self.scenario)
         layout.addWidget(optimisic, alignment=Qt.AlignBottom)
@@ -402,6 +432,8 @@ class Frame(QDialog):
                                  wl_bin_edges=self.bus.modules['LIFE'].wl_bin_edges,
                                  radius_p=self.radius_p.box.value(),
                                  distance_s=self.distance_s.box.value(),
+                                 radius_spec=self.radius_spec.box.value(),
+                                 distance_spec=self.d_spec.box.value(),
                                  clean=True)
         self.p_plot.axes.cla()
         self.p_plot.axes.plot(p_spec[0], p_spec[1])
@@ -434,6 +466,8 @@ class Frame(QDialog):
                                                        temp_s=self.temp_s.box.value(),
                                                        radius_s=self.radius_s.box.value(),
                                                        distance_s=self.distance_s.box.value(),
+                                                       radius_spec=self.radius_spec.box.value(),
+                                                       distance_spec=self.d_spec.box.value(),
                                                        lat_s=self.lat.box.value(),
                                                        z=self.z.box.value(),
                                                        angsep=self.angsep.box.value(),
@@ -441,6 +475,24 @@ class Frame(QDialog):
                                                        integration_time=self.time_b.value()*60*60)
 
         self.show_spectrum(r_spec)
+
+    def set_values(self):
+        self.diameter.box.setValue(self.options.array['diameter'])
+        self.spec_res.box.setValue(self.options.array['spec_res'])
+        self.wl_range.lower.setValue(self.options.array['wl_min'])
+        self.wl_range.upper.setValue(self.options.array['wl_max'])
+
+    def set_scenario_opt(self):
+        self.options.set_scenario(case='optimistic')
+        self.set_values()
+
+    def set_scenario_bas(self):
+        self.options.set_scenario(case='baseline')
+        self.set_values()
+
+    def set_scenario_pes(self):
+        self.options.set_scenario(case='pessimistic')
+        self.set_values()
 
 
 if __name__ == '__main__':

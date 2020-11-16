@@ -221,6 +221,8 @@ class Instrument(PrimaryModule):
                      z: float,  # in zodis
                      angsep: float,  # in arcsec
                      radius_p: float,  # in R_earth
+                     radius_spec: float,  # in R_earth radius of the planet in the reference spec
+                     distance_spec: float,  # in pc distance at which the spectrum is simulated
                      integration_time: float
                      ):
         s_in, s_out, l_sun, \
@@ -230,6 +232,9 @@ class Instrument(PrimaryModule):
                                               radius_s=radius_s)
         self.adjust_bl_to_hz(hz_center=hz_center,
                              distance_s=distance_s)
+
+        # TODO: REMOVE REMOVE REMOVE
+        self.bl = 14.54118465607078
 
         # get transmission map
         self.update_socket(name='transmission_generator',
@@ -258,15 +263,21 @@ class Instrument(PrimaryModule):
         flux_planet_spectrum = import_spectrum(pathtofile=pathtofile,
                                                wl_bin_edges=self.wl_bin_edges,
                                                radius_p=radius_p,
-                                               distance_s=distance_s)
+                                               distance_s=distance_s,
+                                               radius_spec=radius_spec,
+                                               distance_spec=distance_spec)
         flux_planet = flux_planet_spectrum \
                           * self.sockets['transmission_generator'].transm_eff \
                           * integration_time \
-                          * self.eff_tot
+                          * self.eff_tot \
+                          * self.telescope_area \
+                          * self.wl_bin_widths
         noise_planet = flux_planet_spectrum \
-                          * self.sockets['transmission_generator'].transm_noise \
-                          * integration_time \
-                          * self.eff_tot
+                           * self.sockets['transmission_generator'].transm_noise \
+                           * integration_time \
+                           * self.eff_tot \
+                           * self.telescope_area \
+                           * self.wl_bin_widths
 
         # calculate the noise from the background sources
         noise_bg = 0
