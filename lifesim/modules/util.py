@@ -1,5 +1,4 @@
 import numpy as np
-import scipy.integrate as integrate
 
 from lifesim.modules import constants
 

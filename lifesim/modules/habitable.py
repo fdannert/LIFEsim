@@ -2,7 +2,7 @@ import warnings
 
 import numpy as np
 
-from lifesim.archive.catalog import Catalog
+# from lifesim.dataio.catalog import Catalog
 
 
 def single_habitable_zone(model: str,
@@ -36,8 +36,8 @@ def single_habitable_zone(model: str,
 
     return s_in, s_out, l_sun, hz_in, hz_out, hz_center
 
-
-def compute_habitable_zone(catalog: Catalog,
+# TODO remove frankenstein fix of catalog object
+def compute_habitable_zone(catalog: object,
                            model: str = 'MS'):
 
     if 'stars' not in catalog.masks.keys():
