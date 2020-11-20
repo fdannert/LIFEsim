@@ -39,6 +39,7 @@ def black_body(mode: str,
     # fact2 = k2 / (temp * wl)
     # fgamma = np.array(fact1 / (np.exp(fact2) - 1.0)) * 1e-6
 
+    # TODO: Should it not be 4*pi ?
     if mode == 'star':
         fgamma = planck_law(x=bins,
                             temp=temp,
@@ -56,9 +57,11 @@ def black_body(mode: str,
     elif mode == 'frequency':
         # TODO remove hardcoded np.newaxis solution. The redim is needed for the PhotonNoiseExozodi
         #   class
+        a=1
         fgamma = planck_law(x=bins,
                             temp=temp,
                             mode='frequency') * width[:, np.newaxis, np.newaxis]
+        a=1
     else:
         raise ValueError('Mode not recognised')
 

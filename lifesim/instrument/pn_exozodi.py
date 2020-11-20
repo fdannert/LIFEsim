@@ -9,6 +9,7 @@ def get_exozodi_leakage(image_size: int,
                         l_sun: float,
                         distance_s: float,
                         mas_pix: np.ndarray,
+                        rad_pix: np.ndarray,
                         z: float,
                         telescope_area: float,
                         radius_map: np.ndarray,
@@ -61,10 +62,14 @@ def get_exozodi_leakage(image_size: int,
     mas_pix = np.array([mas_pix])
     if mas_pix.shape[-1] > 1:
         mas_pix = np.reshape(mas_pix, (mas_pix.shape[-1], 1, 1))
+    rad_pix = np.array([rad_pix])
+    if rad_pix.shape[-1] > 1:
+        rad_pix = np.reshape(rad_pix, (rad_pix.shape[-1], 1, 1))
 
     au_pix = mas_pix / 1e3 * distance_s
     area_m = au_pix ** 2
     r_au = radius_map * au_pix
+    area_pix_at_aperture = telescope_area / image_size
 
     # identify all pixels where the radius is larges than the inner radius by kennedy2015
     r_cond = ((r_au >= r_in)
@@ -76,7 +81,8 @@ def get_exozodi_leakage(image_size: int,
 
     # calculate the Sigma (Eq. 3) in Kennedy2015 and set everything inside the inner radius to 0
     sigma = np.where(r_cond,
-                     area_m * sigma_zero * z *
+                     # area_m *
+                     sigma_zero * z *
                      (r_au / r_0) ** (-alpha), 0)
 
     # convert the wavelength bins to frequency bins and reshape like above (this approach is okay
@@ -92,14 +98,23 @@ def get_exozodi_leakage(image_size: int,
         freq_widths.append(freq_bin_edges[i]-freq_bin_edges[i+1])
     freq_widths = np.array(freq_widths)
 
+    # TODO remove
+    hfov = wl_bins / (2. * 2.)
+    hfov = np.array(hfov)
+    if hfov.shape[-1] > 1:
+        hfov = np.reshape(hfov, (hfov.shape[-1], 1, 1))
+
+
     # get the black body radiation emitted by the interexoplanetary dust
     f_nu_disk = black_body(bins=freq_bins,
                            width=freq_widths,
                            temp=temp_map,
-                           mode='frequency') * area_m / (distance_s_au**2) * sigma * telescope_area
+                           mode='frequency') \
+                * sigma * np.pi * np.sin(hfov)**2 * telescope_area / 512**2
+                # * sigma * np.pi * np.sin(rad_pix) ** 2 * area_pix_at_aperture
+
 
     ap = np.where(radius_map <= image_size/2, 1, 0)
-    # ToDo Integration over steradians might be missing
     # add the transmission map
     ez_leak = (f_nu_disk * t_map * ap).sum(axis=(-2, -1))
 
@@ -136,6 +151,7 @@ class PhotonNoiseExozodi(Module):
                                          l_sun=self.data['l_sun'],
                                          distance_s=self.data['distance_s'],
                                          mas_pix=self.data['mas_pix'],
+                                         rad_pix=self.data['rad_pix'],
                                          z=self.data['z'],
                                          telescope_area=self.data['telescope_area'],
                                          radius_map=self.data['radius_map'],
