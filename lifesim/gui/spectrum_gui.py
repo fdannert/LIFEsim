@@ -8,6 +8,7 @@ from PyQt5.QtWidgets import (QApplication, QDialog, QGroupBox, QSlider, QGridLay
 from PyQt5.QtGui import QPixmap
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
+import numpy as np
 
 import lifesim as life
 from lifesim.modules.util import import_spectrum
@@ -108,8 +109,27 @@ class FileBrowser(QWidget):
         self.filepath.setText(data_path)
 
 
+class FileSaver(QWidget):
+    def __init__(self, *args, **kwargs):
+        super(FileSaver, self).__init__(*args, **kwargs)
+        self.filepath = QLineEdit()
+        button = QPushButton('Browse...')
+        button.clicked.connect(self.open_browse)
+
+        layout = QHBoxLayout(self)
+        layout.addWidget(self.filepath)
+        layout.addWidget(button)
+
+    def open_browse(self):
+        dialog = QFileDialog()
+        dialog.setDefaultSuffix('txt')
+        dialog.setAcceptMode(1)
+        dialog.exec_()
+        data_path = dialog.selectedFiles()
+        self.filepath.setText(data_path[0])
+
 class PlotCanvas(FigureCanvasQTAgg):
-    def __init__(self, parent=None, width=5, height=4, dpi=100):
+    def __init__(self, parent=None, width=10, height=10, dpi=200):
         fig = Figure(figsize=(width, height), dpi=dpi)
         self.axes = fig.add_subplot(111)
         super(PlotCanvas, self).__init__(fig)
@@ -151,6 +171,7 @@ class Frame(QDialog):
         self.create_scenario()
         self.create_logo()
         self.view_spectrum()
+        self.create_save()
 
         # structure all setting into one widget
         planet_star = QWidget()
@@ -170,10 +191,18 @@ class Frame(QDialog):
 
         r_layout = QVBoxLayout(results)
         r_layout.addWidget(self.s_result)
+        r_layout.addWidget(self.save_dialog, alignment=Qt.AlignBottom)
+
+        # Inputs
+        preview = QWidget()
+
+        p_layout = QHBoxLayout(preview)
+        p_layout.addWidget(self.s_preview)
 
         # create the tab widget
         tabs = QTabWidget()
         tabs.addTab(settings, 'Settings')
+        tabs.addTab(preview, 'Preview')
         tabs.addTab(results, 'Results')
 
         #structure the sidebar in one widget
@@ -191,7 +220,7 @@ class Frame(QDialog):
 
         self.setWindowTitle('LIFEsim lite: Spectrum Simulator')
 
-        a=1
+        self.r_spec = None
 
     def create_instrument(self):
         self.instrument = QGroupBox('Instrument')
@@ -315,7 +344,7 @@ class Frame(QDialog):
         self.planet.setLayout(layout)
 
     def preview_spectrum(self):
-        self.s_preview = QGroupBox('Spectrum Preview')
+        self.s_preview = QWidget()
         self.p_plot = PlotCanvas(self, width=5, height=4, dpi=100)
         # self.p_plot.axes.plot([0, 1, 2, 3, 4], [10, 1, 20, 3, 40])
 
@@ -418,6 +447,16 @@ class Frame(QDialog):
         layout.addWidget(image)
         layout.addWidget(website)
 
+    def create_save(self):
+        self.save_dialog = QGroupBox('Save Spectrum to File')
+
+        self.save = FileSaver()
+        button = QPushButton('Save')
+        button.clicked.connect(self.save_spectrum)
+
+        layout = QHBoxLayout(self.save_dialog)
+        layout.addWidget(self.save)
+        layout.addWidget(button)
 
     def update_options(self):
         self.options.set_manual(diameter=self.diameter.box.value(),
@@ -436,18 +475,63 @@ class Frame(QDialog):
                                  distance_spec=self.d_spec.box.value(),
                                  clean=True)
         self.p_plot.axes.cla()
-        self.p_plot.axes.plot(p_spec[0], p_spec[1])
-        self.p_plot.axes.set_xlabel('Wavelength [m]')
-        self.p_plot.axes.set_ylabel('Photon Count [s$^{-1}$]')
+        self.p_plot.axes.plot(p_spec[0] * 1e6, p_spec[1], color="darkblue", linestyle="-")
+
+        self.p_plot.axes.set_xlim(self.options.array['wl_min'], self.options.array['wl_max'])
+        self.p_plot.axes.set_ylim(
+            5e-1 * np.min(
+                p_spec[1]
+                [int(np.argwhere(p_spec[0] < (self.options.array['wl_min']*1e-6))[-1]):
+                 int(np.argwhere(p_spec[0] > (self.options.array['wl_max']*1e-6))[0])]),
+            0.5e1 * np.max(p_spec[1]
+                         [int(np.argwhere(p_spec[0] < (self.options.array['wl_min']*1e-6))[-1])
+                          :int(np.argwhere(p_spec[0] > (self.options.array['wl_max']*1e-6))[0])]))
+        self.p_plot.axes.set_xlabel(r"$\lambda$ [$\mu$m]")
+        self.p_plot.axes.set_ylabel(r"Input signal [ph s$^{-1}$m$^{-2}\mu$m$^{-1}$]")
+        self.p_plot.axes.set_yscale('log')
+        self.p_plot.axes.grid()
         self.p_plot.draw()
 
     def show_spectrum(self,
-                      spectrum):
+                      spectrum,
+                      planet,
+                      noise):
         self.r_plot.axes.cla()
-        self.r_plot.axes.plot(spectrum[0], spectrum[1])
-        self.r_plot.axes.set_xlabel('Wavelength [m]')
-        self.r_plot.axes.set_ylabel('Signal to Noise Ratio')
+        self.r_plot.axes.step(spectrum[0] * 1e6, planet / (self.time_b.value()*60*60),
+                 where="mid", color="r", label=f"Planet")
+        self.r_plot.axes.step(spectrum[0] * 1e6, np.sqrt(noise) / (self.time_b.value()*60*60),
+                 where="mid", color="black", label=f"Noise sources")
+        self.r_plot.axes.set_xlabel(r"$\lambda$ [$\mu$m]")
+        self.r_plot.axes.set_ylabel(r"Detected signal per bin [e$^-$ s$^{-1}$ bin$^{-1}$]")
+
+        self.r_plot.axes.set_xlim(self.options.array['wl_min']-0.5,
+                                  self.options.array['wl_max']+0.5)
+        self.r_plot.axes.set_yscale('log')
+        self.r_plot.axes.grid()
+
+        ax2a = self.r_plot.axes.twinx()
+        ax2a.set_yscale('log')
+        ax2a.step(spectrum[0] * 1e6, spectrum[1],
+                  where="mid", color="darkblue", linestyle="--",
+                  label=f"SNR per bin \nTotal: {np.sqrt((spectrum[1] ** 2).sum()):.2f}")
+        ax2a.set_ylabel('SNR per bin')
+        lines, labels = self.r_plot.axes.get_legend_handles_labels()
+        lines2, labels2 = ax2a.get_legend_handles_labels()
+        ax2a.legend(lines + lines2, labels + labels2, framealpha=1)
+        ax2a.grid(False)
+
+        d_min = np.min(np.array((spectrum[1],
+                                 planet / (self.time_b.value()*60*60),
+                                 np.sqrt(noise) / (self.time_b.value()*60*60)))) * 1e-1
+        d_max = np.max(np.array((spectrum[1],
+                                 planet / (self.time_b.value()*60*60),
+                                 np.sqrt(noise) / (self.time_b.value()*60*60)))) * 1e1
+        self.r_plot.axes.set_ylim(d_min, d_max)
+        ax2a.set_ylim(d_min, d_max)
+
         self.r_plot.draw()
+
+        ax2a.remove()
 
     def run_simulation(self):
         self.update_options()
@@ -462,19 +546,22 @@ class Frame(QDialog):
         if self.box_ez.isChecked():
             self.bus.connect(module_names=('LIFE', 'ez'))
 
-        r_spec = self.bus.modules['LIFE'].get_spectrum(pathtofile=self.browse.filepath.text(),
-                                                       temp_s=self.temp_s.box.value(),
-                                                       radius_s=self.radius_s.box.value(),
-                                                       distance_s=self.distance_s.box.value(),
-                                                       radius_spec=self.radius_spec.box.value(),
-                                                       distance_spec=self.d_spec.box.value(),
-                                                       lat_s=self.lat.box.value(),
-                                                       z=self.z.box.value(),
-                                                       angsep=self.angsep.box.value(),
-                                                       radius_p=self.radius_p.box.value(),
-                                                       integration_time=self.time_b.value()*60*60)
+        self.r_spec, self.flux_p, self.flux_n = self.bus.modules['LIFE'].get_spectrum(
+            pathtofile=self.browse.filepath.text(),
+            temp_s=self.temp_s.box.value(),
+            radius_s=self.radius_s.box.value(),
+            distance_s=self.distance_s.box.value(),
+            radius_spec=self.radius_spec.box.value(),
+            distance_spec=self.d_spec.box.value(),
+            lat_s=self.lat.box.value(),
+            z=self.z.box.value(),
+            angsep=self.angsep.box.value(),
+            radius_p=self.radius_p.box.value(),
+            integration_time=self.time_b.value()*60*60)
 
-        self.show_spectrum(r_spec)
+        self.show_spectrum(self.r_spec,
+                           self.flux_p,
+                           self.flux_n)
 
     def set_values(self):
         self.diameter.box.setValue(self.options.array['diameter'])
@@ -493,6 +580,16 @@ class Frame(QDialog):
     def set_scenario_pes(self):
         self.options.set_scenario(case='pessimistic')
         self.set_values()
+
+    def save_spectrum(self):
+        if self.r_spec is not None:
+            # file = open(self.save.filepath.text(), 'w')
+            # file.write('Wavelength  SNR per bin\n')
+            # file.writelines([self.r_spec[0], self.r_spec[1]])
+            # file.close()
+            np.savetxt(fname=self.save.filepath.text(),
+                       X=np.array(self.r_spec).T,
+                       header='Wavelength [m]   SNR per bin')
 
 
 if __name__ == '__main__':
