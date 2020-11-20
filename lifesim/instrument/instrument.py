@@ -153,7 +153,8 @@ class Instrument(PrimaryModule):
                                      'wl_bin_edges': self.wl_bin_edges,
                                      'hfov': self.hfov,
                                      'telescope_area': self.telescope_area,
-                                     'mas_pix': self.mas_pix})
+                                     'mas_pix': self.mas_pix,
+                                     'rad_pix': self.rad_pix})
 
     def get_wl_bins_const_spec_res(self):
         """

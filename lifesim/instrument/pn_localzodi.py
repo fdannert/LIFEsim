@@ -56,7 +56,7 @@ def get_localzodi_leakage(lz_model: str,
     # TODO complete comments
 
     # check if the model exists
-    if (lz_model != 'glasse') or (lz_model != 'darwinism'):
+    if not((lz_model == 'glasse') or (lz_model == 'darwinsim')):
         raise ValueError('Specified model does not exist')
     
     long = 4 / 4 * np.pi
@@ -95,8 +95,7 @@ def get_localzodi_leakage(lz_model: str,
 
     lz_flux = lz_flux_sr * (np.pi * hfov ** 2)
 
-    lz_leak = (ap * t_map).sum(axis=(-2, -1)) / ap.sum(
-    ) * lz_flux * telescope_area
+    lz_leak = (ap * t_map).sum(axis=(-2, -1)) / ap.sum() * lz_flux * telescope_area
     return lz_leak
 
 
