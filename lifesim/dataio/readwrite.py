@@ -7,6 +7,7 @@ from astropy.io import fits
 from lifesim.dataio.catalog import Catalog
 
 
+# TODO remove this file (it is not used)
 def read_ppop(tc: Catalog,
               input_path: str):
     """Read the contents of the P-Pop output .txt file to a catalog

@@ -9,27 +9,34 @@ from astropy.coordinates import SkyCoord, BarycentricMeanEcliptic
 from lifesim.modules.habitable import compute_habitable_zone
 from lifesim.modules.options import Options
 
+
 # todo Documentation
 class Catalog(object):
-    """Gets and prints the spreadsheet's header columns
+    """
+    A Catalog is used to import and store information about planetary populations
 
-    Parameters
+    Attributes
     ----------
-
-    Returns
-    -------
+    data : pandas.DataFrame
+        The pandas DataFrame containing the planetary population of the simulated universes
+    stype_keys : dict
+        A dictionary storing the relation between stellar classes and numerical identifiers
+    masks : dict
+        A dictionary containing masks to filter the data (for e.g. for all habitable planets)
+    stype : object
+        # TODO documentation
     """
 
     def __init__(self,
                  input_path: str,
                  options: Options):
-        """Gets and prints the spreadsheet's header columns
-
+        """
         Parameters
         ----------
-
-        Returns
-        -------
+        input_path : str
+            File path pointing to the location of the P-Pop output file
+        options : lifesim.Options
+            The options class containing all setting for the array and computations
         """
 
         self.data = pd.DataFrame(columns=['radius_p',
@@ -78,12 +85,13 @@ class Catalog(object):
         compute_habitable_zone(catalog=self,
                                model=options.models['habitable'])
 
-
     def remove_distance(self,
                         stype: str,
                         dist: float,
                         mode: str):
-        """Removes planets around stellar type above or below a certain distance from the sample
+        """
+        Removes planets around stellar type above or below a certain distance from the sample. A
+        warning is raise if the mode is not recognized
 
         Parameters
         ----------
@@ -97,13 +105,17 @@ class Catalog(object):
                         removed
             'smaller':  planets around stars with distances smaller than the specified distance are
                         removed
-
-        Returns
-        -------
+        Raises
+        ------
+        ValueError
+            If the given stellar type is not valid (i.e. is not equal to 'A, F, G, K or M')
         """
 
+        # check if stellar type is valid
         if not np.isin(stype, np.array(('A', 'F', 'G', 'K', 'M'))):
             raise ValueError('Stellar type not recognised')
+
+        # create masks selecting closer or more far away planets
         if mode == 'larger':
             mask = np.logical_and(self.data.stype == stype,
                                   self.data.distance_s >= dist)
@@ -115,27 +127,27 @@ class Catalog(object):
             mask = np.logical_and(self.data.stype == stype,
                                   self.data.distance_s >= dist)
 
+        # drop the planets to remove from the data
         self.data = self.data.drop(np.where(mask)[0])
         self.data.index = np.arange(0, self.data.shape[0], 1)
 
     def get_stype(self):
+        # TODO: move this s.t. it creates the masks in the self.mask variable
         self.stype = np.zeros_like(self.data.nstar, dtype=str)
         for _, k in enumerate(self.stype_key):
             self.stype[self.data.stype == self.stype_key[k]] = k
 
     def read_ppop(self,
                   input_path: str):
-        """Read the contents of the P-Pop output .txt file to a catalog
+        """Read the contents of the P-Pop output file (in .txt or .fits format) to a catalog
 
         Parameters
         ----------
         input_path : str
-            path to the P-Pop output file in a .txt format
-
-        Returns
-        -------
+            path to the P-Pop output file in a .txt or .fits format
         """
 
+        # check the format of the input file
         if input_path[-4:] == '.txt':
             table = open(input_path, 'r')
             table_lines = table.readlines()
@@ -245,6 +257,7 @@ class Catalog(object):
             sys.stdout.flush()
             print('')
 
+            # save the data to the pandas DataFrame
             self.data['nuniverse'] = np.array(nuniverse).astype(int)
             self.data['radius_p'] = np.array(radius_p).astype(float)
             self.data['p_orb'] = np.array(p_orb)
@@ -275,12 +288,16 @@ class Catalog(object):
             self.data['dec'] = np.array(dec)
             self.data['id'] = np.arange(0, len(dec), 1)
 
+        # check the format of the input file
         elif input_path[-5:] == '.fits':
             hdu = fits.open(input_path)
             stype_int = np.zeros_like(hdu[1].data.Nstar.astype(int), dtype=int)
             for _, k in enumerate(self.stype_key.keys()):
                 stype_int[hdu[1].data.Stype.astype(str) == k] = self.stype_key[k]
 
+            # save the data to the pandas DataFrame, make sure it is saved in the correct type
+            # some errors were produced here by not respecting the endianess of the data (numpy
+            # usually works with little endian)
             self.data = pd.DataFrame({'nuniverse': hdu[1].data.Nuniverse.astype(int),
                                       'nstar': hdu[1].data.Nstar.astype(int),
                                       'stype': stype_int,
@@ -314,7 +331,11 @@ class Catalog(object):
                                       'lon': hdu[1].data.lon.astype(float)})
             hdu.close()
 
+    # TODO rename
     def create_mask(self):
+        """
+        Creates a mask filtering for the unique stars
+        """
         _, temp = np.unique(self.data.nstar, return_index=True)
         self.masks['stars'] = np.zeros_like(self.data.nstar, dtype=bool)
         self.masks['stars'][temp] = True
@@ -322,6 +343,25 @@ class Catalog(object):
     def safe_add(self,
                  name: str,
                  data: np.ndarray):
+        """
+        Add data to the catalog while making sure that none of the catalogs vital properties are
+        disrespected and that no data is deleted
+
+        Parameters
+        ----------
+        name : str
+            Name key of the data in the pandas DataFrame
+        data : np.ndarray
+            The data added to the catalog
+
+        Raises
+        ------
+        ValueError
+            If the data is not one-dimensional.
+            If the array does not have the same length as the other data arrays in the catalog.
+            If the catalog already contains data under the given name.
+        """
+
         if data.ndim != 1:
             raise ValueError('Only one-dimensional data can be added')
         if data.shape[0] != self.data.nstar.shape[0]:
@@ -331,6 +371,9 @@ class Catalog(object):
         self.data[name] = data
 
     def equitorial_to_ecliptic(self):
+        """
+        Create ecliptic coordinated (lon, lat) from the given equitorial coordinates
+        """
         coord = SkyCoord(self.data.ra, self.data.dec, frame='icrs', unit='deg')
         coord_ec = coord.transform_to(BarycentricMeanEcliptic())
         self.data['lon'] = np.array(coord_ec.lon.radian)

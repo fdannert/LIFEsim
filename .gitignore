@@ -1,5 +1,3 @@
-/lifesim/archive/catalog.py
-/lifesim/archive/database.py
-/lifesim/archive/readwrite.py
 /life_sim.py
 /__init__.py
+/lifesim/archive/
