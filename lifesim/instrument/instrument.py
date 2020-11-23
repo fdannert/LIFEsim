@@ -123,10 +123,10 @@ class Instrument(PrimaryModule):
         self.mas_pix = (2 * self.hfov_mas) / self.options.other['image_size']  # mas per pixel
 
         # apertures defines the telescope positions (and *relative* radius)
-        self.apertures = np.array([[-self.bl / 2, -6 * self.bl / 2., 1.],
-                                   [self.bl / 2, -6 * self.bl / 2., 1.],
-                                   [self.bl / 2, 6 * self.bl / 2., 1.],
-                                   [-self.bl / 2, 6 * self.bl / 2., 1.]])
+        self.apertures = np.array([[-self.bl / 2, -self.options.array['ratio'] * self.bl / 2., 1.],
+                                   [self.bl / 2, -self.options.array['ratio'] * self.bl / 2., 1.],
+                                   [self.bl / 2, self.options.array['ratio'] * self.bl / 2., 1.],
+                                   [-self.bl / 2, self.options.array['ratio'] * self.bl / 2., 1.]])
 
         # coordinate maps for faster calculations
         self.x_map = np.tile(np.array(range(0, self.options.other['image_size'])),
@@ -138,11 +138,12 @@ class Instrument(PrimaryModule):
 
         # push the new options and parameters to the sockets
         self.update_socket(name='transmission_generator',
-                           data={'wl': self.wl_bins,
-                                 'hfov_mas': self.hfov_mas,
+                           data={'wl_bins': self.wl_bins,
+                                 'hfov': self.hfov,
                                  'image_size': self.options.other['image_size'],
                                  'bl': self.bl,
-                                 'map_selection': 'tm3'})
+                                 'map_selection': 'tm3',
+                                 'ratio': self.options.array['ratio']})
         for i in range(self.options.other['n_plugins']):
             self.update_socket(name='p_noise_source_' + str(i),
                                data={'lz_model': self.options.models['localzodi'],
@@ -154,7 +155,8 @@ class Instrument(PrimaryModule):
                                      'hfov': self.hfov,
                                      'telescope_area': self.telescope_area,
                                      'mas_pix': self.mas_pix,
-                                     'rad_pix': self.rad_pix})
+                                     'rad_pix': self.rad_pix,
+                                     'ratio': self.options.array['ratio']})
 
     def get_wl_bins_const_spec_res(self):
         """

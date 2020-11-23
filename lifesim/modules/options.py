@@ -13,7 +13,8 @@ class Options(object):
                       'spec_res': 0,
                       'baseline': 0.,
                       'bl_min': 0.,
-                      'bl_max': 0.}
+                      'bl_max': 0.,
+                      'ratio': 0.}
 
         self.other = {'image_size': 0,
                       'wl_optimal': 0.,
@@ -31,6 +32,7 @@ class Options(object):
         self.array['baseline'] = 20.
         self.array['bl_min'] = 10.
         self.array['bl_max'] = 100.
+        self.array['ratio'] = 6.
 
         self.other['image_size'] = 512
         self.other['wl_optimal'] = 15

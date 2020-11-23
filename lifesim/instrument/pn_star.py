@@ -12,6 +12,7 @@ def get_stellar_leakage(radius_s: float,
                         telescope_area: float,
                         wl_bins: np.ndarray,
                         wl_bin_widths: np.ndarray,
+                        ratio: float,
                         image_size: int = 50,
                         map_selection: str = 'tm3'):
     """
@@ -40,6 +41,9 @@ def get_stellar_leakage(radius_s: float,
     map_selection : str
         Select from which arm of the array the transmission map for the calculation of the leakage
         is taken
+    ratio : float
+        Ratio between the nulling and the imaging baseline. E.g. if the imaging baseline is twice
+        as long as the nulling baseline, the ratio will be 2
 
     Returns
     -------
@@ -59,19 +63,21 @@ def get_stellar_leakage(radius_s: float,
 
     # convert units
     Rs_au = 0.00465047 * radius_s
-    Rs_mas = Rs_au / distance_s * 1000
-    Rs_mas = float(Rs_mas)
+    Rs_as = Rs_au / distance_s
+    Rs_mas = float(Rs_as)
+    Rs_rad = Rs_mas / (3600. * 180.) * np.pi
 
     # TODO Instead of recalculating the transmission map for the stellar radius here, one could try
     #   to reuse the inner part of the transmission map already calculated in the get_snr function
     #   of the instrument class
     # TODO: why are we not reusing the maps calculated in the instrument class
     # get a transmission map at the stellar radius
-    tm_star = fast_transmission(wl=wl_bins,
-                                hfov_mas=Rs_mas,
+    tm_star = fast_transmission(wl_bins=wl_bins,
+                                hfov=Rs_rad,
                                 image_size=image_size,
                                 bl=bl,
-                                map_selection=[map_selection])[int(map_selection[-1]) - 1]
+                                map_selection=[map_selection],
+                                ratio=ratio)[int(map_selection[-1]) - 1]
 
     x_map = np.tile(np.array(range(0, image_size)), (image_size, 1))
     y_map = x_map.T
@@ -121,4 +127,5 @@ class PhotonNoiseStar(Module):
                                          bl=self.data['bl'],
                                          telescope_area=self.data['telescope_area'],
                                          wl_bins=self.data['wl_bins'],
-                                         wl_bin_widths=self.data['wl_width'])
+                                         wl_bin_widths=self.data['wl_width'],
+                                         ratio=self.data['ratio'])
