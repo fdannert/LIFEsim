@@ -31,7 +31,7 @@ def get_localzodi_leakage(lz_model: str,
     wl_bin_widths : np.ndarray
         Widths of the spectral wavelength bins in [m]
     t_map : np.ndarray
-        Transmission map of the TM3 arm of the array created by the
+        Transmission map of the TM3 mode of the array created by the
         lifesim.TransmissionMap module
     lz_model : str
         Specifies which localzodi model will be used

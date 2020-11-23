@@ -28,8 +28,8 @@ def fast_transmission(wl_bins: np.ndarray,
     hfov : np.ndarray
         Contains the half field of view of the observatory in [rad] for each of the spectral bins
     map_selection : list
-        A list of strings specifying the array arm from which the transmission map is generated.
-        The possible options are 'tm1', 'tm2', 'tm3', 'tm4'
+        A list of strings specifying the array transmission mode from which the transmission map is
+        generated. The possible options are 'tm1', 'tm2', 'tm3', 'tm4'
     ratio : float
         Ratio between the nulling and the imaging baseline. E.g. if the imaging baseline is twice
         as long as the nulling baseline, the ratio will be 2
@@ -47,13 +47,13 @@ def fast_transmission(wl_bins: np.ndarray,
     Returns
     -------
     tm1
-        Transmission map from first arm
+        Transmission map from first mode
     tm2
-        Transmission map from second arm
+        Transmission map from second mode
     tm3
-        Transmission map from third arm
+        Transmission map from third mode
     tm4
-        Transmission map from fourth arm
+        Transmission map from fourth mode
     tm_chop
         The chopped transmission map calculated by subtracting tm4 from tm3
     """
@@ -147,7 +147,7 @@ def transm_curve(bl: float,
     transm_curve_chop
         Radial transmission curve corresponding to the chopped transmission map
     transm_curve_tm4
-        Radial transmission curve corresponding to the transmission map of the 4th arm 'tm4'
+        Radial transmission curve corresponding to the transmission map of the 4th mode 'tm4'
     """
 
     # reshape the wl_bins arrays for calculation (to (n, 1))
@@ -226,13 +226,13 @@ class TransmissionMap(Module):
     Attributes
     ----------
     tm1
-        Transmission map from first arm
+        Transmission map from first mode
     tm2
-        Transmission map from second arm
+        Transmission map from second mode
     tm3
-        Transmission map from third arm
+        Transmission map from third mode
     tm4
-        Transmission map from fourth arm
+        Transmission map from fourth mode
     tm_chop
         The chopped transmission map calculated by subtracting tm4 from tm3
     transm_eff

@@ -39,7 +39,7 @@ def get_stellar_leakage(radius_s: float,
     bl : float
         Length of the shorter, nulling baseline in [m]
     map_selection : str
-        Select from which arm of the array the transmission map for the calculation of the leakage
+        Select from which mode of the array the transmission map for the calculation of the leakage
         is taken
     ratio : float
         Ratio between the nulling and the imaging baseline. E.g. if the imaging baseline is twice

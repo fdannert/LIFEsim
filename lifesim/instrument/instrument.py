@@ -376,9 +376,6 @@ class Instrument(PrimaryModule):
         self.adjust_bl_to_hz(hz_center=hz_center,
                              distance_s=distance_s)
 
-        # TODO remove remove remove
-        self.bl = 14.54118465607078
-
         # get transmission map
         self.update_socket(name='transmission_generator',
                            data={'bl': self.bl,

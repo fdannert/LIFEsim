@@ -15,7 +15,8 @@ def get_exozodi_leakage(image_size: int,
                         radius_map: np.ndarray,
                         wl_bins: np.ndarray,
                         wl_bin_edges: np.ndarray,
-                        t_map: np.ndarray):
+                        t_map: np.ndarray,
+                        hfov: np.ndarray):
     """
     Simulates the amount of photon noise originating from the exozodi of the observed system
     leaking into the LIFE array measurement
@@ -42,7 +43,7 @@ def get_exozodi_leakage(image_size: int,
     wl_bin_edges : np.ndarray
         Edges of the spectral wavelength bins in [m]. For N bins, this array will contain N+1 edges
     t_map : np.ndarray
-        Transmission map of the TM3 arm of the array created by the
+        Transmission map of the TM3 mode of the array created by the
         lifesim.TransmissionMap module
 
     Returns
@@ -99,7 +100,6 @@ def get_exozodi_leakage(image_size: int,
     freq_widths = np.array(freq_widths)
 
     # TODO remove
-    hfov = wl_bins / (2. * 2.)
     hfov = np.array(hfov)
     if hfov.shape[-1] > 1:
         hfov = np.reshape(hfov, (hfov.shape[-1], 1, 1))
@@ -157,6 +157,5 @@ class PhotonNoiseExozodi(Module):
                                          radius_map=self.data['radius_map'],
                                          wl_bins=self.data['wl_bins'],
                                          wl_bin_edges=self.data['wl_bin_edges'],
-                                         t_map=self.data['t_map']) \
-                     # TODO: is it correct to exclude it here?
-                     # * self.data['z']
+                                         t_map=self.data['t_map'],
+                                         hfov=self.data['hfov'])

@@ -10,7 +10,6 @@ from lifesim.modules.habitable import compute_habitable_zone
 from lifesim.modules.options import Options
 
 
-# todo Documentation
 class Catalog(object):
     """
     A Catalog is used to import and store information about planetary populations
