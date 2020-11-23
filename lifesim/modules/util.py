@@ -1,43 +1,107 @@
 import numpy as np
+from typing import Union
 
 from lifesim.modules import constants
 
 
-def planck_law(x, temp, mode):
+def planck_law(x: np.ndarray,
+               temp: Union[float, np.ndarray],
+               mode: str):
+    """
+    Calculates the photon flux emitted from a black body according to Planck's law in the
+    wavelength or frequency regime
+
+    Parameters
+    ----------
+    x : np.ndarray
+        The frequency of wavelength at which the photon fluxes are calculated in [Hz] or [m]
+    temp : Union[float, np.ndarray]
+        The temperature of the black body
+    mode : str
+        If ``x`` is given in [Hz], set ``mode = 'frequency'. If ``x`` is given in [m], set
+        ``mode = 'wavelength'
+
+    Raises
+    ------
+    ValueError
+        If the mode is not recognized
+
+    Returns
+    -------
+    fgamma : np.ndarray
+        The photon flux at the respective wavelengths or frequencies
+    """
+
+    # select the correct mode
     if mode == 'wavelength':
+
+        # the Planck law divided by the photon energy to obtain the photon flux
         fgamma = 2 * constants.c / (x**4) / \
            (np.exp(constants.h * constants.c / x / constants.k / temp) - 1)
     elif mode == 'frequency':
-        # TODO temp == 0 is unused but still calculated. It thus still throws a runtime warning
-        fgamma = np.where(temp == 0,
-                          0,
-                          2 * x**2 / (constants.c**2) /
-                          (np.exp(constants.h * x / constants.k / temp)))
+
+        # account for the temperature being zero at some pixels
+        with np.errstate(divide='ignore'):
+
+            # the Planck law divided by the photon energy to obtain the photon flux
+            fgamma = np.where(temp == 0,
+                              0,
+                              2 * x**2 / (constants.c**2) /
+                              (np.exp(constants.h * x / constants.k / temp)))
     else:
         raise ValueError('Mode not recognised')
+
     return fgamma
 
 
-# TODO The black body number flux function was changed to an integral over the planck function.
-#   Compare with non-integral function (commented out) to see performance difference
 def black_body(mode: str,
                bins: np.ndarray,
                width: np.ndarray,
-               temp: float,
+               temp: Union[float, np.ndarray],
                radius: float = None,
                distance: float = None):
-    # fgamma = []
-    # for i in range(wl_edges.shape[0] - 1):
-    #     f = integrate.quad(lambda l: planck_law(l, temp), wl_edges[i], wl_edges[i + 1])[0]
-    #     fgamma.append(f)
-    # fgamma = np.array(fgamma)
-    # fgamma = planck_law(wl=wl_bins,
-    #                     temp=temp) * wl_width
-    # k1 = 2 * constants.c
-    # k2 = (constants.h * constants.c) / constants.k
-    # fact1 = k1 / (wl ** 4)
-    # fact2 = k2 / (temp * wl)
-    # fgamma = np.array(fact1 / (np.exp(fact2) - 1.0)) * 1e-6
+    """
+    Calculates the black body photon flux in wavelength or frequency as well as for planetary or
+    stellar sources
+
+    Parameters
+    ----------
+    mode : str
+        Defines the mode of the ``black_body`` function.
+            - ``mode = 'wavelength'`` : Clean photon flux black body spectrum over wavelength is
+              returned. Parameters used are ``bins``, ``width`` and ``temp``
+            - ``mode = 'frequency'`` : Clean photon flux black body spectrum over frequency is
+              returned. Parameters used are ``bins``, ``width`` and ``temp``
+            - ``mode = 'star'`` : Photon flux black body spectrum received from a star of specified
+              radius from the specified distance. All parameters are used. In this mode, the
+              parameter ``bins`` needs to be in wavelength
+            - ``mode = 'planet'`` : Photon flux black body spectrum received from a planet of
+              specified radius from the specified distance. All parameters are used. In this mode,
+              the parameter ``bins`` needs to be in wavelength
+    bins : np.ndarray
+        The wavelength or frequency bins at which the black body is evaluated in [m] or [Hz]
+        respectively
+    width : np.ndarray
+        The width of the wavelength or frequency bins to integrate over the black body spectrum in
+        [m] or [Hz] respectively
+    temp : Union[float, np.ndarray]
+        The temperature of the black body
+    radius : float
+        The radius of the spherical black body object. For ``mode = 'star'`` in [sun_radii], for
+        ``mode = 'planet'`` in [earth_radii]
+    distance : float
+        The distance between the instrument and the observed object in [pc]
+
+    Raises
+    ------
+    ValueError
+        If the mode is not recognized
+
+    Returns
+    -------
+    fgamma : np.ndarray
+        The photon flux at the respective wavelengths or frequencies
+    """
 
     # TODO: Should it not be 4*pi ?
     if mode == 'star':
@@ -57,11 +121,9 @@ def black_body(mode: str,
     elif mode == 'frequency':
         # TODO remove hardcoded np.newaxis solution. The redim is needed for the PhotonNoiseExozodi
         #   class
-        a=1
         fgamma = planck_law(x=bins,
                             temp=temp,
                             mode='frequency') * width[:, np.newaxis, np.newaxis]
-        a=1
     else:
         raise ValueError('Mode not recognised')
 

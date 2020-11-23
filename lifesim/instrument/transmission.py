@@ -218,29 +218,29 @@ def transm_eff(bl: float,
 
 class TransmissionMap(Module):
     """
-        'Plugin' module for calculating transmission trough the LIFE array. The module can be
-        operated in 'map' mode, where it returns the transmission maps, or in 'efficiency' mode,
-        where it returns the transmission efficiency. The module has the function type
-        'transmission'
+    'Plugin' module for calculating transmission trough the LIFE array. The module can be
+    operated in 'map' mode, where it returns the transmission maps, or in 'efficiency' mode,
+    where it returns the transmission efficiency. The module has the function type
+    'transmission'
 
-        Attributes
-        ----------
-        tm1
-            Transmission map from first arm
-        tm2
-            Transmission map from second arm
-        tm3
-            Transmission map from third arm
-        tm4
-            Transmission map from fourth arm
-        tm_chop
-            The chopped transmission map calculated by subtracting tm4 from tm3
-        transm_eff
-            Transmission efficiency per spectral bin for the exoplanet signal
-        transm_noise
-            Transmission efficiency per spectral bin for the photon noise received from the
-            exoplanet signal
-        """
+    Attributes
+    ----------
+    tm1
+        Transmission map from first arm
+    tm2
+        Transmission map from second arm
+    tm3
+        Transmission map from third arm
+    tm4
+        Transmission map from fourth arm
+    tm_chop
+        The chopped transmission map calculated by subtracting tm4 from tm3
+    transm_eff
+        Transmission efficiency per spectral bin for the exoplanet signal
+    transm_noise
+        Transmission efficiency per spectral bin for the photon noise received from the
+        exoplanet signal
+    """
 
     def __init__(self,
                  name: str):
