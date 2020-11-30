@@ -59,7 +59,7 @@ def get_localzodi_leakage(lz_model: str,
     if not((lz_model == 'glasse') or (lz_model == 'darwinsim')):
         raise ValueError('Specified model does not exist')
     
-    long = 4 / 4 * np.pi
+    long = 3 / 4 * np.pi
     lat = lat_s
 
     ap = np.where(radius_map <= image_size / 2, 1, 0)

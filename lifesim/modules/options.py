@@ -21,8 +21,8 @@ class Options(object):
             - ``'baseline'`` : Length of the shorter nulling baseline in [m]
             - ``'bl_min'`` : Minimum allowed length of the shorter nulling baseline in [m]
             - ``'bl_max'`` : Maximum allowed length of the shorter nulling baseline in [m]
-            - ``'ratio'`` : Ratio between the nulling and the imaging baseline. E.g. if the imaging baseline is twice
-              as long as the nulling baseline, the ratio will be 2
+            - ``'ratio'`` : Ratio between the nulling and the imaging baseline. E.g. if the imaging
+              baseline is twice as long as the nulling baseline, the ratio will be 2
     other : dict
         Options concerning simulation parameters. They are
             - ``'image_size'`` : Number of pixels (in one axis) which will be simulated.
@@ -78,7 +78,7 @@ class Options(object):
         self.array['bl_max'] = 100.
         self.array['ratio'] = 6.
 
-        self.other['image_size'] = 512
+        self.other['image_size'] = 256  # TODO: or 512?
         self.other['wl_optimal'] = 15
         self.other['n_plugins'] = 5
 

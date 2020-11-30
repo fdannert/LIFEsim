@@ -35,9 +35,12 @@ def planck_law(x: np.ndarray,
     # select the correct mode
     if mode == 'wavelength':
 
-        # the Planck law divided by the photon energy to obtain the photon flux
-        fgamma = 2 * constants.c / (x**4) / \
-           (np.exp(constants.h * constants.c / x / constants.k / temp) - 1)
+        # account for the temperature being zero at some pixels
+        with np.errstate(divide='ignore'):
+
+            # the Planck law divided by the photon energy to obtain the photon flux
+            fgamma = 2 * constants.c / (x**4) / \
+               (np.exp(constants.h * constants.c / x / constants.k / temp) - 1)
     elif mode == 'frequency':
 
         # account for the temperature being zero at some pixels
@@ -47,7 +50,7 @@ def planck_law(x: np.ndarray,
             fgamma = np.where(temp == 0,
                               0,
                               2 * x**2 / (constants.c**2) /
-                              (np.exp(constants.h * x / constants.k / temp)))
+                              (np.exp(constants.h * x / constants.k / temp))-1.)
     else:
         raise ValueError('Mode not recognised')
 
@@ -103,7 +106,6 @@ def black_body(mode: str,
         The photon flux at the respective wavelengths or frequencies
     """
 
-    # TODO: Should it not be 4*pi ?
     if mode == 'star':
         fgamma = planck_law(x=bins,
                             temp=temp,
@@ -139,9 +141,8 @@ def import_spectrum(pathtofile: str,
                     clean: bool = False):
     spec = np.loadtxt(pathtofile).T
     spec[0] *= 1e-6  # per micron to per m
-    spec[1] /= 3600.  # hours to seconds
-    # TODO: remove
-    spec[1] *= 1e6  # per micron
+    # spec[1] /= 3600.  # hours to seconds
+    spec[1] *= 1e6  # per micron to per m
 
     bins = np.digitize(spec[0], wl_bin_edges)
     bins_mean = [spec[1][bins == i].mean() for i in range(1, len(wl_bin_edges))]

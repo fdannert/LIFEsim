@@ -15,6 +15,7 @@ def get_exozodi_leakage(image_size: int,
                         radius_map: np.ndarray,
                         wl_bins: np.ndarray,
                         wl_bin_edges: np.ndarray,
+                        wl_bin_widths: np.ndarray,
                         t_map: np.ndarray,
                         hfov: np.ndarray):
     """
@@ -57,7 +58,7 @@ def get_exozodi_leakage(image_size: int,
     r_in = 0.034422617777777775 * np.sqrt(l_sun)
     r_0 = np.sqrt(l_sun)
     distance_s_au = distance_s * 648000 / np.pi  # 360 * 3600 / (2 * pi)
-    sigma_zero = 7.12e-8  # Sigma_{m,0} from Kennedy 2015 (doi:10.1088/0067-0049/216/2/23)
+    sigma_zero = 7.11889e-8  # Sigma_{m,0} from Kennedy 2015 (doi:10.1088/0067-0049/216/2/23)
 
     # reshape the mas per pixel array for calculation (to (n, 1, 1))
     mas_pix = np.array([mas_pix])
@@ -92,6 +93,14 @@ def get_exozodi_leakage(image_size: int,
     if freq_bins.shape[-1] > 1:
         freq_bins = np.reshape(freq_bins, (freq_bins.shape[-1], 1, 1))
 
+    wl_bins = np.array([wl_bins])
+    if wl_bins.shape[-1] > 1:
+        wl_bins = np.reshape(wl_bins, (wl_bins.shape[-1], 1, 1))
+
+    wl_bin_widths = np.array([wl_bin_widths])
+    if wl_bin_widths.shape[-1] > 1:
+        wl_bin_widths = np.reshape(wl_bin_widths, (wl_bin_widths.shape[-1], 1, 1))
+
     # same conversion for the bin edges
     freq_bin_edges = constants.c / np.array(wl_bin_edges)
     freq_widths = []
@@ -106,11 +115,16 @@ def get_exozodi_leakage(image_size: int,
 
 
     # get the black body radiation emitted by the interexoplanetary dust
-    f_nu_disk = black_body(bins=freq_bins,
-                           width=freq_widths,
+    f_nu_disk = black_body(bins=wl_bins,
+                           width=wl_bin_widths,
                            temp=temp_map,
-                           mode='frequency') \
-                * sigma * np.pi * np.sin(hfov)**2 * telescope_area / 512**2
+                           mode='wavelength') \
+                * sigma * (rad_pix)**2 * telescope_area
+                # * sigma * (distance_s * constants.m_per_pc)**2 * np.pi / 4 * rad_pix**4
+                # * telescope_area * rad_pix ** 2 * sigma
+                # * 4 / np.pi * telescope_area * rad_pix**2 * sigma
+                # * sigma * (2. * np.sin(hfov)) ** 2 * telescope_area / 512 ** 2
+                # * sigma * np.pi * np.sin(hfov)**2 * telescope_area / 512**2
                 # * sigma * np.pi * np.sin(rad_pix) ** 2 * area_pix_at_aperture
 
 
@@ -158,4 +172,5 @@ class PhotonNoiseExozodi(Module):
                                          wl_bins=self.data['wl_bins'],
                                          wl_bin_edges=self.data['wl_bin_edges'],
                                          t_map=self.data['t_map'],
-                                         hfov=self.data['hfov'])
+                                         hfov=self.data['hfov'],
+                                         wl_bin_widths=self.data['wl_width'])

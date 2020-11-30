@@ -1,17 +1,27 @@
 import math
+import os
 
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import (QApplication, QDialog, QGroupBox, QSlider, QGridLayout, QLabel,
                              QVBoxLayout, QLineEdit, QWidget, QSpinBox, QHBoxLayout,
                              QDoubleSpinBox, QFileDialog, QPushButton, QTabWidget, QCheckBox,
-                             QProgressBar)
+                             QProgressBar, QComboBox, QSizePolicy)
 from PyQt5.QtGui import QPixmap
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
 import numpy as np
+from astropy import units as u
+from astropy.visualization import quantity_support
 
 import lifesim as life
 from lifesim.modules.util import import_spectrum
+
+# change the directory to the path of the spectrum_gui.py file to ensure that the logo is imported
+# correctly
+import os
+os.chdir(os.path.dirname(__file__))
+
+quantity_support()
 
 
 class CustomSlider(QWidget):
@@ -55,6 +65,17 @@ class BoxLabel(QWidget):
         self.box.setMaximum(maxi)
         self.box.setValue(value)
         self.box.setSuffix(suffix)
+
+        layout = QHBoxLayout(self)
+        layout.addWidget(self.label)
+        layout.addWidget(self.box)
+
+
+class StringBoxLabel(QWidget):
+    def __init__(self, label, *args, **kwargs):
+        super(StringBoxLabel, self).__init__(*args, **kwargs)
+        self.box = QLineEdit()
+        self.label = QLabel(text=label)
 
         layout = QHBoxLayout(self)
         layout.addWidget(self.label)
@@ -144,6 +165,8 @@ class Frame(QDialog):
         self.options = life.Options()
         self.options.set_scenario('baseline')
 
+        self.spec_import = life.SpectrumImporter()
+
         inst = life.Instrument(name='LIFE',
                                options=self.options)
         self.bus.add_module(module=inst)
@@ -172,38 +195,40 @@ class Frame(QDialog):
         self.create_logo()
         self.view_spectrum()
         self.create_save()
+        self.create_input()
 
         # structure all setting into one widget
-        planet_star = QWidget()
+        planet_inst = QWidget()
 
-        ps_layout = QHBoxLayout(planet_star)
-        ps_layout.addWidget(self.star)
+        ps_layout = QVBoxLayout(planet_inst)
+        ps_layout.addWidget(self.instrument)
         ps_layout.addWidget(self.planet)
 
         settings = QWidget()
 
-        s_layout = QVBoxLayout(settings)
-        s_layout.addWidget(self.instrument, alignment=Qt.AlignTop)
-        s_layout.addWidget(planet_star, alignment=Qt.AlignTop)
+        s_layout = QHBoxLayout(settings)
+        s_layout.addWidget(self.star)
+        s_layout.addWidget(planet_inst)
 
         # structure the results in one widget
         results = QWidget()
 
-        r_layout = QVBoxLayout(results)
-        r_layout.addWidget(self.s_result)
-        r_layout.addWidget(self.save_dialog, alignment=Qt.AlignBottom)
+        r_layout = QGridLayout(results)
+        r_layout.addWidget(self.s_result, 0, 0)
+        r_layout.addWidget(self.save_dialog, 1, 0, alignment=Qt.AlignBottom)
 
         # Inputs
         preview = QWidget()
 
         p_layout = QHBoxLayout(preview)
+        p_layout.addWidget(self.input)
         p_layout.addWidget(self.s_preview)
 
         # create the tab widget
         tabs = QTabWidget()
         tabs.addTab(settings, 'Settings')
         tabs.addTab(preview, 'Preview')
-        tabs.addTab(results, 'Results')
+        tabs.addTab(self.s_result, 'Results')
 
         #structure the sidebar in one widget
         sidebar = QWidget()
@@ -240,14 +265,15 @@ class Frame(QDialog):
                                  value=20,
                                  suffix='')
 
-        line = QWidget()
-        l_layout = QHBoxLayout(line)
-        l_layout.addWidget(self.diameter, alignment=Qt.AlignLeft)
-        l_layout.addWidget(self.spec_res, alignment=Qt.AlignLeft)
+        # line = QWidget()
+        # l_layout = QHBoxLayout(line)
+        # l_layout.addWidget(self.diameter, alignment=Qt.AlignLeft)
+        # l_layout.addWidget(self.spec_res, alignment=Qt.AlignLeft)
 
         layout = QVBoxLayout(self.instrument)
-        layout.addWidget(line)
-        layout.addWidget(self.wl_range, alignment=Qt.AlignHCenter)
+        layout.addWidget(self.diameter)
+        layout.addWidget(self.spec_res)
+        layout.addWidget(self.wl_range)
 
     def create_star(self):
         self.star = QGroupBox('Star')
@@ -299,7 +325,7 @@ class Frame(QDialog):
         layout.addWidget(self.z)
 
         s_layout = QVBoxLayout(self.star)
-        s_layout.addWidget(temp, alignment=Qt.AlignTop)
+        s_layout.addWidget(temp)
 
     def create_planet(self):
         self.planet = QGroupBox('Planet')
@@ -318,29 +344,9 @@ class Frame(QDialog):
                                   step=0.5,
                                   suffix='R⊕')
 
-        self.radius_spec = DoubleBoxLabel(label='Reference Radius',
-                                       mini=0.,
-                                       maxi=10.,
-                                       value=1.,
-                                       step=0.5,
-                                       suffix='R⊕')
-
-        self.d_spec = DoubleBoxLabel(label='Reference Distance',
-                                         mini=0.,
-                                         maxi=50.,
-                                         step=1.,
-                                         value=10.,
-                                         suffix='pc')
-        self.d_spec.box.setDecimals(0)
-
-        self.browse = FileBrowser(label='Spectrum')
-
         layout = QVBoxLayout()
         layout.addWidget(self.angsep)
         layout.addWidget(self.radius_p)
-        layout.addWidget(self.radius_spec)
-        layout.addWidget(self.d_spec)
-        layout.addWidget(self.browse)
         self.planet.setLayout(layout)
 
     def preview_spectrum(self):
@@ -348,13 +354,27 @@ class Frame(QDialog):
         self.p_plot = PlotCanvas(self, width=5, height=4, dpi=100)
         # self.p_plot.axes.plot([0, 1, 2, 3, 4], [10, 1, 20, 3, 40])
 
+        top = QWidget()
+        self.prev_kind = QComboBox()
+        self.prev_kind.addItems(['given units', 'converted units'])
+
         button = QPushButton('Preview Spectrum')
         button.clicked.connect(self.show_preview)
 
-        layout = QGridLayout()
-        layout.addWidget(button, 0, 0)
-        layout.addWidget(self.p_plot, 1, 0)
-        self.s_preview.setLayout(layout)
+        layout_t = QHBoxLayout(top)
+        layout_t.addWidget(self.prev_kind)
+        layout_t.addWidget(button)
+
+        self.error_field = QLabel()
+        self.error_field.setStyleSheet("QLabel { color : red; }")
+
+        self.p_plot.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        # self.p_plot.setMinimumWidth(self.p_plot.height())
+
+        layout = QVBoxLayout(self.s_preview)
+        layout.addWidget(top, alignment=Qt.AlignTop)
+        layout.addWidget(self.p_plot)
+        layout.addWidget(self.error_field, alignment=Qt.AlignBottom)
 
     def view_spectrum(self):
         self.s_result = QWidget()
@@ -362,8 +382,20 @@ class Frame(QDialog):
         self.r_plot = PlotCanvas(self, width=5, height=4, dpi=100)
         # self.p_plot.axes.plot([0, 1, 2, 3, 4], [10, 1, 20, 3, 40])
 
+        self.save_dialog = QGroupBox('Save Spectrum to File')
+
+        self.save = FileSaver()
+        button = QPushButton('Save')
+        button.clicked.connect(self.save_spectrum)
+
+        layout = QHBoxLayout(self.save_dialog)
+        layout.addWidget(self.save)
+        layout.addWidget(button)
+        self.r_plot.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+
         layout = QVBoxLayout()
         layout.addWidget(self.r_plot)
+        layout.addWidget(self.save_dialog, alignment=Qt.AlignBottom)
         self.s_result.setLayout(layout)
 
     def create_simulation(self):
@@ -438,7 +470,7 @@ class Frame(QDialog):
         self.logo = QWidget()
 
         image = QLabel()
-        pixmap = QPixmap('logo.png').scaledToWidth(200)
+        pixmap = QPixmap('logo_blue.png').scaledToWidth(300)
         image.setPixmap(pixmap)
 
         website = QLabel('life-space-mission.com')
@@ -458,6 +490,63 @@ class Frame(QDialog):
         layout.addWidget(self.save)
         layout.addWidget(button)
 
+    def create_input(self):
+        self.input = QWidget()
+
+        load = QGroupBox('Import')
+
+        self.spec_kind = QComboBox()
+        self.spec_kind.addItems(['absolute', 'additive'])
+
+        self.browse = FileBrowser(label='Spectrum')
+
+        self.x_units = StringBoxLabel('x-axis units')
+        self.y_units = StringBoxLabel('y-axis units')
+        self.x_units.box.setText('micron')
+        self.y_units.box.setText('photon micron-1 h-1 m-2')
+
+
+        layout_l = QVBoxLayout(load)
+        layout_l.addWidget(self.spec_kind)
+        layout_l.addWidget(self.browse)
+        layout_l.addWidget(self.x_units)
+        layout_l.addWidget(self.y_units)
+
+        param = QGroupBox('Spectrum Parameters')
+
+        self.distance_spec = DoubleBoxLabel(label='Distance',
+                                       mini=0.,
+                                       maxi=50.,
+                                       step=1.,
+                                       value=0.,
+                                       suffix='pc')
+        self.distance_spec.box.setDecimals(0)
+        self.distance_spec.box.setValue(10.)
+
+        self.radius_spec = DoubleBoxLabel(label='Radius',
+                                     mini=0.,
+                                     maxi=10.,
+                                     value=0.,
+                                     step=0.5,
+                                     suffix='R⊕')
+        self.radius_spec.box.setValue(1.)
+
+        self.time_spec = DoubleBoxLabel(label='Integration Time',
+                                   mini=0.,
+                                   maxi=60.*60.*24.*365.*10.,
+                                   step=60.,
+                                   value=0.,
+                                   suffix='s')
+
+        layout_p = QVBoxLayout(param)
+        layout_p.addWidget(self.distance_spec)
+        layout_p.addWidget(self.radius_spec)
+        layout_p.addWidget(self.time_spec)
+
+        layout = QVBoxLayout(self.input)
+        layout.addWidget(load)
+        layout.addWidget(param)
+
     def update_options(self):
         self.options.set_manual(diameter=self.diameter.box.value(),
                                 wl_min=self.wl_range.lower.value(),
@@ -466,31 +555,43 @@ class Frame(QDialog):
         self.bus.modules['LIFE'].apply_options(self.options)
 
     def show_preview(self):
+        self.error_field.setText('')
         self.update_options()
-        p_spec = import_spectrum(pathtofile=self.browse.filepath.text(),
-                                 wl_bin_edges=self.bus.modules['LIFE'].wl_bin_edges,
-                                 radius_p=self.radius_p.box.value(),
-                                 distance_s=self.distance_s.box.value(),
-                                 radius_spec=self.radius_spec.box.value(),
-                                 distance_spec=self.d_spec.box.value(),
-                                 clean=True)
-        self.p_plot.axes.cla()
-        self.p_plot.axes.plot(p_spec[0] * 1e6, p_spec[1], color="darkblue", linestyle="-")
+        try:
+            self.spec_import.do_import(pathtotext=self.browse.filepath.text(),
+                                       x_string=self.x_units.box.text(),
+                                       y_string=self.y_units.box.text(),
+                                       distance_s_spectrum=self.distance_spec.box.value(),
+                                       distance_s_target=self.distance_s.box.value(),
+                                       radius_p_spectrum=self.radius_spec.box.value(),
+                                       radius_p_target=self.radius_p.box.value(),
+                                       integration_time=self.time_spec.box.value())
+            if self.prev_kind.currentIndex() == 0:
+                p_spec = [self.spec_import.x_raw, self.spec_import.y_raw]
+            else:
+                p_spec = [self.spec_import.x_data.to(u.micron), self.spec_import.y_data]
 
-        self.p_plot.axes.set_xlim(self.options.array['wl_min'], self.options.array['wl_max'])
-        self.p_plot.axes.set_ylim(
-            5e-1 * np.min(
-                p_spec[1]
-                [int(np.argwhere(p_spec[0] < (self.options.array['wl_min']*1e-6))[-1]):
-                 int(np.argwhere(p_spec[0] > (self.options.array['wl_max']*1e-6))[0])]),
-            0.5e1 * np.max(p_spec[1]
-                         [int(np.argwhere(p_spec[0] < (self.options.array['wl_min']*1e-6))[-1])
-                          :int(np.argwhere(p_spec[0] > (self.options.array['wl_max']*1e-6))[0])]))
-        self.p_plot.axes.set_xlabel(r"$\lambda$ [$\mu$m]")
-        self.p_plot.axes.set_ylabel(r"Input signal [ph s$^{-1}$m$^{-2}\mu$m$^{-1}$]")
-        self.p_plot.axes.set_yscale('log')
-        self.p_plot.axes.grid()
-        self.p_plot.draw()
+            self.flux_planet_spectrum = [self.spec_import.x_data, self.spec_import.y_data]
+            self.p_plot.axes.cla()
+            self.p_plot.axes.plot(p_spec[0], p_spec[1], color="darkblue", linestyle="-")
+            if self.prev_kind.currentIndex() == 1:
+                self.p_plot.axes.set_xlim(self.options.array['wl_min'], self.options.array['wl_max'])
+            self.p_plot.axes.set_ylim(
+                (5e-1 * np.min(
+                    p_spec[1]
+                    [int(np.argwhere(p_spec[0] < (self.options.array['wl_min']*u.micron))[-1]):
+                     int(np.argwhere(p_spec[0] > (self.options.array['wl_max']*u.micron))[0])]).value),
+                (0.5e1 * np.max(p_spec[1]
+                             [int(np.argwhere(p_spec[0] < (self.options.array['wl_min']*u.micron))[-1])
+                              :int(np.argwhere(p_spec[0] > (self.options.array['wl_max']*u.micron))[0])])).value)
+            # self.p_plot.axes.set_xlabel(r"$\lambda$ [$\mu$m]")
+            # self.p_plot.axes.set_ylabel(r"Input signal [ph s$^{-1}$m$^{-2}$m$^{-1}$]")
+            self.p_plot.axes.set_yscale('log')
+            self.p_plot.axes.grid()
+            self.p_plot.axes.ticklabel_format(axis='x', style='sci')
+            self.p_plot.draw()
+        except:
+            self.error_field.setText('An error occured during import')
 
     def show_spectrum(self,
                       spectrum,
@@ -498,9 +599,9 @@ class Frame(QDialog):
                       noise):
         self.r_plot.axes.cla()
         self.r_plot.axes.step(spectrum[0] * 1e6, planet / (self.time_b.value()*60*60),
-                 where="mid", color="r", label=f"Planet")
-        self.r_plot.axes.step(spectrum[0] * 1e6, np.sqrt(noise) / (self.time_b.value()*60*60),
-                 where="mid", color="black", label=f"Noise sources")
+                              where="mid", color="r", label=f"Planet")
+        self.r_plot.axes.step(spectrum[0] * 1e6, noise / (self.time_b.value()*60*60),
+                              where="mid", color="black", label=f"Noise sources")
         self.r_plot.axes.set_xlabel(r"$\lambda$ [$\mu$m]")
         self.r_plot.axes.set_ylabel(r"Detected signal per bin [e$^-$ s$^{-1}$ bin$^{-1}$]")
 
@@ -522,10 +623,10 @@ class Frame(QDialog):
 
         d_min = np.min(np.array((spectrum[1],
                                  planet / (self.time_b.value()*60*60),
-                                 np.sqrt(noise) / (self.time_b.value()*60*60)))) * 1e-1
+                                 noise / (self.time_b.value()*60*60)))) * 1e-1
         d_max = np.max(np.array((spectrum[1],
                                  planet / (self.time_b.value()*60*60),
-                                 np.sqrt(noise) / (self.time_b.value()*60*60)))) * 1e1
+                                 noise / (self.time_b.value()*60*60)))) * 1e1
         self.r_plot.axes.set_ylim(d_min, d_max)
         ax2a.set_ylim(d_min, d_max)
 
@@ -547,16 +648,13 @@ class Frame(QDialog):
             self.bus.connect(module_names=('LIFE', 'ez'))
 
         self.r_spec, self.flux_p, self.flux_n = self.bus.modules['LIFE'].get_spectrum(
-            pathtofile=self.browse.filepath.text(),
             temp_s=self.temp_s.box.value(),
             radius_s=self.radius_s.box.value(),
             distance_s=self.distance_s.box.value(),
-            radius_spec=self.radius_spec.box.value(),
-            distance_spec=self.d_spec.box.value(),
+            flux_planet_spectrum=self.flux_planet_spectrum,
             lat_s=self.lat.box.value(),
             z=self.z.box.value(),
             angsep=self.angsep.box.value(),
-            radius_p=self.radius_p.box.value(),
             integration_time=self.time_b.value()*60*60)
 
         self.show_spectrum(self.r_spec,
@@ -588,8 +686,8 @@ class Frame(QDialog):
             # file.writelines([self.r_spec[0], self.r_spec[1]])
             # file.close()
             np.savetxt(fname=self.save.filepath.text(),
-                       X=np.array(self.r_spec).T,
-                       header='Wavelength [m]   SNR per bin')
+                       X=np.array([self.r_spec[0], self.r_spec[1], self.flux_p]).T,
+                       header='Wavelength [m]   SNR per bin for 1h  Input flux')
 
 
 if __name__ == '__main__':

@@ -6,3 +6,4 @@ from lifesim.instrument.transmission import TransmissionMap
 from lifesim.instrument.pn_star import PhotonNoiseStar
 from lifesim.instrument.pn_localzodi import PhotonNoiseLocalzodi
 from lifesim.instrument.pn_exozodi import PhotonNoiseExozodi
+from lifesim.gui.importer import SpectrumImporter

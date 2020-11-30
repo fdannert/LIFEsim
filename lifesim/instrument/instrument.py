@@ -312,16 +312,13 @@ class Instrument(PrimaryModule):
 
     # TODO: fix units in documentation
     def get_spectrum(self,
-                     pathtofile: str,
                      temp_s: float,  # in K
                      radius_s: float,  # in R_sun
                      distance_s: float,  # in pc
                      lat_s: float,  # in radians
                      z: float,  # in zodis
                      angsep: float,  # in arcsec
-                     radius_p: float,  # in R_earth
-                     radius_spec: float,  # in R_earth radius of the planet in the reference spec
-                     distance_spec: float,  # in pc distance at which the spectrum is simulated
+                     flux_planet_spectrum: list,  # in ph m-3 s-1 over m
                      integration_time: float):
         """
         Simulates the spectrum of an exoplanet as seen by LIFE array, i.e. with the respective
@@ -400,13 +397,11 @@ class Instrument(PrimaryModule):
 
             self.run_socket(name='p_noise_source_' + str(j))
 
-        # import the photon flux originating from the planet from the input spectrum
-        flux_planet_spectrum = import_spectrum(pathtofile=pathtofile,
-                                               wl_bin_edges=self.wl_bin_edges,
-                                               radius_p=radius_p,
-                                               distance_s=distance_s,
-                                               radius_spec=radius_spec,
-                                               distance_spec=distance_spec)
+        bins = np.digitize(flux_planet_spectrum[0].value, self.wl_bin_edges)
+        bins_mean = [flux_planet_spectrum[1].value[bins == i].mean()
+                     for i in range(1, len(self.wl_bin_edges))]
+        bins_mean = np.array(bins_mean)
+        flux_planet_spectrum = bins_mean
 
         # calculate the signal and photon noise flux received from the planet
         flux_planet = flux_planet_spectrum \
@@ -430,10 +425,12 @@ class Instrument(PrimaryModule):
         noise_bg = noise_bg * integration_time * self.eff_tot
 
         # Add up the noise and caluclate the SNR
-        noise = noise_bg + noise_planet
+        noise = (noise_bg + noise_planet) * 2
         snr_spec = np.sqrt((flux_planet ** 2 / noise))
 
-        return [self.wl_bins, snr_spec], flux_planet, noise
+        return ([self.wl_bins, snr_spec],
+                flux_planet_spectrum,
+                noise)
 
 
 
