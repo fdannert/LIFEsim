@@ -657,6 +657,8 @@ class Frame(QDialog):
             angsep=self.angsep.box.value(),
             integration_time=self.time_b.value()*60*60)
 
+        print(self.r_spec[1][np.argmin(np.abs(self.r_spec[0]-11e-6))])
+
         self.show_spectrum(self.r_spec,
                            self.flux_p,
                            self.flux_n)

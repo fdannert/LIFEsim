@@ -73,4 +73,9 @@ def compute_habitable_zone(catalog: object,
     catalog.data['hz_in'] = hz_in
     catalog.data['hz_out'] = hz_out
     catalog.data['hz_center'] = hz_center
+    catalog.data['habitable'] = np.logical_and.reduce((
+        (catalog.data['semimajor_p'] > catalog.data['hz_in']).to_numpy(),
+        (catalog.data['semimajor_p'] < catalog.data['hz_out']).to_numpy(),
+        (catalog.data['radius_p'].ge(0.5)).to_numpy(),
+        (catalog.data['radius_p'].le(1.5)).to_numpy()))
 
