@@ -287,6 +287,7 @@ class Instrument(PrimaryModule):
                                 mode='efficiency')
 
                 # calculate the photon flux originating from the planet
+                # TODO: Where does the telescope area come in?
                 flux_planet_thermal = black_body(mode='planet',
                                                  bins=self.wl_bins,
                                                  width=self.wl_bin_widths,
