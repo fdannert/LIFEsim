@@ -1,5 +1,6 @@
 import numpy as np
 from tqdm import tqdm
+from spectres import spectres
 
 from lifesim.modules.options import Options
 from lifesim.dataio.catalog import Catalog
@@ -398,11 +399,10 @@ class Instrument(PrimaryModule):
 
             self.run_socket(name='p_noise_source_' + str(j))
 
-        bins = np.digitize(flux_planet_spectrum[0].value, self.wl_bin_edges)
-        bins_mean = [flux_planet_spectrum[1].value[bins == i].mean()
-                     for i in range(1, len(self.wl_bin_edges))]
-        bins_mean = np.array(bins_mean)
-        flux_planet_spectrum = bins_mean
+        flux_planet_spectrum = spectres(new_wavs=self.wl_bin_edges,
+                                        spec_wavs=flux_planet_spectrum[0].value,
+                                        spec_fluxes=flux_planet_spectrum[1].value,
+                                        edge_mode=True)
 
         # calculate the signal and photon noise flux received from the planet
         flux_planet = flux_planet_spectrum \

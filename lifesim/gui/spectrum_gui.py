@@ -194,7 +194,6 @@ class Frame(QDialog):
         self.create_scenario()
         self.create_logo()
         self.view_spectrum()
-        self.create_save()
         self.create_input()
 
         # structure all setting into one widget
@@ -209,13 +208,6 @@ class Frame(QDialog):
         s_layout = QHBoxLayout(settings)
         s_layout.addWidget(self.star)
         s_layout.addWidget(planet_inst)
-
-        # structure the results in one widget
-        results = QWidget()
-
-        r_layout = QGridLayout(results)
-        r_layout.addWidget(self.s_result, 0, 0)
-        r_layout.addWidget(self.save_dialog, 1, 0, alignment=Qt.AlignBottom)
 
         # Inputs
         preview = QWidget()
@@ -479,16 +471,16 @@ class Frame(QDialog):
         layout.addWidget(image)
         layout.addWidget(website)
 
-    def create_save(self):
-        self.save_dialog = QGroupBox('Save Spectrum to File')
-
-        self.save = FileSaver()
-        button = QPushButton('Save')
-        button.clicked.connect(self.save_spectrum)
-
-        layout = QHBoxLayout(self.save_dialog)
-        layout.addWidget(self.save)
-        layout.addWidget(button)
+    # def create_save(self):
+    #     self.save_dialog = QGroupBox('Save Spectrum to File')
+    #
+    #     self.save = FileSaver()
+    #     button = QPushButton('Save')
+    #     button.clicked.connect(self.save_spectrum)
+    #
+    #     layout = QHBoxLayout(self.save_dialog)
+    #     layout.addWidget(self.save)
+    #     layout.addWidget(button)
 
     def create_input(self):
         self.input = QWidget()
