@@ -6,8 +6,8 @@ import pandas as pd
 from astropy.io import fits
 from astropy.coordinates import SkyCoord, BarycentricMeanEcliptic
 
-from lifesim.modules.habitable import compute_habitable_zone
-from lifesim.modules.options import Options
+from lifesim.util.habitable import compute_habitable_zone
+from lifesim.util.options import Options
 
 
 class Catalog(object):

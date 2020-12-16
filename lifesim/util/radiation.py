@@ -1,7 +1,7 @@
 import numpy as np
 from typing import Union
 
-from lifesim.modules import constants
+from lifesim.util import constants
 
 
 def planck_law(x: np.ndarray,
