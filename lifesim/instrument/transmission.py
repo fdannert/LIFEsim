@@ -10,15 +10,12 @@ class TransmissionMap(TransmissionModule):
         super().__init__(name)
 
     def transmission_map(self,
-                         wl_bins: np.ndarray,
-                         hfov: Union[np.ndarray, type(None)],
-                         image_size: Union[int, type(None)],
-                         bl: float,
                          map_selection: list,
-                         ratio: float,
                          direct_mode: bool = False,
                          d_alpha: np.ndarray = None,
-                         d_beta: np.ndarray = None):
+                         d_beta: np.ndarray = None,
+                         hfov: np.ndarray = None,
+                         image_size: int = None):
         """
         Return the transmission map the LIFE array
 
@@ -65,15 +62,20 @@ class TransmissionMap(TransmissionModule):
             The chopped transmission map calculated by subtracting tm4 from tm3
         """
 
+        if hfov is None:
+            hfov = self.data.inst['hfov']
+        if image_size is None:
+            image_size = self.data.options.other['image_size']
+
+        # reshape the wl_bins and hfov arrays for calculation (to (n, 1, 1))
+        wl_bins = np.array([self.data.inst['wl_bins']])  # wavelength in m
+        if wl_bins.shape[-1] > 1:
+            wl_bins = np.reshape(wl_bins, (wl_bins.shape[-1], 1, 1))
+
         if direct_mode:
             alpha = d_alpha
             beta = d_beta
         else:
-            # reshape the wl_bins and hfov arrays for calculation (to (n, 1, 1))
-            wl_bins = np.array([wl_bins])  # wavelength in m
-            if wl_bins.shape[-1] > 1:
-                wl_bins = np.reshape(wl_bins, (wl_bins.shape[-1], 1, 1))
-
             hfov = np.array([hfov])  # wavelength in m
             if hfov.shape[-1] > 1:
                 hfov = np.reshape(hfov, (hfov.shape[-1], 1, 1))
@@ -92,25 +94,29 @@ class TransmissionMap(TransmissionModule):
             beta = beta * hfov
 
         # smaller distance of apertures from center line
-        L = bl / 2
+        L = self.data.inst['bl'] / 2
 
         tm1, tm2, tm3, tm4, tm_chop = None, None, None, None, None
 
+        # transmission map of mode 1
         if 'tm1' in map_selection:
             tm1 = np.cos(2 * np.pi * L * alpha / wl_bins) ** 2 * np.cos(
-                2 * ratio * np.pi * L * beta / wl_bins - np.pi / 4) ** 2  # transmission map of mode 1
+                2 * self.data.options.array['ratio'] * np.pi * L * beta / wl_bins - np.pi / 4) ** 2
 
+        # transmission map of mode 2
         if 'tm2' in map_selection:
             tm2 = np.cos(2 * np.pi * L * alpha / wl_bins) ** 2 * np.cos(
-                2 * ratio * np.pi * L * beta / wl_bins + np.pi / 4) ** 2  # transmission map of mode 2
+                2 * self.data.options.array['ratio'] * np.pi * L * beta / wl_bins + np.pi / 4) ** 2
 
+        # transmission map of mode 3
         if 'tm3' in map_selection:
             tm3 = np.sin(2 * np.pi * L * alpha / wl_bins) ** 2 * np.cos(
-                2 * ratio * np.pi * L * beta / wl_bins - np.pi / 4) ** 2  # transmission map of mode 3
+                2 * self.data.options.array['ratio'] * np.pi * L * beta / wl_bins - np.pi / 4) ** 2
 
+        # transmission map of mode 4
         if 'tm4' in map_selection:
             tm4 = np.sin(2 * np.pi * L * alpha / wl_bins) ** 2 * np.cos(
-                2 * ratio * np.pi * L * beta / wl_bins + np.pi / 4) ** 2  # transmission map of mode 4
+                2 * self.data.options.array['ratio'] * np.pi * L * beta / wl_bins + np.pi / 4) ** 2
 
         # difference of transmission maps 3 and 4 = "chopped transmission"
         if 'tm_chop' in map_selection:
@@ -123,15 +129,12 @@ class TransmissionMap(TransmissionModule):
             else:
                 tm_chop = np.sin(2 * np.pi * L * alpha / wl_bins) ** 2 * np.sin(
                     # chopped transm. map
-                    4 * ratio * np.pi * L * beta / wl_bins)
+                    4 * self.data.options.array['ratio'] * np.pi * L * beta / wl_bins)
 
         return tm1, tm2, tm3, tm4, tm_chop
 
     def transmission_efficiency(self,
-                                bl: float,
-                                wl_bins: np.ndarray,
-                                angsep: float,
-                                ratio: float):
+                                index: Union[int, type(None)]):
         """
         Integrates over transmission curves to get the transmission efficiency for signal and noise
 
@@ -155,10 +158,13 @@ class TransmissionMap(TransmissionModule):
             Transmission efficiency per spectral bin for the photon noise received from the exoplanet
             signal
         """
-        tc_chop, tc_tm4 = self.transmission_curve(bl=bl,
-                                                  wl_bins=wl_bins,
-                                                  angsep=angsep,
-                                                  ratio=ratio)
+
+        if index is None:
+            angsep = self.data.single['angsep']
+        else:
+            angsep = self.data.catalog.angsep.iloc(index)
+
+        tc_chop, tc_tm4 = self.transmission_curve(angsep=angsep)
 
         # integrate over angles to get transmission efficiency
         transm_eff = np.sqrt((tc_chop ** 2).mean(axis=-1))
@@ -166,10 +172,7 @@ class TransmissionMap(TransmissionModule):
         return transm_eff, transm_noise
 
     def transmission_curve(self,
-                           bl: float,
-                           wl_bins: np.ndarray,
                            angsep: float,
-                           ratio: float,
                            phi_n: int = 360):
         """
         Calculates the radial transmission curve of the LIFE array
@@ -196,12 +199,6 @@ class TransmissionMap(TransmissionModule):
             Radial transmission curve corresponding to the transmission map of the 4th mode 'tm4'
         """
 
-        # reshape the wl_bins arrays for calculation (to (n, 1))
-        # TODO make this a method and apply it where needed
-        wl_bins = np.array([wl_bins])  # wavelength in m
-        if wl_bins.shape[-1] > 1:
-            wl_bins = np.reshape(wl_bins, (wl_bins.shape[-1], 1))
-
         # convert angular separation to radians
         angsep_rad = angsep / (3600 * 180) * np.pi
 
@@ -211,12 +208,7 @@ class TransmissionMap(TransmissionModule):
         # retrieve the transmission curves
         (_, _, _,
          transm_curve_tm4,
-         transm_curve_chop) = self.transmission_map(wl_bins=wl_bins,
-                                                    hfov=None,
-                                                    image_size=None,
-                                                    bl=bl,
-                                                    map_selection=['tm4', 'tm_chop'],
-                                                    ratio=ratio,
+         transm_curve_chop) = self.transmission_map(map_selection=['tm4', 'tm_chop'],
                                                     direct_mode=True,
                                                     d_alpha=angsep_rad * np.cos(phi_lin),
                                                     d_beta=angsep_rad * np.sin(phi_lin))

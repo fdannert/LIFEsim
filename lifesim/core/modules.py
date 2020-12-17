@@ -40,25 +40,7 @@ class PhotonNoiseModule(Module):
 
     @abc.abstractmethod
     def noise(self,
-              image_size: int,
-              l_sun: float,
-              distance_s: float,
-              mas_pix: np.ndarray,
-              rad_pix: np.ndarray,
-              z: float,
-              telescope_area: float,
-              radius_map: np.ndarray,
-              wl_bins: np.ndarray,
-              wl_bin_edges: np.ndarray,
-              wl_bin_widths: np.ndarray,
-              t_map: np.ndarray,
-              hfov: np.ndarray,
-              lz_model: str,
-              lat_s: float,
-              radius_s: float,
-              temp_s: float,
-              bl: float,
-              ratio: float,):
+              index: Union[int, type(None)]):
         pass
 
 
@@ -66,21 +48,10 @@ class TransmissionModule(Module):
 
     @abc.abstractmethod
     def transmission_map(self,
-                         wl_bins: np.ndarray,
-                         hfov: np.ndarray,
-                         image_size: Union[int, type(None)],
-                         bl: float,
-                         map_selection: list,
-                         ratio: float,
-                         direct_mode: bool = False,
-                         d_alpha: np.ndarray = None,
-                         d_beta: np.ndarray = None):
+                         map_selection: list):
         pass
 
     @abc.abstractmethod
     def transmission_efficiency(self,
-                                bl: float,
-                                wl_bins: np.ndarray,
-                                angsep: np.ndarray,
-                                ratio: float):
+                                index: Union[int, type(None)]):
         pass

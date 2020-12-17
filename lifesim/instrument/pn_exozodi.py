@@ -1,4 +1,5 @@
 import numpy as np
+from typing import Union
 
 from lifesim.core.modules import PhotonNoiseModule
 from lifesim.util import constants
@@ -11,19 +12,7 @@ class PhotonNoiseExozodi(PhotonNoiseModule):
         super().__init__(name=name)
 
     def noise(self,
-              image_size: int,
-              l_sun: float,
-              distance_s: float,
-              mas_pix: np.ndarray,
-              rad_pix: np.ndarray,
-              z: float,
-              telescope_area: float,
-              radius_map: np.ndarray,
-              wl_bins: np.ndarray,
-              wl_bin_edges: np.ndarray,
-              wl_bin_widths: np.ndarray,
-              t_map: np.ndarray,
-              hfov: np.ndarray):
+              index: Union[int, type(None)]):
         """
         Simulates the amount of photon noise originating from the exozodi of the observed system
         leaking into the LIFE array measurement
@@ -59,6 +48,15 @@ class PhotonNoiseExozodi(PhotonNoiseModule):
             Exozodi leakage in [s^-1] per wavelength bin
         """
 
+        if index is None:
+            l_sun = self.data.single['l_sun']
+            distance_s = self.data.single['distance_s']
+            z = self.data.single['z']
+        else:
+            l_sun = self.data.catalog.l_sun.iloc(index)
+            distance_s = self.data.catalog.distance_s.iloc(index)
+            z = self.data.catalog.z.iloc(index)
+
         # calculate the parameters required by Kennedy2015
         alpha = 0.34
         r_in = 0.034422617777777775 * np.sqrt(l_sun)
@@ -66,19 +64,19 @@ class PhotonNoiseExozodi(PhotonNoiseModule):
         sigma_zero = 7.11889e-8  # Sigma_{m,0} from Kennedy 2015 (doi:10.1088/0067-0049/216/2/23)
 
         # reshape the mas per pixel array for calculation (to (n, 1, 1))
-        mas_pix = np.array([mas_pix])
+        mas_pix = np.array([self.data.inst['mas_pix']])
         if mas_pix.shape[-1] > 1:
             mas_pix = np.reshape(mas_pix, (mas_pix.shape[-1], 1, 1))
-        rad_pix = np.array([rad_pix])
+        rad_pix = np.array([self.data.inst['rad_pix']])
         if rad_pix.shape[-1] > 1:
             rad_pix = np.reshape(rad_pix, (rad_pix.shape[-1], 1, 1))
 
         au_pix = mas_pix / 1e3 * distance_s
-        r_au = radius_map * au_pix
+        r_au = self.data.inst['radius_map'] * au_pix
 
         # identify all pixels where the radius is larges than the inner radius by kennedy2015
         r_cond = ((r_au >= r_in)
-                  & (r_au <= image_size / 2 * au_pix))
+                  & (r_au <= self.data.options.other['image_size'] / 2 * au_pix))
 
         # calculate the temperature at all pixel positions according to Kennedy2015 Eq. 2
         temp_map = np.where(r_cond,
@@ -89,11 +87,11 @@ class PhotonNoiseExozodi(PhotonNoiseModule):
                          sigma_zero * z *
                          (r_au / r_0) ** (-alpha), 0)
 
-        wl_bins = np.array([wl_bins])
+        wl_bins = np.array([self.data.inst['wl_bins']])
         if wl_bins.shape[-1] > 1:
             wl_bins = np.reshape(wl_bins, (wl_bins.shape[-1], 1, 1))
 
-        wl_bin_widths = np.array([wl_bin_widths])
+        wl_bin_widths = np.array([self.data.inst['wl_bin_widths']])
         if wl_bin_widths.shape[-1] > 1:
             wl_bin_widths = np.reshape(wl_bin_widths, (wl_bin_widths.shape[-1], 1, 1))
 
@@ -102,10 +100,11 @@ class PhotonNoiseExozodi(PhotonNoiseModule):
                                width=wl_bin_widths,
                                temp=temp_map,
                                mode='wavelength') \
-                    * sigma * rad_pix ** 2 * telescope_area
+                    * sigma * rad_pix ** 2 * self.data.inst['telescope_area']
 
-        ap = np.where(radius_map <= image_size / 2, 1, 0)
+        ap = np.where(self.data.inst['radius_map']
+                      <= self.data.options.other['image_size'] / 2, 1, 0)
         # add the transmission map
-        ez_leak = (f_nu_disk * t_map * ap).sum(axis=(-2, -1))
+        ez_leak = (f_nu_disk * self.data.inst['t_map'] * ap).sum(axis=(-2, -1))
 
         return ez_leak

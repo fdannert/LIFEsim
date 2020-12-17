@@ -46,7 +46,8 @@ class Module(ABC):
         if self.sockets[s_name]['s_number'] == 1:
             return getattr(self.sockets[s_name]['modules'][0], method)(**kwargs)
         else:
-            return [getattr(module, method)(**kwargs) for module in self.sockets[s_name]['modules']]
+            return [getattr(module, method)(**kwargs)
+                    for module in filter(None, self.sockets[s_name]['modules'])]
 
     def update_socket(self,
                       s_name: str,
@@ -104,7 +105,6 @@ class Module(ABC):
             raise ValueError('The socket ' + s_name + ' does not exist')
         elif (not should_exist) and (s_name in self.sockets.keys()):
             raise ValueError('A socket with the name ' + s_name + ' already exists')
-
 
 
 class Bus(object):

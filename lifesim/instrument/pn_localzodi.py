@@ -1,3 +1,5 @@
+from typing import Union
+
 import numpy as np
 
 from lifesim.core.modules import PhotonNoiseModule
@@ -10,15 +12,7 @@ class PhotonNoiseLocalzodi(PhotonNoiseModule):
         super().__init__(name=name)
 
     def noise(self,
-              lz_model: str,
-              lat_s: float,
-              telescope_area: float,
-              image_size: int,
-              t_map: np.ndarray,
-              radius_map: np.ndarray,
-              wl_bins: np.ndarray,
-              wl_bin_widths: np.ndarray,
-              hfov: np.ndarray):
+              index: Union[int, type(None)]):
         """
         Simulates the amount of photon noise originating from the exozodi of the observed system
         leaking into the LIFE array measurement
@@ -61,24 +55,31 @@ class PhotonNoiseLocalzodi(PhotonNoiseModule):
         # TODO Find model after which this is calculated and reference
         # TODO complete comments
 
+        if index is None:
+            lat_s = self.data.single['lat']
+        else:
+            lat_s = self.data.catalog.lat.iloc(index)
+
         # check if the model exists
-        if not ((lz_model == 'glasse') or (lz_model == 'darwinsim')):
+        if not ((self.data.options.models['localzodi'] == 'glasse')
+                or (self.data.options.models['localzodi'] == 'darwinsim')):
             raise ValueError('Specified model does not exist')
 
         long = 3 / 4 * np.pi
         lat = lat_s
 
-        ap = np.where(radius_map <= image_size / 2, 1, 0)
+        ap = np.where(self.data.inst['radius_map']
+                      <= self.data.options.other['image_size'] / 2, 1, 0)
 
-        if lz_model == 'glasse':
+        if self.data.options.models['localzodi'] == 'glasse':
             temp = 270
             epsilon = 4.30e-8
             lz_flux_sr = epsilon * black_body(mode='wavelength',
-                                              bins=wl_bins,
-                                              width=wl_bin_widths,
+                                              bins=self.data.inst['wl_bins'],
+                                              width=self.data.inst['wl_bin_widths'],
                                               temp=temp)
 
-        elif lz_model == 'darwinsim':
+        elif self.data.options.models['localzodi'] == 'darwinsim':
             radius_sun_au = 0.00465047  # in AU
             tau = 4e-8
             temp_eff = 265
@@ -86,21 +87,23 @@ class PhotonNoiseLocalzodi(PhotonNoiseModule):
             a = 0.22
 
             b_tot = black_body(mode='wavelength',
-                               bins=wl_bins,
-                               width=wl_bin_widths,
+                               bins=self.data.inst['wl_bins'],
+                               width=self.data.inst['wl_bin_widths'],
                                temp=temp_eff) + a \
                     * black_body(mode='wavelength',
-                                 bins=wl_bins,
-                                 width=wl_bin_widths,
+                                 bins=self.data.inst['wl_bins'],
+                                 width=self.data.inst['wl_bin_widths'],
                                  temp=temp_sun) \
                     * (radius_sun_au / 1.5) ** 2
             lz_flux_sr = tau * b_tot * np.sqrt(
                 np.pi / np.arccos(np.cos(long) * np.cos(lat)) /
-                (np.sin(lat) ** 2 + (0.6 * (wl_bins / 11e-6) ** (-0.4) * np.cos(lat)) ** 2)
+                (np.sin(lat) ** 2
+                 + (0.6 * (self.data.inst['wl_bins'] / 11e-6) ** (-0.4) * np.cos(lat)) ** 2)
             )
 
-        lz_flux = lz_flux_sr * (np.pi * hfov ** 2)
+        lz_flux = lz_flux_sr * (np.pi * self.data.inst['hfov'] ** 2)
 
-        lz_leak = (ap * t_map).sum(axis=(-2, -1)) / ap.sum() * lz_flux * telescope_area
+        lz_leak = (ap * self.data.inst['t_map']).sum(axis=(-2, -1)) / ap.sum() * lz_flux \
+                  * self.data.inst['telescope_area']
 
         return lz_leak

@@ -12,8 +12,9 @@ from lifesim.util.habitable import single_habitable_zone
 
 class Data(object):
     def __init__(self):
-        self.instrument = {}
+        self.inst = {}
         self.catalog = None
+        self.single = {}
         self.other = {}
         self.options = Options()
 

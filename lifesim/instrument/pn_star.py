@@ -1,6 +1,8 @@
+from typing import Union
+
 import numpy as np
 
-from lifesim.core.modules import PhotonNoiseModule
+from lifesim.core.modules import PhotonNoiseModule, TransmissionModule
 from lifesim.util.radiation import black_body
 
 
@@ -9,16 +11,11 @@ class PhotonNoiseStar(PhotonNoiseModule):
     def __init__(self,
                  name: str):
         super().__init__(name=name)
+        self.add_socket(s_name='transmission_star',
+                        s_type=TransmissionModule)
 
     def noise(self,
-              radius_s: float,
-              distance_s: float,
-              temp_s: float,
-              bl: float,
-              telescope_area: float,
-              wl_bins: np.ndarray,
-              wl_bin_widths: np.ndarray,
-              ratio: float):
+              index: Union[int, type(None)]):
         """
         Simulates the amount of photon noise originating from the star of the observed system leaking
         into the LIFE array measurement
@@ -64,6 +61,15 @@ class PhotonNoiseStar(PhotonNoiseModule):
         image_size = 50
         map_selection = 'tm3'
 
+        if index is None:
+            radius_s = self.data.single['radius_s']
+            distance_s = self.data.single['distance_s']
+            temp_s = self.data.single['temp_s']
+        else:
+            radius_s = self.data.catalog.radius_s.iloc(index)
+            distance_s = self.data.catalog.distance_s.iloc(index)
+            temp_s = self.data.catalog.temp_s.iloc(index)
+
         # check if the specified map exists
         if map_selection not in ['tm1', 'tm2', 'tm3', 'tm4']:
             raise ValueError('Nonexistent transmission map')
@@ -78,13 +84,11 @@ class PhotonNoiseStar(PhotonNoiseModule):
         #   to reuse the inner part of the transmission map already calculated in the get_snr function
         #   of the instrument class
         # TODO: why are we not reusing the maps calculated in the instrument class
-        # get a transmission map at the stellar radius
-        tm_star = fast_transmission(wl_bins=wl_bins,
-                                    hfov=Rs_rad,
-                                    image_size=image_size,
-                                    bl=bl,
-                                    map_selection=[map_selection],
-                                    ratio=ratio)[int(map_selection[-1]) - 1]
+        tm_star = self.run_socket(method='transmission_map',
+                                  s_name='transmission_star',
+                                  map_selection=[map_selection],
+                                  hfov=Rs_rad,
+                                  image_size=image_size)[int(map_selection[-1]) - 1]
 
         x_map = np.tile(np.array(range(0, image_size)), (image_size, 1))
         y_map = x_map.T
@@ -93,11 +97,11 @@ class PhotonNoiseStar(PhotonNoiseModule):
 
         # get the stellar leakage
         sl_leak = (star_px * tm_star).sum(axis=(-2, -1)) / star_px.sum(
-        ) * black_body(bins=wl_bins,
-                       width=wl_bin_widths,
+        ) * black_body(bins=self.data.inst['wl_bins'],
+                       width=self.data.inst['wl_bin_widths'],
                        temp=temp_s,
                        radius=radius_s,
                        distance=distance_s,
-                       mode='star') * telescope_area
+                       mode='star') * self.data.inst['telescope_area']
 
         return sl_leak

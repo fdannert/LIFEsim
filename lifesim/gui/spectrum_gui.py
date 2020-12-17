@@ -183,6 +183,8 @@ class Frame(QDialog):
         ez = life.PhotonNoiseExozodi(name='ez')
         self.bus.add_module(module=ez)
 
+        # LIFEsim simulator setup
+
         # ----- GUI Setup ------
 
         # create all sub-widgets (sorted after functionality)

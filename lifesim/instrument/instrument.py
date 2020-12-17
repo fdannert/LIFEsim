@@ -2,10 +2,7 @@ import numpy as np
 from tqdm import tqdm
 from spectres import spectres
 
-from lifesim.util.options import Options
-from lifesim.core.catalog import Catalog
 from lifesim.core.modules import InstrumentModule
-from lifesim.util.radiation import black_body, import_spectrum
 from lifesim.util.habitable import single_habitable_zone
 
 
@@ -62,8 +59,7 @@ class Instrument(InstrumentModule):
     """
 
     def __init__(self,
-                 name: str,
-                 options: Options):
+                 name: str):
         """
         Parameters
         ----------
@@ -75,19 +71,7 @@ class Instrument(InstrumentModule):
 
         super().__init__(name=name)
 
-        # initialize all instrument parameters
-        self.options = options
-        self.bl, self.telescope_area, self.eff_tot = None, None, None
-        self.wl_bins, self.wl_bin_widths, self.wl_bin_edges = None, None, None
-        self.hfov, self.hfov_mas, self.rad_pix, self.mas_pix = None, None, None, None
-        self.apertures = None
-        self.x_map, self.y_map, self.r_square_map, self.r_map = None, None, None, None
-
-        # set options
-        self.apply_options(options)
-
-    def apply_options(self,
-                      options: Options):
+    def apply_options(self):
         """
         Applies the options given to the instrument module and recalculates all necessary values
 
@@ -96,78 +80,68 @@ class Instrument(InstrumentModule):
         options : lifesim.Options
             The options class containing all setting for the array and computations
         """
-        self.options = options
 
         # Get array parameters from options for faster calculation
-        self.bl = self.options.array['baseline']
+        self.data.inst['bl'] = self.data.options.array['baseline']
 
-        self.telescope_area = np.pi * (self.options.array['diameter'] / 2.) ** 2 * 4.
-        self.eff_tot = self.options.array['quantum_eff'] * self.options.array['throughput']
+        self.data.inst['telescope_area'] = 4. * np.pi \
+                                           * (self.data.options.array['diameter'] / 2.) ** 2
+        self.data.inst['eff_tot'] = self.data.options.array['quantum_eff'] \
+                                    * self.data.options.array['throughput']
 
-        self.wl_bins, self.wl_bin_widths, self.wl_bin_edges = self.get_wl_bins_const_spec_res()
+        self.data.inst['wl_bins'], \
+        self.data.inst['wl_bin_widths'], \
+        self.data.inst['wl_bin_edges'] = self.get_wl_bins_const_spec_res()
 
         # fov = wl / D -> hfov=wl/(2*D)
         # TODO remove the double usage of mas and rad, stick to only one
-        self.hfov = self.wl_bins / (2. * self.options.array['diameter'])
+        self.data.inst['hfov'] = self.data.inst['wl_bins'] \
+                                 / (2. * self.data.options.array['diameter'])
 
-        self.hfov_mas = self.hfov * (3600000. * 180.) / np.pi
-        self.rad_pix = (2 * self.hfov) / self.options.other['image_size']  # Radians per pixel
-        self.mas_pix = (2 * self.hfov_mas) / self.options.other['image_size']  # mas per pixel
+        self.data.inst['hfov_mas'] = self.data.inst['hfov'] * (3600000. * 180.) / np.pi
+        self.data.inst['rad_pix'] = (2 * self.data.inst['hfov']) \
+                                    / self.data.options.other['image_size']  # Radians per pixel
+        self.data.inst['mas_pix'] = (2 * self.data.inst['hfov_mas']) \
+                                    / self.data.options.other['image_size']  # mas per pixel
 
         # apertures defines the telescope positions (and *relative* radius)
-        self.apertures = np.array([[-self.bl / 2, -self.options.array['ratio'] * self.bl / 2., 1.],
-                                   [self.bl / 2, -self.options.array['ratio'] * self.bl / 2., 1.],
-                                   [self.bl / 2, self.options.array['ratio'] * self.bl / 2., 1.],
-                                   [-self.bl / 2, self.options.array['ratio'] * self.bl / 2., 1.]])
+        self.data.inst['apertures'] = np.array([
+            [-self.data.inst['bl'] / 2,
+             -self.data.options.array['ratio'] * self.data.inst['bl'] / 2., 1.],
+            [self.data.inst['bl'] / 2,
+             -self.data.options.array['ratio'] * self.data.inst['bl'] / 2., 1.],
+            [self.data.inst['bl'] / 2,
+             self.data.options.array['ratio'] * self.data.inst['bl'] / 2., 1.],
+            [-self.data.inst['bl'] / 2,
+             self.data.options.array['ratio'] * self.data.inst['bl'] / 2., 1.]
+        ])
 
         # coordinate maps for faster calculations
-        self.x_map = np.tile(np.array(range(0, self.options.other['image_size'])),
-                             (self.options.other['image_size'], 1))
-        self.y_map = self.x_map.T
-        self.r_square_map = ((self.x_map - (self.options.other['image_size'] - 1) / 2) ** 2
-                             + (self.y_map - (self.options.other['image_size'] - 1) / 2) ** 2)
-        self.r_map = np.sqrt(self.r_square_map)
-
-        # push the new options and parameters to the sockets
-        # self.update_socket(name='transmission',
-        #                    data={'wl_bins': self.wl_bins,
-        #                          'hfov': self.hfov,
-        #                          'image_size': self.options.other['image_size'],
-        #                          'bl': self.bl,
-        #                          'map_selection': 'tm3',
-        #                          'ratio': self.options.array['ratio']})
-        #
-        # self.update_socket(name='photon_noise',
-        #                    data={'lz_model': self.options.models['localzodi'],
-        #                          'image_size': self.options.other['image_size'],
-        #                          'radius_map': self.r_map,
-        #                          'wl_bins': self.wl_bins,
-        #                          'wl_width': self.wl_bin_widths,
-        #                          'wl_bin_edges': self.wl_bin_edges,
-        #                          'hfov': self.hfov,
-        #                          'telescope_area': self.telescope_area,
-        #                          'mas_pix': self.mas_pix,
-        #                          'rad_pix': self.rad_pix,
-        #                          'ratio': self.options.array['ratio']})
+        x_map = np.tile(np.array(range(0, self.data.options.other['image_size'])),
+                        (self.data.options.other['image_size'], 1))
+        y_map = x_map.T
+        r_square_map = ((x_map - (self.data.options.other['image_size'] - 1) / 2) ** 2
+                        + (y_map - (self.data.options.other['image_size'] - 1) / 2) ** 2)
+        self.data.inst['radius_map'] = np.sqrt(r_square_map)
 
     def get_wl_bins_const_spec_res(self):
         """
         Create the wavelength bins for the given spectral resolution and wavelength limits
         """
-        wl_edge = self.options.array['wl_min']
+        wl_edge = self.data.options.array['wl_min']
         wl_bins = []
         wl_bin_widths = []
         wl_bin_edges = [wl_edge]
 
-        while wl_edge < self.options.array['wl_max']:
+        while wl_edge < self.data.options.array['wl_max']:
 
             # set the wavelength bin width according to the spectral resolution
-            wl_bin_width = wl_edge / self.options.array['spec_res'] / \
-                           (1 - 1 / self.options.array['spec_res'] / 2)
+            wl_bin_width = wl_edge / self.data.options.array['spec_res'] / \
+                           (1 - 1 / self.data.options.array['spec_res'] / 2)
 
             # make the last bin shorter when it hits the wavelength limit
-            if wl_edge + wl_bin_width > self.options.array['wl_max']:
-                wl_bin_width = self.options.array['wl_max'] - wl_edge
+            if wl_edge + wl_bin_width > self.data.options.array['wl_max']:
+                wl_bin_width = self.data.options.array['wl_max'] - wl_edge
 
             # calculate the center and edges of the bins
             wl_center = wl_edge + wl_bin_width / 2
@@ -204,21 +178,27 @@ class Instrument(InstrumentModule):
         hz_center_rad = hz_center / distance_s / (3600 * 180) * np.pi  # in rad
 
         # put first transmission peak of optimal wl on center of HZ
-        self.bl = 0.589645 / hz_center_rad * self.options.other['wl_optimal']*10**(-6)
+        self.data.inst['bl'] = 0.589645 / hz_center_rad * self.data.options.other['wl_optimal']*10**(-6)
 
         # make sure that the baseline does not exeed the set baseline limits
-        self.bl = np.maximum(self.bl, self.options.array['bl_min'])
-        self.bl = np.minimum(self.bl, self.options.array['bl_max'])
+        self.data.inst['bl'] = np.maximum(self.data.inst['bl'], self.data.options.array['bl_min'])
+        self.data.inst['bl'] = np.minimum(self.data.inst['bl'], self.data.options.array['bl_max'])
 
         # update the position of the apertures
-        self.apertures = np.array([[-self.bl / 2, -6 * self.bl / 2., 1.],
-                                   [self.bl / 2, -6 * self.bl / 2., 1.],
-                                   [self.bl / 2, 6 * self.bl / 2., 1.],
-                                   [-self.bl / 2, 6 * self.bl / 2., 1.]])
+        self.data.inst['apertures'] = np.array([
+            [-self.data.inst['bl'] / 2,
+             -self.data.options.array['ratio'] * self.data.inst['bl'] / 2., 1.],
+            [self.data.inst['bl'] / 2,
+             -self.data.options.array['ratio'] * self.data.inst['bl'] / 2., 1.],
+            [self.data.inst['bl'] / 2,
+             self.data.options.array['ratio'] * self.data.inst['bl'] / 2., 1.],
+            [-self.data.inst['bl'] / 2,
+             self.data.options.array['ratio'] * self.data.inst['bl'] / 2., 1.]
+        ])
 
     # TODO Re-add functionality for calculating the SNR without certain noise term
     def get_snr(self,
-                c: Catalog,
+                # c: Catalog,
                 time: int):
         """
         Calculates the signal-to-noise ration for all planets within the catalog if the are
@@ -356,34 +336,31 @@ class Instrument(InstrumentModule):
             Some text
         """
 
+        self.apply_options()
+
+        self.data.single['temp_s'] = temp_s
+        self.data.single['radius_s'] = radius_s
+        self.data.single['distance_s'] = distance_s
+        self.data.single['lat'] = lat_s
+        self.data.single['z'] = z
+        self.data.single['angsep'] = angsep
+
         # calculate the habitable zone of the specified star
         s_in, s_out, l_sun, \
             hz_in, hz_out, \
-            hz_center = single_habitable_zone(model=self.options.models['habitable'],
+            hz_center = single_habitable_zone(model=self.data.options.models['habitable'],
                                               temp_s=temp_s,
                                               radius_s=radius_s)
+
+        self.data.single['l_sun'] = l_sun
 
         # adjust the baseline of the array to the habitable zone
         self.adjust_bl_to_hz(hz_center=hz_center,
                              distance_s=distance_s)
 
-        _, _, tm3, _, _ \
-            = self.sockets['transmission']['modules'][0] \
-            .transmission_map(wl_bins=self.wl_bins,
-                              hfov=self.hfov,
-                              image_size=self.options.other['image_size'],
-                              bl=self.bl,
-                              map_selection='tm3',
-                              ratio=self.options.array['ratio'])
-
-        _, _, tm3, _, _ = self.run_socket(s_name='transmission',
-                                          method='transmission_map',
-                                          wl_bins=self.wl_bins,
-                                          hfov=self.hfov,
-                                          image_size=self.options.other['image_size'],
-                                          bl=self.bl,
-                                          map_selection='tm3',
-                                          ratio=self.options.array['ratio'])
+        _, _, self.data.inst['t_map'], _, _ = self.run_socket(s_name='transmission',
+                                                              method='transmission_map',
+                                                              map_selection='tm3')
 
         # update and run the photon noise plugins
         # for j in range(self.options.other['n_plugins']):
@@ -399,44 +376,52 @@ class Instrument(InstrumentModule):
         #
         #     self.run_socket(name='p_noise_source_' + str(j))
 
-        # flux_planet_spectrum = spectres(new_wavs=self.wl_bin_edges,
-        #                                 spec_wavs=flux_planet_spectrum[0].value,
-        #                                 spec_fluxes=flux_planet_spectrum[1].value,
-        #                                 edge_mode=True)
+        flux_planet_spectrum = spectres(new_wavs=self.data.inst['wl_bin_edges'],
+                                        spec_wavs=flux_planet_spectrum[0].value,
+                                        spec_fluxes=flux_planet_spectrum[1].value,
+                                        edge_mode=True)
 
         transm_eff, transm_noise = self.run_socket(s_name='transmission',
                                                    method='transmission_efficiency',
-                                                   bl=self.bl,
-                                                   wl_bins=self.wl_bins,
-                                                   angsep=angsep,
-                                                   ratio=self.options.array['ratio'])
+                                                   index=None)
 
         # calculate the signal and photon noise flux received from the planet
         flux_planet = flux_planet_spectrum \
-                          * transm_eff \
-                          * integration_time \
-                          * self.eff_tot \
-                          * self.telescope_area \
-                          * self.wl_bin_widths
+                      * transm_eff \
+                      * integration_time \
+                      * self.data.inst['eff_tot'] \
+                      * self.data.inst['telescope_area'] \
+                      * self.data.inst['wl_bin_widths']
         noise_planet = flux_planet_spectrum \
-                           * transm_noise \
-                           * integration_time \
-                           * self.eff_tot \
-                           * self.telescope_area \
-                           * self.wl_bin_widths
+                       * transm_noise \
+                       * integration_time \
+                       * self.data.inst['eff_tot'] \
+                       * self.data.inst['telescope_area'] \
+                       * self.data.inst['wl_bin_widths']
 
         # calculate the noise from the background sources
-        noise_bg = 0
-        for p in range(self.options.other['n_plugins']):
-            if self.sockets['p_noise_source_' + str(p)] is not None:
-                noise_bg += self.sockets['p_noise_source_' + str(p)].noise
-        noise_bg = noise_bg * integration_time * self.eff_tot
+        # noise_bg = 0
+        # for p in range(self.options.other['n_plugins']):
+        #     if self.sockets['p_noise_source_' + str(p)] is not None:
+        #         noise_bg += self.sockets['p_noise_source_' + str(p)].noise
+        noise_bg_list = self.run_socket(s_name='photon_noise',
+                                        method='noise',
+                                        index=None)
+
+        if type(noise_bg_list) == list:
+            noise_bg = np.zeros_like(noise_bg_list[0])
+            for _, noise in enumerate(noise_bg_list):
+                noise_bg += noise
+        else:
+            noise_bg = noise_bg_list
+
+        noise_bg = noise_bg * integration_time * self.data.inst['eff_tot']
 
         # Add up the noise and caluclate the SNR
         noise = (noise_bg + noise_planet) * 2
         snr_spec = np.sqrt((flux_planet ** 2 / noise))
 
-        return ([self.wl_bins, snr_spec],
+        return ([self.data.inst['wl_bins'], snr_spec],
                 flux_planet_spectrum,
                 noise)
 
