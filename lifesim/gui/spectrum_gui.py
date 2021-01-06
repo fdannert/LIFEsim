@@ -1,5 +1,6 @@
 import math
 import os
+import warnings
 
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import (QApplication, QDialog, QGroupBox, QSlider, QGridLayout, QLabel,
@@ -13,8 +14,7 @@ import numpy as np
 from astropy import units as u
 from astropy.visualization import quantity_support
 
-import lifesim as life
-from lifesim.modules.util import import_spectrum
+import lifesim as ls
 
 # change the directory to the path of the spectrum_gui.py file to ensure that the logo is imported
 # correctly
@@ -160,28 +160,52 @@ class Frame(QDialog):
     def __init__(self, parent=None):
         super(Frame, self).__init__(parent)
 
+        # TODO: Remove
         # LIFEsim simulator setup
-        self.bus = life.Bus()
-        self.options = life.Options()
-        self.options.set_scenario('baseline')
+        # self.bus = life.Bus()
+        # self.options = life.Options()
+        # self.options.set_scenario('baseline')
+        #
+        # self.spec_import = life.SpectrumImporter()
+        #
+        # inst = life.Instrument(name='LIFE',
+        #                        options=self.options)
+        # self.bus.add_module(module=inst)
+        #
+        # tm = life.TransmissionMap(name='tm')
+        # self.bus.add_module(module=tm)
+        #
+        # self.bus.connect(module_names=('LIFE', 'tm'))
+        #
+        # sl = life.PhotonNoiseStar(name='sl')
+        # self.bus.add_module(module=sl)
+        # lz = life.PhotonNoiseLocalzodi(name='lz')
+        # self.bus.add_module(module=lz)
+        # ez = life.PhotonNoiseExozodi(name='ez')
+        # self.bus.add_module(module=ez)
 
-        self.spec_import = life.SpectrumImporter()
+        self.bus = ls.Bus()
+        self.bus.data.options.set_scenario('baseline')
 
-        inst = life.Instrument(name='LIFE',
-                               options=self.options)
+        self.spec_import = ls.SpectrumImporter()
+
+        inst = ls.Instrument(name='life')
         self.bus.add_module(module=inst)
 
-        tm = life.TransmissionMap(name='tm')
-        self.bus.add_module(module=tm)
+        transm = ls.TransmissionMap(name='transm')
+        self.bus.add_module(module=transm)
 
-        self.bus.connect(module_names=('LIFE', 'tm'))
-
-        sl = life.PhotonNoiseStar(name='sl')
+        sl = ls.PhotonNoiseStar(name='sl')
         self.bus.add_module(module=sl)
-        lz = life.PhotonNoiseLocalzodi(name='lz')
+
+        lz = ls.PhotonNoiseLocalzodi(name='lz')
         self.bus.add_module(module=lz)
-        ez = life.PhotonNoiseExozodi(name='ez')
+
+        ez = ls.PhotonNoiseExozodi(name='ez')
         self.bus.add_module(module=ez)
+
+        self.bus.connect(('life', 'transm'))
+        self.bus.connect(('sl', 'transm'))
 
         # LIFEsim simulator setup
 
@@ -542,13 +566,14 @@ class Frame(QDialog):
         layout.addWidget(param)
 
     def update_options(self):
-        self.options.set_manual(diameter=self.diameter.box.value(),
-                                wl_min=self.wl_range.lower.value(),
-                                wl_max=self.wl_range.upper.value(),
-                                spec_res=self.spec_res.box.value())
-        self.bus.modules['LIFE'].apply_options(self.options)
+        self.bus.data.options.set_manual(diameter=self.diameter.box.value(),
+                                         wl_min=self.wl_range.lower.value(),
+                                         wl_max=self.wl_range.upper.value(),
+                                         spec_res=self.spec_res.box.value())
+        self.bus.modules['life'].apply_options()
 
     def show_preview(self):
+        # TODO: Automatically import the spectrum on run command
         self.error_field.setText('')
         self.update_options()
         try:
@@ -569,17 +594,23 @@ class Frame(QDialog):
             self.p_plot.axes.cla()
             self.p_plot.axes.plot(p_spec[0], p_spec[1], color="darkblue", linestyle="-")
             if self.prev_kind.currentIndex() == 1:
-                self.p_plot.axes.set_xlim(self.options.array['wl_min'], self.options.array['wl_max'])
+                self.p_plot.axes.set_xlim(self.bus.data.options.array['wl_min'],
+                                          self.bus.data.options.array['wl_max'])
             self.p_plot.axes.set_ylim(
                 (5e-1 * np.min(
                     p_spec[1]
-                    [int(np.argwhere(p_spec[0] < (self.options.array['wl_min']*u.micron))[-1]):
-                     int(np.argwhere(p_spec[0] > (self.options.array['wl_max']*u.micron))[0])]).value),
+                    [int(np.argwhere(p_spec[0] <
+                                     (self.bus.data.options.array['wl_min']*u.micron))[-1]):
+                     int(np.argwhere(p_spec[0] >
+                                     (self.bus.data.options.array['wl_max']*u.micron))[0])]).value),
                 (0.5e1 * np.max(p_spec[1]
-                             [int(np.argwhere(p_spec[0] < (self.options.array['wl_min']*u.micron))[-1])
-                              :int(np.argwhere(p_spec[0] > (self.options.array['wl_max']*u.micron))[0])])).value)
-            # self.p_plot.axes.set_xlabel(r"$\lambda$ [$\mu$m]")
-            # self.p_plot.axes.set_ylabel(r"Input signal [ph s$^{-1}$m$^{-2}$m$^{-1}$]")
+                             [int(np.argwhere(p_spec[0] <
+                                              (self.bus.data.options.array['wl_min']
+                                               *u.micron))[-1])
+                              :int(np.argwhere(p_spec[0] >
+                                               (self.bus.data.options.array['wl_max']
+                                                *u.micron))[0])])).value)
+
             self.p_plot.axes.set_yscale('log')
             self.p_plot.axes.grid()
             self.p_plot.axes.ticklabel_format(axis='x', style='sci')
@@ -599,8 +630,8 @@ class Frame(QDialog):
         self.r_plot.axes.set_xlabel(r"$\lambda$ [$\mu$m]")
         self.r_plot.axes.set_ylabel(r"Detected signal per bin [e$^-$ s$^{-1}$ bin$^{-1}$]")
 
-        self.r_plot.axes.set_xlim(self.options.array['wl_min']-0.5,
-                                  self.options.array['wl_max']+0.5)
+        self.r_plot.axes.set_xlim(self.bus.data.options.array['wl_min']-0.5,
+                                  self.bus.data.options.array['wl_max']+0.5)
         self.r_plot.axes.set_yscale('log')
         self.r_plot.axes.grid()
 
@@ -629,19 +660,22 @@ class Frame(QDialog):
         ax2a.remove()
 
     def run_simulation(self):
+        self.show_preview()
         self.update_options()
 
-        self.bus.disconnect(module_names=('LIFE', 'sl'))
-        self.bus.disconnect(module_names=('LIFE', 'lz'))
-        self.bus.disconnect(module_names=('LIFE', 'ez'))
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            self.bus.disconnect(module_names=('life', 'sl'))
+            self.bus.disconnect(module_names=('life', 'lz'))
+            self.bus.disconnect(module_names=('life', 'ez'))
         if self.box_sl.isChecked():
-            self.bus.connect(module_names=('LIFE', 'sl'))
+            self.bus.connect(module_names=('life', 'sl'))
         if self.box_lz.isChecked():
-            self.bus.connect(module_names=('LIFE', 'lz'))
+            self.bus.connect(module_names=('life', 'lz'))
         if self.box_ez.isChecked():
-            self.bus.connect(module_names=('LIFE', 'ez'))
+            self.bus.connect(module_names=('life', 'ez'))
 
-        self.r_spec, self.flux_p, self.flux_n = self.bus.modules['LIFE'].get_spectrum(
+        self.r_spec, self.flux_p, self.flux_n = self.bus.modules['life'].get_spectrum(
             temp_s=self.temp_s.box.value(),
             radius_s=self.radius_s.box.value(),
             distance_s=self.distance_s.box.value(),
@@ -651,28 +685,28 @@ class Frame(QDialog):
             angsep=self.angsep.box.value(),
             integration_time=self.time_b.value()*60*60)
 
-        print(self.r_spec[1][np.argmin(np.abs(self.r_spec[0]-11e-6))])
+        # print(self.r_spec[1][np.argmin(np.abs(self.r_spec[0]-11e-6))])
 
         self.show_spectrum(self.r_spec,
                            self.flux_p,
                            self.flux_n)
 
     def set_values(self):
-        self.diameter.box.setValue(self.options.array['diameter'])
-        self.spec_res.box.setValue(self.options.array['spec_res'])
-        self.wl_range.lower.setValue(self.options.array['wl_min'])
-        self.wl_range.upper.setValue(self.options.array['wl_max'])
+        self.diameter.box.setValue(self.bus.data.options.array['diameter'])
+        self.spec_res.box.setValue(self.bus.data.options.array['spec_res'])
+        self.wl_range.lower.setValue(self.bus.data.options.array['wl_min'])
+        self.wl_range.upper.setValue(self.bus.data.options.array['wl_max'])
 
     def set_scenario_opt(self):
-        self.options.set_scenario(case='optimistic')
+        self.bus.data.options.set_scenario(case='optimistic')
         self.set_values()
 
     def set_scenario_bas(self):
-        self.options.set_scenario(case='baseline')
+        self.bus.data.options.set_scenario(case='baseline')
         self.set_values()
 
     def set_scenario_pes(self):
-        self.options.set_scenario(case='pessimistic')
+        self.bus.data.options.set_scenario(case='pessimistic')
         self.set_values()
 
     def save_spectrum(self):

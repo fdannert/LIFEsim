@@ -167,8 +167,8 @@ class TransmissionMap(TransmissionModule):
         tc_chop, tc_tm4 = self.transmission_curve(angsep=angsep)
 
         # integrate over angles to get transmission efficiency
-        transm_eff = np.sqrt((tc_chop ** 2).mean(axis=-1))
-        transm_noise = np.sqrt((tc_tm4 ** 2).mean(axis=-1))
+        transm_eff = np.sqrt((tc_chop ** 2).mean(axis=(-2, -1)))
+        transm_noise = np.sqrt((tc_tm4 ** 2).mean(axis=(-2, -1)))
         return transm_eff, transm_noise
 
     def transmission_curve(self,
