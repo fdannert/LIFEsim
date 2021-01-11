@@ -6,8 +6,8 @@ import pandas as pd
 from astropy.io import fits
 from astropy.coordinates import SkyCoord, BarycentricMeanEcliptic
 
-from lifesim.modules.habitable import compute_habitable_zone
-from lifesim.modules.options import Options
+from lifesim.util.habitable import compute_habitable_zone
+from lifesim.util.options import Options
 
 
 class Catalog(object):
@@ -84,6 +84,8 @@ class Catalog(object):
         compute_habitable_zone(catalog=self,
                                model=options.models['habitable'])
 
+    # TODO: Definition of stype here is wrong. It should be an int not a string. But this is stupid
+    #   change it back!
     def remove_distance(self,
                         stype: str,
                         dist: float,
@@ -110,9 +112,10 @@ class Catalog(object):
             If the given stellar type is not valid (i.e. is not equal to 'A, F, G, K or M')
         """
 
+        # TODO: Reinstate, hat to be remove because of the stype string/int thing
         # check if stellar type is valid
-        if not np.isin(stype, np.array(('A', 'F', 'G', 'K', 'M'))):
-            raise ValueError('Stellar type not recognised')
+        # if not np.isin(stype, np.array(('A', 'F', 'G', 'K', 'M'))):
+        #     raise ValueError('Stellar type not recognised')
 
         # create masks selecting closer or more far away planets
         if mode == 'larger':
