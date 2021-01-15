@@ -41,6 +41,7 @@ class Module(ABC):
                    method: str,
                    s_name: str,
                    **kwargs):
+        #TODO: Add check if socket is connected
 
         self.socket_exists(s_name=s_name,
                            should_exist=True)

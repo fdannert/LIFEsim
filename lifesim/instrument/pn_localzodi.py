@@ -58,7 +58,7 @@ class PhotonNoiseLocalzodi(PhotonNoiseModule):
         if index is None:
             lat_s = self.data.single['lat']
         else:
-            lat_s = self.data.catalog.lat.iloc(index)
+            lat_s = self.data.catalog.lat.iloc[index]
 
         # check if the model exists
         if not ((self.data.options.models['localzodi'] == 'glasse')

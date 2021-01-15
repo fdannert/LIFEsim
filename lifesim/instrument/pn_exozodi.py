@@ -53,9 +53,9 @@ class PhotonNoiseExozodi(PhotonNoiseModule):
             distance_s = self.data.single['distance_s']
             z = self.data.single['z']
         else:
-            l_sun = self.data.catalog.l_sun.iloc(index)
-            distance_s = self.data.catalog.distance_s.iloc(index)
-            z = self.data.catalog.z.iloc(index)
+            l_sun = self.data.catalog.l_sun.iloc[index]
+            distance_s = self.data.catalog.distance_s.iloc[index]
+            z = self.data.catalog.z.iloc[index]
 
         # calculate the parameters required by Kennedy2015
         alpha = 0.34
