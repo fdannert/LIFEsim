@@ -66,9 +66,9 @@ class PhotonNoiseStar(PhotonNoiseModule):
             distance_s = self.data.single['distance_s']
             temp_s = self.data.single['temp_s']
         else:
-            radius_s = self.data.catalog.radius_s.iloc(index)
-            distance_s = self.data.catalog.distance_s.iloc(index)
-            temp_s = self.data.catalog.temp_s.iloc(index)
+            radius_s = self.data.catalog.radius_s.iloc[index]
+            distance_s = self.data.catalog.distance_s.iloc[index]
+            temp_s = self.data.catalog.temp_s.iloc[index]
 
         # check if the specified map exists
         if map_selection not in ['tm1', 'tm2', 'tm3', 'tm4']:

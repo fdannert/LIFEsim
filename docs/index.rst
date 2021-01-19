@@ -12,8 +12,8 @@ Welcome to LIFEsim's documentation!
    :maxdepth: 3
    :caption: API Documentation
 
-   dataio
+   core
    instrument
-   modules
+   util
 
 

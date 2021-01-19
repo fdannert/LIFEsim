@@ -3,6 +3,34 @@ Installation
 
 LIFEsim is available for installation from |github|. It is compatible with Python 3.7.
 
+.. Hint:: **Installation on Mac OS**
+
+   We recommend the usage of a package manager for mac (e.g. |Homebrew|).
+   Putting the Homebrew directory into the PATH environment variable will allow every terminal window
+   opened to access Homebrew. To set this, add
+   ``export PATH="/usr/local/opt/python/libexec/bin:$PATH"`` to the bottom of the file
+   ``~/bash_profile``. Create this file if it does not exists.
+
+   With homebrew installed, run
+
+   .. code-block:: console
+
+      $ brew install python
+
+   Now, check your python install with
+
+   .. code-block:: console
+
+      $ brew install python3 --version
+      Python 3.7.6
+
+   Pip is installed alongside with python. To check, run
+
+   .. code-block:: console
+
+      $ brew install pip --version
+      pip 20.3.3
+
 Virtual Environment
 -------------------
 .. TODO: link pip, add installation for macos and windows
@@ -62,12 +90,22 @@ To upgrade already installed dependencies to LIFEsim requirements run
 
    $ pip install --upgrade -r LIFEsim/requirements.txt
 
-The last step is point the Python install of your virtual environment to LIFEsim. Please do so by
-running
+.. Important::
+   LIFEsim need a modified version of the package |SpectRes| to run. Please install it via the
+   following procedure.
+
+   First, make sure that you are in the directory where you want to install SpectRes. Then run
+
+   .. code-block:: console
+
+      $ git clone https://github.com/fdannert/SpectRes.gits
+
+The last step is point the Python install of your virtual environment to LIFEsim and SpectRes.
+Please do so by running
 
 .. code-block:: console
 
-   $ echo "export PYTHONPATH='$PYTHONPATH:/path_to_LIFEsim/LIFEsim/'" >> path_to_new_folder/new_folder/bin/activate
+   $ echo "export PYTHONPATH='$PYTHONPATH:/path_to_LIFEsim/LIFEsim/:/path_to_SpectRes/SpectRes/'" >> path_to_new_folder/new_folder/bin/activate
 
 Testing the Installation
 ------------------------
@@ -111,7 +149,17 @@ This should return the speed of light in [m s
 
       export PYTHONPATH=':/path_to_LIFEsim/LIFEsim/'
 
+    The same test can be performed if SpectRes does not import.
+
 
 .. |github| raw:: html
 
    <a href="https://github.com/fdannert/LIFEsim" target="_blank">Github</a>
+
+.. |SpectRes| raw:: html
+
+   <a href="https://github.com/ACCarnall/SpectRes" target="_blank">SpectRes</a>
+
+.. |Homebrew| raw:: html
+
+   <a href="https://brew.sh" target="_blank">Homebrew</a>

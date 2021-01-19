@@ -270,10 +270,10 @@ class Data(object):
         star_mask[temp] = True
 
         # transform from equitorial to ecliptic coordinated
-        coord = SkyCoord(self.catalog.ra, self.catalog.dec, frame='icrs', unit='deg')
-        coord_ec = coord.transform_to(BarycentricMeanEcliptic())
-        self.catalog['lon'] = np.array(coord_ec.lon.radian)
-        self.catalog['lat'] = np.array(coord_ec.lat.radian)
+        # coord = SkyCoord(self.catalog.ra, self.catalog.dec, frame='icrs', unit='deg')
+        # coord_ec = coord.transform_to(BarycentricMeanEcliptic())
+        # self.catalog['lon'] = np.array(coord_ec.lon.radian)
+        # self.catalog['lat'] = np.array(coord_ec.lat.radian)
 
         # add the inner/ outer edges and centers of the habitable zone
         s_in = np.zeros_like(self.catalog.nstar, dtype=float)

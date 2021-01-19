@@ -18,7 +18,7 @@ sys.path.insert(0, os.path.abspath('..'))
 # -- Project information -----------------------------------------------------
 
 project = 'LIFEsim'
-copyright = '2020, Felix Dannert, Maurice Ottiger and Sascha Quanz'
+copyright = '2021, Felix Dannert, Maurice Ottiger and Sascha Quanz'
 author = 'Felix Dannert, Maurice Ottiger and Sascha Quanz'
 
 

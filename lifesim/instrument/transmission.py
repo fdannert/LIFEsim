@@ -162,7 +162,7 @@ class TransmissionMap(TransmissionModule):
         if index is None:
             angsep = self.data.single['angsep']
         else:
-            angsep = self.data.catalog.angsep.iloc(index)
+            angsep = self.data.catalog.angsep.iloc[index]
 
         tc_chop, tc_tm4 = self.transmission_curve(angsep=angsep)
 
