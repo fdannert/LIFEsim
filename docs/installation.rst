@@ -1,5 +1,5 @@
-Installation
-============
+Installation (Linux and Mac OS)
+===============================
 
 LIFEsim is available for installation from |github|. It is compatible with Python 3.7.
 
@@ -98,7 +98,7 @@ To upgrade already installed dependencies to LIFEsim requirements run
 
    .. code-block:: console
 
-      $ git clone https://github.com/fdannert/SpectRes.gits
+      $ git clone https://github.com/fdannert/SpectRes.git
 
 The last step is point the Python install of your virtual environment to LIFEsim and SpectRes.
 Please do so by running
