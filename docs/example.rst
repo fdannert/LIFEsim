@@ -37,14 +37,25 @@ For importing a spectrum, navigate to the *Preview* tab.
 
 Begin by choosing a spectrum to import (in .txt format) by clicking on *Browse...*. To complete
 this example, please open the file ``path_to_LIFEsim/LIFEsim/docs/_static/example_spectrum.txt`` in
-the pop-up dialog.
+the pop-up dialog. Leave the option as *absolute* to only use the imported spectrum. Setting the
+option to *additive* will add the imported spectrum to the planets black body spectrum calculated
+according to given parameters.
+
+.. Hint::
+
+   A pure black body planet can be simulated by choosing the *additive* option and leaving the
+   file dialog empty.
+
+   .. image:: _static/GUI_example_bb.png
+      :width: 70%
+      :align: center
 
 To specify the units of the spectrum you are importing, enter them in the fields *x-axis units* and
 *y-axis units*. For this example, please set *x-axis units* to ``micron`` and *y-axis units* to
 ``photon micron-1 h-1 m-2``.
 
 In the *Spectrum Parameter* field the parameters used during the creation of the spectrum need to
-be give. Again, for the example please set *Distance* to ``10pc``, *Planet Radius* to ``1 Earth
+be given. Again, for the example please set *Distance* to ``10pc``, *Planet Radius* to ``1 Earth
 Radius`` and leave *Integration Time* at 0.
 
 Pressing *Preview Spectrum* will now show the spectrum in the units specified by the user. This can

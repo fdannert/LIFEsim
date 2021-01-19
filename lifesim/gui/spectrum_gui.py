@@ -15,6 +15,7 @@ from astropy import units as u
 from astropy.visualization import quantity_support
 
 import lifesim as ls
+from lifesim.util.radiation import black_body
 
 # change the directory to the path of the spectrum_gui.py file to ensure that the logo is imported
 # correctly
@@ -115,8 +116,8 @@ class FileBrowser(QWidget):
         self.filepath = QLineEdit()
         button = QPushButton('Browse...')
 
-        # TODO: Remove
-        self.filepath.setText('/home/felix/Documents/MA/life_sim_share/input_data/planet_spectra/Earth_Clear_R1000_10pc_Björn_Konrad.txt')
+        # self.filepath.setText('/home/felix/Documents/MA/life_sim_share/input_data/planet_spectra'
+        #                       '/Earth_Clear_R1000_10pc_Björn_Konrad.txt')
 
         button.clicked.connect(self.open_browse)
 
@@ -349,18 +350,18 @@ class Frame(QDialog):
         self.planet = QGroupBox('Planet')
 
         self.angsep = DoubleBoxLabel(label='Angular Separation',
-                                mini=0.,
-                                maxi=1.,
-                                value=0.1,
-                                step=0.1,
-                                suffix='arcsec')
+                                     mini=0.,
+                                     maxi=1.,
+                                     value=0.1,
+                                     step=0.1,
+                                     suffix='arcsec')
 
         self.radius_p = DoubleBoxLabel(label='Radius',
-                                  mini=0.,
-                                  maxi=10.,
-                                  value=1.,
-                                  step=0.5,
-                                  suffix='R⊕')
+                                       mini=0.,
+                                       maxi=10.,
+                                       value=1.,
+                                       step=0.5,
+                                       suffix='R⊕')
 
         layout = QVBoxLayout()
         layout.addWidget(self.angsep)
@@ -520,8 +521,14 @@ class Frame(QDialog):
 
         self.x_units = StringBoxLabel('x-axis units')
         self.y_units = StringBoxLabel('y-axis units')
-        self.x_units.box.setText('micron')
-        self.y_units.box.setText('photon micron-1 h-1 m-2')
+        # self.x_units.box.setText('micron')
+        # self.y_units.box.setText('photon micron-1 h-1 m-2')
+        self.temp_p = DoubleBoxLabel(label='Temperature Planet',
+                                     mini=0.,
+                                     maxi=10000.,
+                                     step=1.,
+                                     value=0.,
+                                     suffix='K')
 
 
         layout_l = QVBoxLayout(load)
@@ -529,32 +536,36 @@ class Frame(QDialog):
         layout_l.addWidget(self.browse)
         layout_l.addWidget(self.x_units)
         layout_l.addWidget(self.y_units)
+        layout_l.addWidget(self.temp_p)
+
+        self.temp_p.hide()
+        self.spec_kind.currentTextChanged.connect(self.change_visibility)
 
         param = QGroupBox('Spectrum Parameters')
 
         self.distance_spec = DoubleBoxLabel(label='Distance',
-                                       mini=0.,
-                                       maxi=50.,
-                                       step=1.,
-                                       value=0.,
-                                       suffix='pc')
+                                            mini=0.,
+                                            maxi=50.,
+                                            step=1.,
+                                            value=0.,
+                                            suffix='pc')
         self.distance_spec.box.setDecimals(0)
-        self.distance_spec.box.setValue(10.)
+        # self.distance_spec.box.setValue(10.)
 
-        self.radius_spec = DoubleBoxLabel(label='Radius',
-                                     mini=0.,
-                                     maxi=10.,
-                                     value=0.,
-                                     step=0.5,
-                                     suffix='R⊕')
-        self.radius_spec.box.setValue(1.)
+        self.radius_spec = DoubleBoxLabel(label='Radius Planet',
+                                          mini=0.,
+                                          maxi=10.,
+                                          value=0.,
+                                          step=0.5,
+                                          suffix='R⊕')
+        # self.radius_spec.box.setValue(1.)
 
         self.time_spec = DoubleBoxLabel(label='Integration Time',
-                                   mini=0.,
-                                   maxi=60.*60.*24.*365.*10.,
-                                   step=60.,
-                                   value=0.,
-                                   suffix='s')
+                                        mini=0.,
+                                        maxi=60.*60.*24.*365.*10.,
+                                        step=60.,
+                                        value=0.,
+                                        suffix='s')
 
         layout_p = QVBoxLayout(param)
         layout_p.addWidget(self.distance_spec)
@@ -577,20 +588,83 @@ class Frame(QDialog):
         self.error_field.setText('')
         self.update_options()
         try:
-            self.spec_import.do_import(pathtotext=self.browse.filepath.text(),
-                                       x_string=self.x_units.box.text(),
-                                       y_string=self.y_units.box.text(),
-                                       distance_s_spectrum=self.distance_spec.box.value(),
-                                       distance_s_target=self.distance_s.box.value(),
-                                       radius_p_spectrum=self.radius_spec.box.value(),
-                                       radius_p_target=self.radius_p.box.value(),
-                                       integration_time=self.time_spec.box.value())
-            if self.prev_kind.currentIndex() == 0:
-                p_spec = [self.spec_import.x_raw, self.spec_import.y_raw]
-            else:
-                p_spec = [self.spec_import.x_data.to(u.micron), self.spec_import.y_data]
+            if self.browse.filepath.text() != '':
+                self.spec_import.do_import(pathtotext=self.browse.filepath.text(),
+                                           x_string=self.x_units.box.text(),
+                                           y_string=self.y_units.box.text(),
+                                           distance_s_spectrum=self.distance_spec.box.value(),
+                                           distance_s_target=self.distance_s.box.value(),
+                                           radius_p_spectrum=self.radius_spec.box.value(),
+                                           radius_p_target=self.radius_p.box.value(),
+                                           integration_time=self.time_spec.box.value())
 
-            self.flux_planet_spectrum = [self.spec_import.x_data, self.spec_import.y_data]
+                self.flux_planet_spectrum = [self.spec_import.x_data, self.spec_import.y_data]
+                if self.spec_kind.currentText() == 'additive':
+                    widths = (self.spec_import.x_data.value[1:]
+                              - self.spec_import.x_data.value[:-1])
+                    widths = np.append(widths, widths[-1])
+                    bins = self.spec_import.x_data.value + widths/2
+                    fgamma = black_body(mode='planet',
+                                        bins=bins,
+                                        width=widths,
+                                        temp=self.temp_p.box.value(),
+                                        radius=self.radius_p.box.value(),
+                                        distance=self.distance_s.box.value()) \
+                             / widths \
+                             * u.photon/u.second/(u.meter**3)
+                    self.flux_planet_spectrum[1] += fgamma
+
+                if self.prev_kind.currentIndex() == 0:
+                    p_spec = [self.spec_import.x_raw, self.spec_import.y_raw]
+                else:
+                    p_spec = [self.flux_planet_spectrum[0].to(u.micron),
+                              self.flux_planet_spectrum[1]]
+
+            elif self.spec_kind.currentText() == 'additive':
+                wl_edge = 1.
+                wl_bins = []
+                wl_bin_widths = []
+                wl_bin_edges = [wl_edge]
+                R = 200
+                wl_max = 30
+
+                while wl_edge < wl_max:
+
+                    # set the wavelength bin width according to the spectral resolution
+                    wl_bin_width = wl_edge / R / \
+                                   (1 - 1 / R / 2)
+
+                    # make the last bin shorter when it hits the wavelength limit
+                    if wl_edge + wl_bin_width > wl_max:
+                        wl_bin_width = wl_max - wl_edge
+
+                    # calculate the center and edges of the bins
+                    wl_center = wl_edge + wl_bin_width / 2
+                    wl_edge += wl_bin_width
+
+                    wl_bins.append(wl_center)
+                    wl_bin_widths.append(wl_bin_width)
+                    wl_bin_edges.append(wl_edge)
+
+                # convert everything to [m]
+                wl_bins = np.array(wl_bins) * 1e-6  # in m
+                wl_bin_widths = np.array(wl_bin_widths) * 1e-6  # in m
+
+                fgamma = black_body(mode='planet',
+                                    bins=wl_bins,
+                                    width=wl_bin_widths,
+                                    temp=self.temp_p.box.value(),
+                                    radius=self.radius_p.box.value(),
+                                    distance=self.distance_s.box.value()) \
+                         / wl_bin_widths \
+                         * u.photon / u.second / (u.meter ** 3)
+
+                self.flux_planet_spectrum = [wl_bins * u.meter, fgamma]
+                p_spec = [self.flux_planet_spectrum[0].to(u.micron),
+                          self.flux_planet_spectrum[1]]
+            else:
+                raise ValueError('Given file cannot be imported')
+
             self.p_plot.axes.cla()
             self.p_plot.axes.plot(p_spec[0], p_spec[1], color="darkblue", linestyle="-")
             if self.prev_kind.currentIndex() == 1:
@@ -604,12 +678,12 @@ class Frame(QDialog):
                      int(np.argwhere(p_spec[0] >
                                      (self.bus.data.options.array['wl_max']*u.micron))[0])]).value),
                 (0.5e1 * np.max(p_spec[1]
-                             [int(np.argwhere(p_spec[0] <
-                                              (self.bus.data.options.array['wl_min']
-                                               *u.micron))[-1])
-                              :int(np.argwhere(p_spec[0] >
-                                               (self.bus.data.options.array['wl_max']
-                                                *u.micron))[0])])).value)
+                                [int(np.argwhere(p_spec[0] <
+                                                 (self.bus.data.options.array['wl_min']
+                                                  *u.micron))[-1])
+                                 :int(np.argwhere(p_spec[0] >
+                                                  (self.bus.data.options.array['wl_max']
+                                                   *u.micron))[0])])).value)
 
             self.p_plot.axes.set_yscale('log')
             self.p_plot.axes.grid()
@@ -719,6 +793,11 @@ class Frame(QDialog):
                        X=np.array([self.r_spec[0], self.r_spec[1], self.flux_p]).T,
                        header='Wavelength [m]   SNR per bin for 1h  Input flux')
 
+    def change_visibility(self):
+        if self.temp_p.isHidden():
+            self.temp_p.show()
+        else:
+            self.temp_p.hide()
 
 if __name__ == '__main__':
     app = QApplication([])
