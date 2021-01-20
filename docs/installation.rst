@@ -125,7 +125,7 @@ If the import statement executes, the installation has been successful. As an ex
 
 .. code-block:: python
 
-   >>> lifesim.modules.constants.c
+   >>> lifesim.util.constants.c
    299792000.0
 
 This should return the speed of light in [m s

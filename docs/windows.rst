@@ -3,6 +3,10 @@ Installation (Windows)
 
 Download Conda
 --------------
+.. Hint::
+
+   This step can be skipped if a python distribution and package manager is already installed.
+
 First, a python distribution and package manager is required. For windows, we suggest |Miniconda|,
 a lightweight variant of the popular Anaconda distribution. To install Miniconda, follow the |ii|.
 
@@ -102,7 +106,7 @@ If the import statement executes, the installation has been successful. As an ex
 
 .. code-block:: python
 
-   >>> lifesim.modules.constants.c
+   >>> lifesim.util.constants.c
    299792000.0
 
 This should return the speed of light in [m s

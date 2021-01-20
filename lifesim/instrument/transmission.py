@@ -147,8 +147,8 @@ class TransmissionMap(TransmissionModule):
         angsep : float
             Angular separation between the observed star and the observed exoplanet in [arcsec]
         ratio : float
-            Ratio between the nulling and the imaging baseline. E.g. if the imaging baseline is twice
-            as long as the nulling baseline, the ratio will be 2
+            Ratio between the nulling and the imaging baseline. E.g. if the imaging baseline is
+            twice as long as the nulling baseline, the ratio will be 2
 
         Returns
         -------
