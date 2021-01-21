@@ -58,6 +58,8 @@ class Options(object):
         self.models = {'localzodi': '',
                        'habitable': ''}
 
+        self.optimization = {'N_pf': 0.}
+
     def set_scenario(self,
                      case: str):
         """
@@ -84,6 +86,8 @@ class Options(object):
 
         self.models['localzodi'] = 'darwinsim'
         self.models['habitable'] = 'MS'
+
+        self.optimization['N_pf'] = 25
 
         if case == 'baseline':
             self.array['diameter'] = 2.

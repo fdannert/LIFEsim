@@ -198,7 +198,8 @@ class Instrument(InstrumentModule):
         ])
 
     # TODO Re-add functionality for calculating the SNR without certain noise term
-    def get_snr(self):
+    def get_snr(self,
+                safe_mode:bool = False):
         """
         Calculates the signal-to-noise ration for all planets within the catalog if the are
         observed by the LIFE array for the given observing time
@@ -211,17 +212,13 @@ class Instrument(InstrumentModule):
             The observation time per planet in [s]
         """
 
-        # snr_tot = np.zeros_like(c.data.nstar, dtype=float)
-        # c.data['snr_1h'] = np.zeros_like(c.data.nstar, dtype=float)
         self.apply_options()
         integration_time = 60 * 60
 
         self.data.catalog['snr_1h'] = np.zeros_like(self.data.catalog.nstar, dtype=float)
-        self.data.catalog['bl_test'] = np.zeros_like(self.data.catalog.nstar, dtype=float)
-
-        # # Push catalog to photon noise sockets
-        # self.update_socket(name='photon_noise',
-        #                    data={'c': c})
+        if safe_mode:
+            self.data.catalog['noise_astro'] = None
+            self.data.catalog['planet_flux_use'] = None
 
         # create mask returning only unique stars
         _, temp = np.unique(self.data.catalog.nstar, return_index=True)
@@ -230,42 +227,18 @@ class Instrument(InstrumentModule):
 
         # iterate over all stars
         for i, n in enumerate(tqdm(np.where(star_mask)[0])):
-            # if i == 50:
+            # if i == 10:
             #     break
             nstar = self.data.catalog.nstar[n]
-            # index_s = np.argwhere((self.data.catalog.nstar.to_numpy() == nstar))[0]
-        #
+
             # adjust baseline of array and give new baseline to transmission generator plugin
             self.adjust_bl_to_hz(hz_center=float(self.data.catalog.hz_center.iloc[n]),
                                  distance_s=float(self.data.catalog.distance_s.iloc[n]))
 
-        #     self.update_socket(name='transmission',
-        #                        data={'bl': self.bl})
-        #
             # get transmission map
             _, _, self.data.inst['t_map'], _, _ = self.run_socket(s_name='transmission',
                                                                   method='transmission_map',
                                                                   map_selection='tm3')
-        #     self.run_socket(name='transmission_generator',
-        #                     mode='map')
-        #     tm3 = self.sockets['transmission_generator'].tm3
-
-
-        #
-        #     # update and run the photon noise plugins
-        #     for j in range(self.options.other['n_plugins']):
-        #         self.update_socket(name='p_noise_source_'+str(j),
-        #                            data={'bl': self.bl,
-        #                                  't_map': tm3,
-        #                                  'radius_s': float(c.data.radius_s[index_s]),
-        #                                  'distance_s': float(c.data.distance_s[index_s]),
-        #                                  'temp_s': float(c.data.temp_s[index_s]),
-        #                                  'lat_s': float(c.data.lat[index_s]),
-        #                                  'l_sun': float(c.data.l_sun[index_s]),
-        #                                  'z': float(c.data.z[index_s])})
-        #
-        #         # in most cases, more sockets are initialized than plugins are needed
-        #         self.run_socket(name='p_noise_source_'+str(j))
 
             # calculate the noise from the background sources
             noise_bg_list = self.run_socket(s_name='photon_noise',
@@ -279,25 +252,20 @@ class Instrument(InstrumentModule):
             else:
                 noise_bg = noise_bg_list
 
-            noise_bg = noise_bg * integration_time * self.data.inst['eff_tot']
+            noise_bg = noise_bg * integration_time * self.data.inst['eff_tot'] * 2
 
             # go through all planets for the chosen star
-            for _, n_p in enumerate(np.argwhere(self.data.catalog.nstar.to_numpy() == nstar)[:, 0]):
-                # # get the new transmission maps
-                # for _, n_p in enumerate(np.argwhere((c.data['nstar'].to_numpy() == nstar))):
-                #     self.update_socket(name='transmission_generator',
-                #                        data={'ang_sep_as': c.data['angsep'].to_numpy()[n_p]})
-                #     self.run_socket(name='transmission_generator',
-                #                     mode='efficiency')
-                #
-                #     # calculate the photon flux originating from the planet
+            for _, n_p in enumerate(np.argwhere(
+                    self.data.catalog.nstar.to_numpy() == nstar)[:, 0]):
 
+                # calculate the photon flux originating from the planet
                 flux_planet_thermal = black_body(mode='planet',
                                                  bins=self.data.inst['wl_bins'],
                                                  width=self.data.inst['wl_bin_widths'],
                                                  temp=self.data.catalog['temp_p'].iloc[n_p],
                                                  radius=self.data.catalog['radius_p'].iloc[n_p],
-                                                 distance=self.data.catalog['distance_s'].iloc[n_p])
+                                                 distance=self.data.catalog['distance_s'].iloc[n_p]
+                                                 )
 
                 transm_eff, transm_noise = self.run_socket(s_name='transmission',
                                                            method='transmission_efficiency',
@@ -313,29 +281,19 @@ class Instrument(InstrumentModule):
                                * transm_noise \
                                * integration_time \
                                * self.data.inst['eff_tot'] \
-                               * self.data.inst['telescope_area']
+                               * self.data.inst['telescope_area'] \
+                               * 2
 
                 # Add up the noise and caluclate the SNR
-                noise = (noise_bg + noise_planet) * 2
+                noise = noise_bg + noise_planet
                 self.data.catalog.snr_1h.iat[n_p] = np.sqrt((flux_planet ** 2 / noise).sum())
-                self.data.catalog.bl_test.iat[n_p] = self.data.inst['bl']
 
-        #         flux_planet = self.sockets['transmission_generator'].transm_eff * \
-        #                       flux_planet_thermal * time * self.eff_tot
-        #         noise_planet = self.sockets['transmission_generator'].transm_noise * \
-        #                        flux_planet_thermal * time * self.eff_tot
-        #
-        #         # calculate the noise from the background sources
-        #         noise_bg = 0
-        #         for p in range(self.options.other['n_plugins']):
-        #             if self.sockets['p_noise_source_'+str(p)] is not None:
-        #                 noise_bg += self.sockets['p_noise_source_'+str(p)].noise
-        #         noise_bg = noise_bg * time * self.eff_tot
-        #
-        #         # Add up the noise and caluclate the SNR
-        #         noise = noise_bg + noise_planet
-        #         snr_tot[n_p] = np.sqrt((flux_planet ** 2 / noise).sum())
-        #     c.data['snr_1h'] = snr_tot
+                if safe_mode:
+                    self.data.catalog.noise_astro.iat[n_p] = [noise_bg]
+                    self.data.catalog.planet_flux_use.iat[n_p] = [flux_planet_thermal \
+                                                                  * integration_time \
+                                                                  * self.data.inst['eff_tot'] \
+                                                                  * self.data.inst['telescope_area']]
 
     # TODO: fix units in documentation
     def get_spectrum(self,

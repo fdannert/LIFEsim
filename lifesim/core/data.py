@@ -4,6 +4,7 @@ import warnings
 import numpy as np
 import pandas as pd
 from astropy.io import fits
+from astropy.table import Table
 from astropy.coordinates import SkyCoord, BarycentricMeanEcliptic
 
 from lifesim.util.options import Options
@@ -385,3 +386,23 @@ class Data(object):
         if name in self.catalog.keys():
             raise ValueError('Data can not be overwritten in safe mode')
         self.catalog[name] = data
+
+    def export_catalog(self,
+                       output_path: str):
+        if self.catalog is None:
+            raise ValueError('No catalog found')
+        # table = Table.from_pandas(self.catalog)
+        # table.write(output_path, format='fits')
+        self.catalog.to_hdf(path_or_buf=output_path, key='catalog', mode='w')
+
+    def import_catalog(self,
+                       input_path: str,
+                       overwrite: bool = False):
+        if (self.catalog is not None) and (not overwrite):
+            raise ValueError('Can not overwrite existing catalog')
+
+        self.catalog = pd.read_hdf(path_or_buf=input_path,
+                                   key='catalog')
+        # table = Table.read(input_path)
+        # self.catalog = table.to_pandas()
+
