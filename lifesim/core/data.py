@@ -18,6 +18,7 @@ class Data(object):
         self.single = {}
         self.other = {}
         self.options = Options()
+        self.optm = {}
 
     def catalog_delete(self):
         self.catalog = None
@@ -391,8 +392,6 @@ class Data(object):
                        output_path: str):
         if self.catalog is None:
             raise ValueError('No catalog found')
-        # table = Table.from_pandas(self.catalog)
-        # table.write(output_path, format='fits')
         self.catalog.to_hdf(path_or_buf=output_path, key='catalog', mode='w')
 
     def import_catalog(self,
@@ -403,6 +402,4 @@ class Data(object):
 
         self.catalog = pd.read_hdf(path_or_buf=input_path,
                                    key='catalog')
-        # table = Table.read(input_path)
-        # self.catalog = table.to_pandas()
 

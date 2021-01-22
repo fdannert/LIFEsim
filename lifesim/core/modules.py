@@ -67,7 +67,17 @@ class OptimizationModule(Module):
         self.add_socket(s_name='transmission',
                         s_type=TransmissionModule,
                         s_number=1)
+        self.add_socket(s_name='slope',
+                        s_type=SlopeModule,
+                        s_number=1)
 
     @abc.abstractmethod
     def find_phase(self):
+        pass
+
+
+class SlopeModule(Module):
+
+    @abc.abstractmethod
+    def distribute_time(self):
         pass

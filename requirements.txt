@@ -4,3 +4,5 @@ numpy~=1.19.5
 pandas~=1.2.0
 PyQt5~=5.15.2
 tqdm~=4.56.0
+
+tables????
