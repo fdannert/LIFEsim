@@ -19,6 +19,8 @@ class Data(object):
         self.other = {}
         self.options = Options()
         self.optm = {}
+        self.stars = None
+        self.discover = None
 
     def catalog_delete(self):
         self.catalog = None
@@ -403,3 +405,29 @@ class Data(object):
         self.catalog = pd.read_hdf(path_or_buf=input_path,
                                    key='catalog')
 
+    def stars_from_catalog(self):
+        if self.catalog is None:
+            raise ValueError('No catalog found')
+
+        # TODO: check if catalog was changed (stars removed) since import and the warn the user if
+        #   that is the case
+
+        _, ind = np.unique(self.catalog.nstar, return_index=True)
+        self.stars = self.catalog.loc[ind]
+        self.stars.drop(
+            columns=[element for element in self.stars.columns if element not in (
+                'nuniverse', 'nstar', 'stype', 'z', 'radius_s', 'mass_s', 'temp_s', 'distance_s',
+                'ra', 'dec', 'lat', 'lon', 's_in', 's_out', 'l_sun', 'hz_in', 'hz_out',
+                'hz_center')],
+            inplace=True)
+        self.stars['observed'] = 0
+        self.stars['t_next'] = 0
+        self.stars['interest'] = np.empty((len(self.stars), 0)).tolist()
+        self.stars['in_for'] = False
+        self.stars['median_time_p'] = 0.
+        self.stars['time_p'] = 0.
+
+    def init_discover(self):
+        self.discover = pd.DataFrame(
+            columns=['name', 'discovery_epoch', 't_detection', 'snr_current']
+        )

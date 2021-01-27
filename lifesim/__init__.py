@@ -10,3 +10,6 @@ from lifesim.gui.importer import SpectrumImporter
 
 from lifesim.optimize.optimizer import Optimizer
 from lifesim.optimize.ahgs import AhgsModule
+from lifesim.optimize.blind_simulation import BlindSimulationModule
+from lifesim.optimize.interest import MultiInterestModule
+from lifesim.optimize.prediction_interval import PredictionIntervalModule

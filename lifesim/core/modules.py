@@ -81,3 +81,36 @@ class SlopeModule(Module):
     @abc.abstractmethod
     def distribute_time(self):
         pass
+
+
+class RealisticModule(Module):
+
+    def __init__(self,
+                 name: str):
+        super().__init__(name=name)
+
+    @abc.abstractmethod
+    def run_simulation(self):
+        pass
+
+
+class InterestModule(Module):
+
+    @abc.abstractmethod
+    def get_star(self):
+        pass
+
+
+class ObservationModule(Module):
+
+    @abc.abstractmethod
+    def observe(self,
+                nstar: int):
+        pass
+
+
+class IntegrationTimeModule(Module):
+
+    @abc.abstractmethod
+    def times_for_all(self):
+        pass
