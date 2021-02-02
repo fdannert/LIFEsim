@@ -13,7 +13,6 @@ class BlindSimulationModule(RealisticModule):
     def run_simulation(self):
         self.data.optm['t_current'] = 0.
         self.data.optm['array_ang_current'] = 0.
-        self.data.stars['vector'] = None
 
 
         # calculate cartesian vectors for all stars
@@ -37,21 +36,21 @@ class BlindSimulationModule(RealisticModule):
         self.data.catalog['t_to_dect'] = np.inf
 
         # precalculate stuff
-        self.run_socket(s_name='instrument',
-                        method='get_snr',
-                        safe_mode=True)
-        self.run_socket(s_name='interest',
-                        method='do_precalc')
+        # self.run_socket(s_name='instrument',
+        #                 method='get_snr',
+        #                 safe_mode=True)
+        # self.run_socket(s_name='interest',
+        #                 method='do_precalc')
         # self.data.export_catalog(output_path='temp1')
         # self.data.stars.to_hdf(path_or_buf='temp2', key='stars', mode='w')
-        # self.run_socket(s_name='instrument',
-        #                 method='apply_options')
-        # self.data.stars = pd.read_hdf(path_or_buf='temp2',
-        #                               key='stars')
-        # self.data.catalog = None
-        # self.data.import_catalog(input_path='temp')
+        self.run_socket(s_name='instrument',
+                        method='apply_options')
+        self.data.stars = pd.read_hdf(path_or_buf='temp2',
+                                      key='stars')
+        self.data.catalog = None
+        self.data.import_catalog(input_path='temp')
 
-        obs_last = None
+        obs_last = (None, None)
 
         while (self.data.optm['t_current']
                < (self.data.options.optimization['t_search']
@@ -65,12 +64,23 @@ class BlindSimulationModule(RealisticModule):
                                 nstar=nstar)
 
             obs_nstar = self.data.stars.nstar.iloc[self.data.stars.interest_current.argmax()]
-            if obs_nstar == obs_last:
-                break
-            obs_last = obs_nstar
+
             print(obs_nstar)
             t = self.run_socket(s_name='observation',
                                 method='observe',
                                 nstar=obs_nstar)
             self.data.optm['t_current'] += t
             self.data.optm['array_ang_current'] += 2 * np.pi / (60 * 60 * 24 * 365) * t
+            if self.data.options.optimization['multi_visit']:
+                mask = self.data.stars.nstar == obs_nstar
+                if self.data.stars.loc[mask, 'frustration'].iloc[0] != 0:
+                    self.data.stars.loc[mask, 'i_number'].iat[0] = (
+                        self.data.stars.loc[mask, 'frustration'])
+                    self.run_socket(s_name='interest',
+                                    method='precalc_single',
+                                    nstar=obs_nstar)
+
+            if obs_nstar == obs_last[1]:
+                break
+            obs_last = (obs_nstar, obs_last[0])
+

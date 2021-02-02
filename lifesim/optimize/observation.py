@@ -39,7 +39,15 @@ class SimpleObservationModule(ObservationModule):
         target_t = self.data.stars.loc[mask_s, 'time_p'].iloc[0]
 
         if mask_c.sum() == 0:
-            self.data.stars.loc[mask_s, 'i_efficiency'] = 0.
+            if self.data.options.optimization['multi_visit']:
+                if self.data.stars.loc[mask_s, 't_first'].iloc[0] is not None:
+                    self.data.stars.loc[mask_s, 'i_efficiency'] = 0.
+                    self.data.stars.loc[mask_s, 'frustration'] = 0.
+                else:
+                    self.data.stars.loc[mask_s, 't_first'] = self.data.optm['t_current']
+                    self.data.stars.loc[mask_s, 'frustration'] = target_n
+            else:
+                self.data.stars.loc[mask_s, 'i_efficiency'] = 0.
             return target_t
 
         self.data.stars.loc[mask_s, 'lon'].iat[0] = (self.data.stars.loc[mask_s, 'lon'].iloc[0]
@@ -89,30 +97,40 @@ class SimpleObservationModule(ObservationModule):
                     and not self.data.catalog.detected.iloc[n_p]):
                 self.data.catalog.detected.iat[n_p] = True
 
-        self.data.stars.loc[mask_s, 'i_efficiency'] = 0.
-        pass
-                # n = self.data.stars.loc[mask_s, 'number_dect'].iloc[0] + 1
-                # self.data.stars.loc[self.data.stars.nstar == nstar, 'number_dect'].iat[0] = n
-                # self.data.discover.append({'name': ,
-                #                           'discovery_epoch':, 't_detection', 'snr_current'})
+        if self.data.options.optimization['multi_visit']:
+            if self.data.stars.loc[mask_s, 't_first'].iloc[0] is not None:
+                self.data.stars.loc[mask_s, 'i_efficiency'] = 0.
+                self.data.stars.loc[mask_s, 'frustration'] = 0.
+            else:
+                self.data.stars.loc[mask_s, 't_first'] = (self.data.optm['t_current']
+                                                          + t_integration / 2)
+                self.data.stars.loc[mask_s, 'frustration'] = abs(target_n
+                                                                 - (temp.time
+                                                                    < t_integration).sum())
+        else:
+            self.data.stars.loc[mask_s, 'i_efficiency'] = 0.
+        # n = self.data.stars.loc[mask_s, 'number_dect'].iloc[0] + 1
+        # self.data.stars.loc[self.data.stars.nstar == nstar, 'number_dect'].iat[0] = n
+        # self.data.discover.append({'name': ,
+        #                           'discovery_epoch':, 't_detection', 'snr_current'})
 
         return t_integration
 
-            # noise_bg = 0.
-            # for name in self.data.catalog.noise_diff.iloc[n_p].keys():
-            #     if name != "<class 'lifesim.instrument.pn_localzodi.PhotonNoiseLocalzodi'>":
-            #         noise_bg += self.data.catalog.noise_diff.iloc[n_p][name]
-            #
-            # self.adjust_bl_to_hz(hz_center=float(self.data.catalog.hz_center.iloc[n_p]),
-            #                      distance_s=float(self.data.catalog.distance_s.iloc[n_p]))
-            #
-            # _, _, self.data.inst['t_map'], _, _ = self.run_socket(s_name='transmission',
-            #                                                       method='transmission_map',
-            #                                                       map_selection='tm3')
-            #
-            # noise_lz = self.run_socket(s_name='localzodi',
-            #                            method='noise',
-            #                            index=n_p)
+        # noise_bg = 0.
+        # for name in self.data.catalog.noise_diff.iloc[n_p].keys():
+        #     if name != "<class 'lifesim.instrument.pn_localzodi.PhotonNoiseLocalzodi'>":
+        #         noise_bg += self.data.catalog.noise_diff.iloc[n_p][name]
+        #
+        # self.adjust_bl_to_hz(hz_center=float(self.data.catalog.hz_center.iloc[n_p]),
+        #                      distance_s=float(self.data.catalog.distance_s.iloc[n_p]))
+        #
+        # _, _, self.data.inst['t_map'], _, _ = self.run_socket(s_name='transmission',
+        #                                                       method='transmission_map',
+        #                                                       map_selection='tm3')
+        #
+        # noise_lz = self.run_socket(s_name='localzodi',
+        #                            method='noise',
+        #                            index=n_p)
 
 
 

@@ -436,7 +436,11 @@ class Data(object):
         self.stars['i_number'] = 0
         self.stars['i_time'] = 0
         self.stars['i_localzodi'] = 0
+        self.stars['i_multi_visit'] = 0
         self.stars['number_dect'] = 0
+        self.stars['vector'] = None
+        self.stars['t_first'] = None
+        self.stars['frustration'] = None
 
     def universe_from_catalog(self,
                               nuniverse: int):

@@ -75,6 +75,7 @@ class Options(object):
                              'wl_optimal_lz': 0.,  # wavelength for which the localzodi is optm.
                              'localzodi_scaler': 0.,  # amount by which the sim is influenced by lz
                              'multi_visit': False,  # should the optimizer use multi visits
+                             'multi_scaler': 0.  # amount by which the sim is influenced by multiv
                              }
 
     def set_scenario(self,
@@ -118,7 +119,8 @@ class Options(object):
         self.optimization['time_scaler'] = 1
         self.optimization['wl_optimal_lz'] = 15 * 1e-6
         self.optimization['localzodi_scaler'] = 0.6
-        self.optimization['multi_visit'] = True
+        self.optimization['multi_visit'] = False
+        self.optimization['multi_scaler'] = 2
 
 
         if case == 'baseline':

@@ -4,6 +4,7 @@ import matplotlib
 from tqdm import tqdm
 
 from lifesim.core.modules import InterestModule
+import lifesim.util.constants as c
 
 matplotlib.use('Qt5Agg')
 
@@ -239,12 +240,16 @@ class SimpleInterestModule(InterestModule):
 
     def do_precalc(self):
         for _, nstar in enumerate(tqdm(self.data.stars.nstar)):
-            mask = self.data.stars.nstar == nstar
-            self.get_efficiency(nstar=nstar)
-            self.run_socket(s_name='int_time',
-                            method='times_for_single',
-                            nstar=nstar,
-                            order=self.data.stars.loc[mask, 'i_number'].iloc[0])
+            self.precalc_single(nstar=nstar)
+
+    def precalc_single(self,
+                       nstar: int):
+        mask = self.data.stars.nstar == nstar
+        self.get_efficiency(nstar=nstar)
+        self.run_socket(s_name='int_time',
+                        method='times_for_single',
+                        nstar=nstar,
+                        order=self.data.stars.loc[mask, 'i_number'].iloc[0])
 
     def get_star(self,
                  nstar: int):
@@ -256,6 +261,9 @@ class SimpleInterestModule(InterestModule):
                 interest = (
                         self.data.stars.loc[mask, 'i_efficiency'].iloc[0]
                         * self.data.stars.loc[mask, 'i_localzodi'].iloc[0])
+                if self.data.options.optimization['multi_visit']:
+                    self.get_multi_visit(nstar=nstar)
+                    interest *= self.data.stars.loc[mask, 'i_multi_visit'].iloc[0]
             else:
                 interest = 0
         else:
@@ -355,6 +363,27 @@ class SimpleInterestModule(InterestModule):
                 * ((G - G_max) / (np.sqrt(2) - G_max))
         )
 
+    def get_multi_visit(self,
+                        nstar: int):
+        mask = self.data.stars.nstar == nstar
+        if self.data.stars.loc[mask, 'frustration'].iloc[0] is None:
+            I = 1
+        elif self.data.stars.loc[mask, 'frustration'].iloc[0] != 0:
+            p_orb_hz = 2 * np.pi * np.sqrt(
+                (self.data.stars.loc[mask, 'hz_center'].iloc[0] * c.m_per_au) ** 3
+                / (c.grav_const * self.data.stars.loc[mask, 'mass_s'].iloc[0] * c.mass_sun))
+
+            I = (self.data.stars.loc[mask, 'frustration'].iloc[0]
+                 * self.data.options.optimization['multi_scaler']
+                 * np.sin(2 * np.pi / p_orb_hz
+                          * (self.data.optm['t_current']
+                             + self.data.stars.loc[mask, 'time_p'].iloc[0] / 2
+                             - self.data.stars.loc[mask, 't_first'].iloc[0])
+                          ) ** 2)
+        else:
+            I = 0
+
+        self.data.stars.loc[mask, 'i_multi_visit'] = I
 
     def between(self,
                 low: float,
