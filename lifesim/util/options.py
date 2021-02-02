@@ -119,7 +119,7 @@ class Options(object):
         self.optimization['time_scaler'] = 1
         self.optimization['wl_optimal_lz'] = 15 * 1e-6
         self.optimization['localzodi_scaler'] = 0.6
-        self.optimization['multi_visit'] = False
+        self.optimization['multi_visit'] = True
         self.optimization['multi_scaler'] = 2
 
 
@@ -162,7 +162,7 @@ class Options(object):
             option_set = False
 
             # check if the key exists in any of the options dictionaries
-            for sub_dict in [self.array, self.other, self.models]:
+            for sub_dict in [self.array, self.other, self.models, self.optimization]:
                 if key in sub_dict:
 
                     # set the option
