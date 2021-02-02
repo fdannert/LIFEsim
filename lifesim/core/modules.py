@@ -88,6 +88,15 @@ class RealisticModule(Module):
     def __init__(self,
                  name: str):
         super().__init__(name=name)
+        self.add_socket(s_name='interest',
+                        s_type=InterestModule,
+                        s_number=1)
+        self.add_socket(s_name='instrument',
+                        s_type=InstrumentModule,
+                        s_number=1)
+        self.add_socket(s_name='observation',
+                        s_type=ObservationModule,
+                        s_number=1)
 
     @abc.abstractmethod
     def run_simulation(self):
@@ -96,12 +105,31 @@ class RealisticModule(Module):
 
 class InterestModule(Module):
 
+    def __init__(self,
+                 name: str):
+        super().__init__(name=name)
+        self.add_socket(s_name='int_time',
+                        s_type=IntegrationTimeModule,
+                        s_number=1)
+
     @abc.abstractmethod
-    def get_star(self):
+    def get_star(self,
+                 nstar: int):
+        pass
+
+    @abc.abstractmethod
+    def in_for(self):
         pass
 
 
 class ObservationModule(Module):
+
+    def __init__(self,
+                 name: str):
+        super().__init__(name=name)
+        self.add_socket(s_name='instrument',
+                        s_type=InstrumentModule,
+                        s_number=1)
 
     @abc.abstractmethod
     def observe(self,
@@ -113,4 +141,10 @@ class IntegrationTimeModule(Module):
 
     @abc.abstractmethod
     def times_for_all(self):
+        pass
+
+    @abc.abstractmethod
+    def times_for_single(self,
+                         nstar: int,
+                         order: int):
         pass

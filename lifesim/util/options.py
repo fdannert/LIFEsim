@@ -64,12 +64,18 @@ class Options(object):
         self.models = {'localzodi': '',
                        'habitable': ''}
 
-        self.optimization = {'N_pf': 0.,
-                             'snr_target': 0.,
-                             'limit': None,
-                             'habitable': False,
-                             't_search': 0.,
-                             'stat_size': 0.}
+        self.optimization = {'N_pf': 0.,  # number of samples per planet orbit
+                             'snr_target': 0.,  # snr limit to count observed planet as detection
+                             'limit': None,  # limits for detecting around host-star-types
+                             'habitable': False,  # optimize for habitable planets
+                             't_search': 0.,  # total duration of the search phase
+                             'stat_size': 0.,  #
+                             'time_scaler': 0.,  # amount by which the time bonus is dialed in in
+                                                 # the interest function
+                             'wl_optimal_lz': 0.,  # wavelength for which the localzodi is optm.
+                             'localzodi_scaler': 0.,  # amount by which the sim is influenced by lz
+                             'multi_visit': False,  # should the optimizer use multi visits
+                             }
 
     def set_scenario(self,
                      case: str):
@@ -103,12 +109,16 @@ class Options(object):
         self.models['habitable'] = 'MS'
 
         self.optimization['N_pf'] = 25
-        self.optimization['snr_target'] = 5
+        self.optimization['snr_target'] = 7
         self.optimization['limit'] = np.array(((0, 1, 2, 3, 4),
                                                (np.inf, np.inf, np.inf, np.inf, np.inf)))
         self.optimization['habitable'] = True
         self.optimization['t_search'] = 2.5 * 365. * 24. * 60. * 60.
-        self.optimization['stat_size'] = 0.5
+        self.optimization['stat_size'] = 0.75
+        self.optimization['time_scaler'] = 1
+        self.optimization['wl_optimal_lz'] = 15 * 1e-6
+        self.optimization['localzodi_scaler'] = 0.6
+        self.optimization['multi_visit'] = True
 
 
         if case == 'baseline':

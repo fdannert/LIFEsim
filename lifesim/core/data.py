@@ -1,5 +1,6 @@
 import sys
 import warnings
+from copy import deepcopy
 
 import numpy as np
 import pandas as pd
@@ -21,6 +22,8 @@ class Data(object):
         self.optm = {}
         self.stars = None
         self.discover = None
+        self.universe = None
+        self.statistic = None
 
     def catalog_delete(self):
         self.catalog = None
@@ -413,7 +416,7 @@ class Data(object):
         #   that is the case
 
         _, ind = np.unique(self.catalog.nstar, return_index=True)
-        self.stars = self.catalog.loc[ind]
+        self.stars = deepcopy(self.catalog.loc[ind])
         self.stars.drop(
             columns=[element for element in self.stars.columns if element not in (
                 'nuniverse', 'nstar', 'stype', 'z', 'radius_s', 'mass_s', 'temp_s', 'distance_s',
@@ -423,9 +426,21 @@ class Data(object):
         self.stars['observed'] = 0
         self.stars['t_next'] = 0
         self.stars['interest'] = np.empty((len(self.stars), 0)).tolist()
+        self.stars['interest_current'] = 0.
         self.stars['in_for'] = False
         self.stars['median_time_p'] = 0.
         self.stars['time_p'] = 0.
+        self.stars['time_p_0'] = None
+        self.stars['time_p_mid'] = None
+        self.stars['i_efficiency'] = 0
+        self.stars['i_number'] = 0
+        self.stars['i_time'] = 0
+        self.stars['i_localzodi'] = 0
+        self.stars['number_dect'] = 0
+
+    def universe_from_catalog(self,
+                              nuniverse: int):
+        self.universe = deepcopy(self.catalog.loc[self.catalog.nuniverse == nuniverse])
 
     def init_discover(self):
         self.discover = pd.DataFrame(

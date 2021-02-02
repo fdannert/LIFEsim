@@ -13,3 +13,5 @@ from lifesim.optimize.ahgs import AhgsModule
 from lifesim.optimize.blind_simulation import BlindSimulationModule
 from lifesim.optimize.interest import MultiInterestModule
 from lifesim.optimize.prediction_interval import PredictionIntervalModule
+from lifesim.optimize.interest import SimpleInterestModule
+from lifesim.optimize.observation import SimpleObservationModule

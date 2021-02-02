@@ -22,12 +22,12 @@ class ZTestModule(IntegrationTimeModule):
                          order: int):
         snrs = []
         not_present = 0
-        for i in range(self.data.catalog.nuniverse.max()+1):
-            temp = self.data.catalog.loc[
-                np.logical_and.reduce((self.data.catalog.nstar == nstar, self.data.catalog.nuniverse == i)),
+        for i in range(self.data.statistic.nuniverse.max()+1):
+            temp = self.data.statistic.loc[
+                np.logical_and.reduce((self.data.statistic.nstar == nstar, self.data.statistic.nuniverse == i)),
                 't_detection'].sort_values()
-            # temp = self.data.catalog.loc[
-            #     np.logical_and.reduce((self.data.catalog.nstar == nstar, self.data.catalog.nuniverse == i)),
+            # temp = self.data.statistic.loc[
+            #     np.logical_and.reduce((self.data.statistic.nstar == nstar, self.data.statistic.nuniverse == i)),
             #     'snr_1h'].sort_values()
             if len(temp) < order:
                 not_present += 1
