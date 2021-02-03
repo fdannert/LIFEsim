@@ -1,5 +1,7 @@
 import warnings
 
+import numpy as np
+
 
 class Options(object):
     """
@@ -49,7 +51,9 @@ class Options(object):
                       'baseline': 0.,
                       'bl_min': 0.,
                       'bl_max': 0.,
-                      'ratio': 0.}
+                      'ratio': 0.,
+                      't_slew': 0.,
+                      't_efficiency': 0.}
 
         self.other = {'image_size': 0,
                       'wl_optimal': 0.,
@@ -57,6 +61,12 @@ class Options(object):
 
         self.models = {'localzodi': '',
                        'habitable': ''}
+
+        self.optimization = {'N_pf': 0.,
+                             'snr_target': 0.,
+                             'limit': None,
+                             'habitable': False,
+                             't_search': 0.}
 
     def set_scenario(self,
                      case: str):
@@ -77,6 +87,8 @@ class Options(object):
         self.array['bl_min'] = 10.
         self.array['bl_max'] = 100.
         self.array['ratio'] = 6.
+        self.array['t_slew'] = 10. * 60. * 60.
+        self.array['t_efficiency'] = 0.8
 
         self.other['image_size'] = 256  # TODO: or 512?
         self.other['wl_optimal'] = 15
@@ -84,6 +96,13 @@ class Options(object):
 
         self.models['localzodi'] = 'darwinsim'
         self.models['habitable'] = 'MS'
+
+        self.optimization['N_pf'] = 25
+        self.optimization['snr_target'] = 5
+        self.optimization['limit'] = np.array(((0, 1, 2, 3, 4),
+                                               (np.inf, np.inf, np.inf, np.inf, np.inf)))
+        self.optimization['habitable'] = True
+        self.optimization['t_search'] = 2.5 * 365. * 24. * 60. * 60.
 
         if case == 'baseline':
             self.array['diameter'] = 2.
