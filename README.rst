@@ -34,7 +34,9 @@ TODO
 License
 -------
 
-TODO
+Copyright 2019-2020 Felix Dannert, Maurice Ottiger, Sascha Quanz and contributors.
+
+LIFEsim is distributed under the GNU General Public License v3. See the LICENSE file for the terms and conditions.
 
 
 .. |Life| raw:: html
