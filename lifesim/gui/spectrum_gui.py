@@ -515,7 +515,7 @@ class Frame(QDialog):
         load = QGroupBox('Import')
 
         self.spec_kind = QComboBox()
-        self.spec_kind.addItems(['absolute', 'additive'])
+        self.spec_kind.addItems(['absolute', 'additive', 'contrast'])
 
         self.browse = FileBrowser(label='Spectrum')
 
@@ -588,7 +588,8 @@ class Frame(QDialog):
         self.error_field.setText('')
         self.update_options()
         try:
-            if self.browse.filepath.text() != '':
+            if ((self.browse.filepath.text() != '')
+                    and (not self.spec_kind.currentText() == 'contrast')):
                 self.spec_import.do_import(pathtotext=self.browse.filepath.text(),
                                            x_string=self.x_units.box.text(),
                                            y_string=self.y_units.box.text(),
@@ -613,7 +614,6 @@ class Frame(QDialog):
                              / widths \
                              * u.photon/u.second/(u.meter**3)
                     self.flux_planet_spectrum[1] += fgamma
-
                 if self.prev_kind.currentIndex() == 0:
                     p_spec = [self.spec_import.x_raw, self.spec_import.y_raw]
                 else:
@@ -662,8 +662,41 @@ class Frame(QDialog):
                 self.flux_planet_spectrum = [wl_bins * u.meter, fgamma]
                 p_spec = [self.flux_planet_spectrum[0].to(u.micron),
                           self.flux_planet_spectrum[1]]
+
+            elif self.spec_kind.currentText() == 'contrast':
+                self.spec_import.do_import(pathtotext=self.browse.filepath.text(),
+                                           x_string=self.x_units.box.text(),
+                                           y_string='photon s-1 m-3',
+                                           distance_s_spectrum=None,
+                                           distance_s_target=0,
+                                           radius_p_spectrum=None,
+                                           radius_p_target=0,
+                                           integration_time=0)
+
+                self.flux_planet_spectrum = [self.spec_import.x_data, self.spec_import.y_data]
+
+                widths = (self.spec_import.x_data.value[1:]
+                          - self.spec_import.x_data.value[:-1])
+                widths = np.append(widths, widths[-1])
+                bins = self.spec_import.x_data.value + widths / 2
+                fgamma = black_body(mode='star',
+                                    bins=bins,
+                                    width=widths,
+                                    temp=self.temp_s.box.value(),
+                                    radius=self.radius_s.box.value(),
+                                    distance=self.distance_s.box.value()) \
+                         / widths \
+                         * u.photon / u.second / (u.meter ** 3)
+                self.flux_planet_spectrum[1] *= fgamma
+                if self.prev_kind.currentIndex() == 0:
+                    p_spec = [self.spec_import.x_raw, self.spec_import.y_raw]
+                else:
+                    p_spec = [self.flux_planet_spectrum[0].to(u.micron),
+                              self.flux_planet_spectrum[1]]
+
             else:
                 raise ValueError('Given file cannot be imported')
+
 
             self.p_plot.axes.cla()
             self.p_plot.axes.plot(p_spec[0], p_spec[1], color="darkblue", linestyle="-")
@@ -794,10 +827,31 @@ class Frame(QDialog):
                        header='Wavelength [m]   SNR per bin for 1h  Input flux')
 
     def change_visibility(self):
-        if self.temp_p.isHidden():
+        if self.spec_kind.currentText() == 'additive':
             self.temp_p.show()
-        else:
+            self.temp_p.label.setText('Temperature Planet')
+            self.x_units.show()
+            self.y_units.show()
+            self.distance_spec.show()
+            self.radius_spec.show()
+            self.time_spec.show()
+        elif self.spec_kind.currentText() == 'absolute':
             self.temp_p.hide()
+            self.x_units.show()
+            self.y_units.show()
+            self.distance_spec.show()
+            self.radius_spec.show()
+            self.time_spec.show()
+        elif self.spec_kind.currentText() == 'contrast':
+            self.temp_p.hide()
+            self.temp_p.label.setText('Temperature Star')
+            self.x_units.show()
+            self.y_units.hide()
+            self.distance_spec.hide()
+            self.radius_spec.hide()
+            self.time_spec.hide()
+
+        # self.temp_p.hide()
 
 if __name__ == '__main__':
     app = QApplication([])

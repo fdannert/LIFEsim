@@ -1,6 +1,7 @@
 from astropy import units as u
 from astropy import constants as c
 import numpy as np
+from typing import Union
 import matplotlib.pyplot as plt
 # TODO: import of relative spectra
 
@@ -47,10 +48,14 @@ class SpectrumImporter(object):
     def adjust_to_target(self):
         if self.distance_s_spectrum == 0:
             self.y_data = self.y_data / (self.distance_s_target * u.pc)**2 / 4
+        elif self.distance_s_spectrum is None:
+            pass
         else:
             self.y_data = self.y_data * (self.distance_s_spectrum / self.distance_s_target)**2
         if self.radius_p_spectrum == 0:
             self.y_data = self.y_data * 4 * np.pi * (self.radius_p_target * c.R_earth * u.m)**2
+        elif self.radius_p_spectrum is None:
+            pass
         else:
             self.y_data = self.y_data * (self.radius_p_target / self.radius_p_spectrum)**2
         self.y_data = self.y_data.decompose()
@@ -86,9 +91,9 @@ class SpectrumImporter(object):
                   pathtotext: str,
                   x_string: str,
                   y_string: str,
-                  radius_p_spectrum: float,
+                  radius_p_spectrum: Union[float, type(None)],
                   radius_p_target: float,
-                  distance_s_spectrum: float,
+                  distance_s_spectrum: Union[float, type(None)],
                   distance_s_target: float,
                   integration_time: float):
         self.radius_p_spectrum = radius_p_spectrum
