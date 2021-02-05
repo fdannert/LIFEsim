@@ -417,7 +417,7 @@ class Instrument(InstrumentModule):
         snr_spec = np.sqrt((flux_planet ** 2 / noise))
 
         return ([self.data.inst['wl_bins'], snr_spec],
-                flux_planet_spectrum,
+                flux_planet,
                 noise)
 
 
