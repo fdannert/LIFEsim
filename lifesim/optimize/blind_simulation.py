@@ -39,11 +39,11 @@ class BlindSimulationModule(RealisticModule):
 
         # precalculate stuff
         if self.data.options.optimization['multi_scaler'] is None:
-            # self.run_socket(s_name='instrument',
-            #                 method='get_snr',
-            #                 safe_mode=True)
-            # self.run_socket(s_name='interest',
-            #                 method='do_precalc')
+            self.run_socket(s_name='instrument',
+                            method='get_snr',
+                            safe_mode=True)
+            self.run_socket(s_name='interest',
+                            method='do_precalc')
             self.data.export_catalog(output_path='cat_'
                                                  + str(self.data.options.optimization['stat_size']))
             self.data.stars.to_hdf(path_or_buf='stars_'
@@ -75,6 +75,9 @@ class BlindSimulationModule(RealisticModule):
                                     nstar=nstar)
 
                 obs_nstar = self.data.stars.nstar.iloc[self.data.stars.interest_current.argmax()]
+
+                if self.data.stars.interest_current.sum() == 0:
+                    break
 
                 print(obs_nstar)
                 t = self.run_socket(s_name='observation',
