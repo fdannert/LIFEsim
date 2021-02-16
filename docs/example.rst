@@ -46,13 +46,13 @@ according to given parameters.
    A pure black body planet can be simulated by choosing the *additive* option and leaving the
    file dialog empty.
 
-   .. image:: _static/GUI_example_bb.png
+   .. image:: _static/GUI_example_blackbody.png
       :width: 70%
       :align: center
 
 To specify the units of the spectrum you are importing, enter them in the fields *x-axis units* and
 *y-axis units*. For this example, please set *x-axis units* to ``micron`` and *y-axis units* to
-``photon micron-1 h-1 m-2``.
+``photon micron-1 s-1 m-2``.
 
 In the *Spectrum Parameter* field the parameters used during the creation of the spectrum need to
 be given. Again, for the example please set *Distance* to ``10pc``, *Planet Radius* to ``1 Earth
