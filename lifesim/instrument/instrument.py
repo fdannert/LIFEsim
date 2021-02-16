@@ -222,14 +222,14 @@ class Instrument(InstrumentModule):
 
         # create mask returning only unique stars
         _, temp = np.unique(self.data.catalog.nstar, return_index=True)
-        star_mask = np.zeros_like(self.data .catalog.nstar, dtype=bool)
+        star_mask = np.zeros_like(self.data.catalog.nstar, dtype=bool)
         star_mask[temp] = True
 
         # iterate over all stars
         for i, n in enumerate(tqdm(np.where(star_mask)[0])):
             # if i == 10:
             #     break
-            nstar = self.data.catalog.nstar[n]
+            nstar = self.data.catalog.nstar.iloc[n]
 
             # adjust baseline of array and give new baseline to transmission generator plugin
             self.adjust_bl_to_hz(hz_center=float(self.data.catalog.hz_center.iloc[n]),

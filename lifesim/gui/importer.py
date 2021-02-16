@@ -53,7 +53,7 @@ class SpectrumImporter(object):
         else:
             self.y_data = self.y_data * (self.distance_s_spectrum / self.distance_s_target)**2
         if self.radius_p_spectrum == 0:
-            self.y_data = self.y_data * 4 * np.pi * (self.radius_p_target * c.R_earth * u.m)**2
+            self.y_data = self.y_data * 4 * np.pi * (self.radius_p_target * c.R_earth)**2
         elif self.radius_p_spectrum is None:
             pass
         else:

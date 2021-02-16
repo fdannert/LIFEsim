@@ -7,12 +7,14 @@ bus = ls.Bus()
 bus.data.options.set_scenario('baseline')
 
 # set options manually
-bus.data.options.set_manual(diameter=4.)
+# bus.data.options.set_manual(diameter=4.)
 
 # loading and preparing the catalog
 bus.data.catalog_from_ppop(input_path='/home/felix/Documents/MA/lifeOS/Data/baselineSample.fits')
 bus.data.catalog_remove_distance(stype=0, mode='larger', dist=0.)
 bus.data.catalog_remove_distance(stype=4, mode='larger', dist=10.)
+
+bus.data.catalog = bus.data.catalog[bus.data.catalog.nuniverse == 10]
 
 # create modules and add to bus
 inst = ls.Instrument(name='inst')
@@ -52,5 +54,5 @@ bus.connect(('opt', 'ahgs'))
 
 opt.ahgs()
 
-bus.data.export_catalog(output_path='/home/felix/Documents/MA/Outputs/LIFEsim_development/'
-                                    'Test_1.hdf5')
+# bus.data.export_catalog(output_path='/home/felix/Documents/MA/Outputs/LIFEsim_development/'
+#                                     'Test_1.hdf5')

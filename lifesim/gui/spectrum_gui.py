@@ -2,12 +2,12 @@ import math
 import os
 import warnings
 
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import (Qt, QRegExp)
 from PyQt5.QtWidgets import (QApplication, QDialog, QGroupBox, QSlider, QGridLayout, QLabel,
                              QVBoxLayout, QLineEdit, QWidget, QSpinBox, QHBoxLayout,
                              QDoubleSpinBox, QFileDialog, QPushButton, QTabWidget, QCheckBox,
-                             QProgressBar, QComboBox, QSizePolicy)
-from PyQt5.QtGui import QPixmap
+                             QProgressBar, QComboBox, QSizePolicy, QFormLayout)
+from PyQt5.QtGui import (QPixmap, QDoubleValidator, QIntValidator, QRegExpValidator)
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
 import numpy as np
@@ -39,9 +39,9 @@ class CustomSlider(QWidget):
         layout.addWidget(self.slider)
 
 
-class DoubleBoxLabel(QWidget):
+class DoubleBoxLabel_old(QWidget):
     def __init__(self, label, mini, maxi, step, value, suffix, *args, **kwargs):
-        super(DoubleBoxLabel, self).__init__(*args, **kwargs)
+        super(DoubleBoxLabel_old, self).__init__(*args, **kwargs)
         self.box = QDoubleSpinBox()
         self.label = QLabel(text=label)
 
@@ -56,9 +56,39 @@ class DoubleBoxLabel(QWidget):
         layout.addWidget(self.box)
 
 
-class BoxLabel(QWidget):
+class DoubleBoxLabel(QWidget):
+    def __init__(self, label, mini, maxi, step, value, suffix, *args, **kwargs):
+        super(DoubleBoxLabel, self).__init__(*args, **kwargs)
+        self.box = QLineEdit()
+        self.label = QLabel(text=label)
+
+        self.val = QDoubleValidator(bottom=mini,
+                                    top=maxi)
+
+        rx = QRegExp()
+        rx.setPattern('\d*\.?\d*')
+        self.val = QRegExpValidator(rx)
+
+        self.box.setValidator(self.val)
+        self.box.setAlignment(Qt.AlignRight)
+        self.suf = QLabel(text=suffix)
+        self.box.setText(str(float(value)))
+
+        layout = QHBoxLayout(self)
+        # layout.addWidget(self.label)
+        layout.addWidget(self.box)
+        layout.addWidget(self.suf)
+
+    def value(self):
+        return float(self.box.text())
+
+    def set(self, value):
+        self.box.setText(str(float(value)))
+
+
+class BoxLabel_old(QWidget):
     def __init__(self, label, mini, maxi, value, suffix, *args, **kwargs):
-        super(BoxLabel, self).__init__(*args, **kwargs)
+        super(BoxLabel_old, self).__init__(*args, **kwargs)
         self.box = QSpinBox()
         self.label = QLabel(text=label)
 
@@ -70,6 +100,33 @@ class BoxLabel(QWidget):
         layout = QHBoxLayout(self)
         layout.addWidget(self.label)
         layout.addWidget(self.box)
+
+
+class BoxLabel(QWidget):
+    def __init__(self, label, mini, maxi, value, suffix, *args, **kwargs):
+        super(BoxLabel, self).__init__(*args, **kwargs)
+        self.box = QLineEdit()
+        self.label = QLabel(text=label)
+
+        rx = QRegExp()
+        rx.setPattern('\d*')
+        self.val = QRegExpValidator(rx)
+
+        self.box.setValidator(self.val)
+        self.box.setAlignment(Qt.AlignRight)
+        self.suf = QLabel(text=suffix)
+        self.box.setText(str(int(value)))
+
+        layout = QHBoxLayout(self)
+        # layout.addWidget(self.label)
+        layout.addWidget(self.box)
+        layout.addWidget(self.suf)
+
+    def value(self):
+        return int(self.box.text())
+
+    def set(self, value):
+        self.box.setText(str(int(value)))
 
 
 class StringBoxLabel(QWidget):
@@ -103,7 +160,7 @@ class DoubleBoxRange(QWidget):
         self.upper.setSuffix('μm')
 
         layout = QHBoxLayout(self)
-        layout.addWidget(self.label)
+        # layout.addWidget(self.label)
         layout.addWidget(self.lower)
         layout.addWidget(self.dash)
         layout.addWidget(self.upper)
@@ -160,30 +217,6 @@ class PlotCanvas(FigureCanvasQTAgg):
 class Frame(QDialog):
     def __init__(self, parent=None):
         super(Frame, self).__init__(parent)
-
-        # TODO: Remove
-        # LIFEsim simulator setup
-        # self.bus = life.Bus()
-        # self.options = life.Options()
-        # self.options.set_scenario('baseline')
-        #
-        # self.spec_import = life.SpectrumImporter()
-        #
-        # inst = life.Instrument(name='LIFE',
-        #                        options=self.options)
-        # self.bus.add_module(module=inst)
-        #
-        # tm = life.TransmissionMap(name='tm')
-        # self.bus.add_module(module=tm)
-        #
-        # self.bus.connect(module_names=('LIFE', 'tm'))
-        #
-        # sl = life.PhotonNoiseStar(name='sl')
-        # self.bus.add_module(module=sl)
-        # lz = life.PhotonNoiseLocalzodi(name='lz')
-        # self.bus.add_module(module=lz)
-        # ez = life.PhotonNoiseExozodi(name='ez')
-        # self.bus.add_module(module=ez)
 
         self.bus = ls.Bus()
         self.bus.data.options.set_scenario('baseline')
@@ -289,10 +322,18 @@ class Frame(QDialog):
         # l_layout.addWidget(self.diameter, alignment=Qt.AlignLeft)
         # l_layout.addWidget(self.spec_res, alignment=Qt.AlignLeft)
 
-        layout = QVBoxLayout(self.instrument)
-        layout.addWidget(self.diameter)
-        layout.addWidget(self.spec_res)
-        layout.addWidget(self.wl_range)
+        # layout = QVBoxLayout(self.instrument)
+        # layout.addWidget(self.diameter)
+        # layout.addWidget(self.spec_res)
+        # layout.addWidget(self.wl_range)
+
+        layout = QGridLayout(self.instrument)
+        layout.addWidget(self.diameter.label, 0, 0)
+        layout.addWidget(self.diameter, 0, 1)
+        layout.addWidget(self.spec_res. label, 1, 0)
+        layout.addWidget(self.spec_res, 1, 1)
+        layout.addWidget(self.wl_range.label, 2, 0)
+        layout.addWidget(self.wl_range, 2, 1)
 
     def create_star(self):
         self.star = QGroupBox('Star')
@@ -304,7 +345,7 @@ class Frame(QDialog):
                                      step=100.,
                                      value=5778.,
                                      suffix='K')
-        self.temp_s.box.setDecimals(0)
+        # self.temp_s.box.setDecimals(0)
         self.temp_s.label.setToolTip('Test Tip')
 
         self.radius_s = DoubleBoxLabel(label='Radius',
@@ -320,7 +361,7 @@ class Frame(QDialog):
                                          step=1.,
                                          value=10.,
                                          suffix='pc')
-        self.distance_s.box.setDecimals(0)
+#        self.distance_s.box.setDecimals(0)
 
         self.lat = DoubleBoxLabel(label='Galactic Latitude',
                                   mini=0.,
@@ -336,12 +377,43 @@ class Frame(QDialog):
                                 value=1.,
                                 suffix='z')
 
-        layout = QVBoxLayout(temp)
-        layout.addWidget(self.temp_s)
-        layout.addWidget(self.radius_s)
-        layout.addWidget(self.distance_s)
-        layout.addWidget(self.lat)
-        layout.addWidget(self.z)
+        # layout = QFormLayout(temp)
+        layout = QGridLayout(temp)
+        layout.addWidget(self.temp_s.label, 0, 0)
+        layout.addWidget(self.temp_s, 0, 1)
+        # layout.addWidget(self.temp_s.suf, 0, 2)
+
+        layout.addWidget(self.radius_s.label, 1, 0)
+        layout.addWidget(self.radius_s, 1, 1)
+        # layout.addWidget(self.radius_s.suf, 1, 2)
+
+        layout.addWidget(self.distance_s.label, 2, 0)
+        layout.addWidget(self.distance_s, 2, 1)
+        # layout.addWidget(self.distance_s.suf, 2, 2)
+
+        layout.addWidget(self.lat.label, 3, 0)
+        layout.addWidget(self.lat, 3, 1)
+        # layout.addWidget(self.lat.suf, 3, 2)
+
+        layout.addWidget(self.z.label, 4, 0)
+        layout.addWidget(self.z, 4, 1)
+        # layout.addWidget(self.z.suf, 4, 2)
+
+        # layout.setAlignment(Qt.AlignTop)
+        # layout.addWidget(self.temp_s)
+        # layout.addWidget(self.radius_s)
+        # layout.addWidget(self.distance_s)
+        # layout.addWidget(self.lat)
+        # layout.addWidget(self.z)
+        # layout.addRow(self.temp_s.label, self.temp_s)
+        # layout.addRow(self.radius_s.label, self.radius_s)
+        # layout.addRow(self.distance_s.label.text(), self.distance_s)
+        # layout.addRow(self.lat.label.text(), self.lat)
+        # layout.addRow(self.z.label.text(), self.z)
+
+        # self.temp_s.label.setAlignment(Qt.AlignCenter)
+        # layout.setFormAlignment(Qt.AlignVCenter)
+        # layout.setLabelAlignment(Qt.AlignBottom)
 
         s_layout = QVBoxLayout(self.star)
         s_layout.addWidget(temp)
@@ -363,10 +435,17 @@ class Frame(QDialog):
                                        step=0.5,
                                        suffix='R⊕')
 
-        layout = QVBoxLayout()
-        layout.addWidget(self.angsep)
-        layout.addWidget(self.radius_p)
-        self.planet.setLayout(layout)
+        # layout = QVBoxLayout()
+        # layout.addWidget(self.angsep)
+        # layout.addWidget(self.radius_p)
+        # self.planet.setLayout(layout)
+
+        layout = QGridLayout(self.planet)
+        layout.addWidget(self.angsep.label, 0, 0)
+        layout.addWidget(self.angsep, 0, 1)
+        layout.addWidget(self.radius_p.label, 1, 0)
+        layout.addWidget(self.radius_p, 1, 1)
+        # layout.setAlignment(Qt.AlignTop)
 
     def preview_spectrum(self):
         self.s_preview = QWidget()
@@ -529,14 +608,17 @@ class Frame(QDialog):
                                      step=1.,
                                      value=0.,
                                      suffix='K')
-
+        temp = QWidget()
+        ly = QHBoxLayout(temp)
+        ly.addWidget(self.temp_p.label)
+        ly.addWidget(self.temp_p)
 
         layout_l = QVBoxLayout(load)
         layout_l.addWidget(self.spec_kind)
         layout_l.addWidget(self.browse)
         layout_l.addWidget(self.x_units)
         layout_l.addWidget(self.y_units)
-        layout_l.addWidget(self.temp_p)
+        layout_l.addWidget(temp)
 
         self.temp_p.hide()
         self.spec_kind.currentTextChanged.connect(self.change_visibility)
@@ -549,7 +631,7 @@ class Frame(QDialog):
                                             step=1.,
                                             value=0.,
                                             suffix='pc')
-        self.distance_spec.box.setDecimals(0)
+        # self.distance_spec.box.setDecimals(0)
         # self.distance_spec.box.setValue(10.)
 
         self.radius_spec = DoubleBoxLabel(label='Radius Planet',
@@ -567,20 +649,28 @@ class Frame(QDialog):
                                         value=0.,
                                         suffix='s')
 
-        layout_p = QVBoxLayout(param)
-        layout_p.addWidget(self.distance_spec)
-        layout_p.addWidget(self.radius_spec)
-        layout_p.addWidget(self.time_spec)
+        # layout_p = QVBoxLayout(param)
+        # layout_p.addWidget(self.distance_spec)
+        # layout_p.addWidget(self.radius_spec)
+        # layout_p.addWidget(self.time_spec)
+
+        layout_p = QGridLayout(param)
+        layout_p.addWidget(self.distance_spec.label, 0, 0)
+        layout_p.addWidget(self.distance_spec, 0, 1)
+        layout_p.addWidget(self.radius_spec.label, 1, 0)
+        layout_p.addWidget(self.radius_spec, 1, 1)
+        layout_p.addWidget(self.time_spec.label, 2, 0)
+        layout_p.addWidget(self.time_spec, 2, 1)
 
         layout = QVBoxLayout(self.input)
         layout.addWidget(load)
         layout.addWidget(param)
 
     def update_options(self):
-        self.bus.data.options.set_manual(diameter=self.diameter.box.value(),
+        self.bus.data.options.set_manual(diameter=self.diameter.value(),
                                          wl_min=self.wl_range.lower.value(),
                                          wl_max=self.wl_range.upper.value(),
-                                         spec_res=self.spec_res.box.value())
+                                         spec_res=self.spec_res.value())
         self.bus.modules['life'].apply_options()
 
     def show_preview(self):
@@ -593,11 +683,11 @@ class Frame(QDialog):
                 self.spec_import.do_import(pathtotext=self.browse.filepath.text(),
                                            x_string=self.x_units.box.text(),
                                            y_string=self.y_units.box.text(),
-                                           distance_s_spectrum=self.distance_spec.box.value(),
-                                           distance_s_target=self.distance_s.box.value(),
-                                           radius_p_spectrum=self.radius_spec.box.value(),
-                                           radius_p_target=self.radius_p.box.value(),
-                                           integration_time=self.time_spec.box.value())
+                                           distance_s_spectrum=self.distance_spec.value(),
+                                           distance_s_target=self.distance_s.value(),
+                                           radius_p_spectrum=self.radius_spec.value(),
+                                           radius_p_target=self.radius_p.value(),
+                                           integration_time=self.time_spec.value())
 
                 self.flux_planet_spectrum = [self.spec_import.x_data, self.spec_import.y_data]
                 if self.spec_kind.currentText() == 'additive':
@@ -608,9 +698,9 @@ class Frame(QDialog):
                     fgamma = black_body(mode='planet',
                                         bins=bins,
                                         width=widths,
-                                        temp=self.temp_p.box.value(),
-                                        radius=self.radius_p.box.value(),
-                                        distance=self.distance_s.box.value()) \
+                                        temp=self.temp_p.value(),
+                                        radius=self.radius_p.value(),
+                                        distance=self.distance_s.value()) \
                              / widths \
                              * u.photon/u.second/(u.meter**3)
                     self.flux_planet_spectrum[1] += fgamma
@@ -653,9 +743,9 @@ class Frame(QDialog):
                 fgamma = black_body(mode='planet',
                                     bins=wl_bins,
                                     width=wl_bin_widths,
-                                    temp=self.temp_p.box.value(),
-                                    radius=self.radius_p.box.value(),
-                                    distance=self.distance_s.box.value()) \
+                                    temp=self.temp_p.value(),
+                                    radius=self.radius_p.value(),
+                                    distance=self.distance_s.value()) \
                          / wl_bin_widths \
                          * u.photon / u.second / (u.meter ** 3)
 
@@ -682,9 +772,9 @@ class Frame(QDialog):
                 fgamma = black_body(mode='star',
                                     bins=bins,
                                     width=widths,
-                                    temp=self.temp_s.box.value(),
-                                    radius=self.radius_s.box.value(),
-                                    distance=self.distance_s.box.value()) \
+                                    temp=self.temp_s.value(),
+                                    radius=self.radius_s.value(),
+                                    distance=self.distance_s.value()) \
                          / widths \
                          * u.photon / u.second / (u.meter ** 3)
                 self.flux_planet_spectrum[1] *= fgamma
@@ -783,13 +873,13 @@ class Frame(QDialog):
             self.bus.connect(module_names=('life', 'ez'))
 
         self.r_spec, self.flux_p, self.flux_n = self.bus.modules['life'].get_spectrum(
-            temp_s=self.temp_s.box.value(),
-            radius_s=self.radius_s.box.value(),
-            distance_s=self.distance_s.box.value(),
+            temp_s=self.temp_s.value(),
+            radius_s=self.radius_s.value(),
+            distance_s=self.distance_s.value(),
             flux_planet_spectrum=self.flux_planet_spectrum,
-            lat_s=self.lat.box.value(),
-            z=self.z.box.value(),
-            angsep=self.angsep.box.value(),
+            lat_s=self.lat.value(),
+            z=self.z.value(),
+            angsep=self.angsep.value(),
             integration_time=self.time_b.value()*60*60)
 
         # print(self.r_spec[1][np.argmin(np.abs(self.r_spec[0]-11e-6))])
@@ -799,8 +889,8 @@ class Frame(QDialog):
                            self.flux_n)
 
     def set_values(self):
-        self.diameter.box.setValue(self.bus.data.options.array['diameter'])
-        self.spec_res.box.setValue(self.bus.data.options.array['spec_res'])
+        self.diameter.set(self.bus.data.options.array['diameter'])
+        self.spec_res.set(self.bus.data.options.array['spec_res'])
         self.wl_range.lower.setValue(self.bus.data.options.array['wl_min'])
         self.wl_range.upper.setValue(self.bus.data.options.array['wl_max'])
 
