@@ -11,7 +11,24 @@ from lifesim.util.options import Options
 from lifesim.util.habitable import single_habitable_zone
 
 
+# TODO: automatically add data storage for all
 class Data(object):
+    """
+    The data class is the central storage class for catalogs, options, parameters and data. Any
+    data used in simulations should be stored in this class. Via the bus, access to the data class
+    is given to all modules.
+
+    Attributes
+    ----------
+    inst: dict
+        data used for simulation of the instrument
+    catalog: pd.DataFrame
+        catalog containing all exoplanets in the sample
+    single: dict
+        data used for the spectral simulation of single exoplanets
+    other: dict
+        data storage for various 
+    """
     def __init__(self):
         self.inst = {}
         self.catalog = None
@@ -25,17 +42,24 @@ class Data(object):
 
     def catalog_from_ppop(self,
                           input_path: str,
-                          override: bool = False):
+                          overwrite: bool = False):
         """Read the contents of the P-Pop output file (in .txt or .fits format) to a catalog
 
         Parameters
         ----------
         input_path : str
             path to the P-Pop output file in a .txt or .fits format
+        overwrite: bool
+            if set to true, exisitng catalogs can overwritten
+
+        Raises
+        ------
+        ValueError
+            If the data class already has an initialized catalog and overwrite is set to False
         """
 
         # make sure that no catalog exists
-        if (self.catalog is not None) and (not override):
+        if (self.catalog is not None) and (not overwrite):
             raise ValueError('A catalog has already been imported. Delete the old catalog or set '
                              'overwrite=True')
 
@@ -390,6 +414,19 @@ class Data(object):
 
     def export_catalog(self,
                        output_path: str):
+        """
+        Save the catalog to an file in the hdf-format
+
+        Parameters
+        ----------
+        output_path: str
+            path to and name of the created file
+
+        Raises
+        ------
+        ValueError
+            If not catalog exists in this data class
+        """
         if self.catalog is None:
             raise ValueError('No catalog found')
         self.catalog.to_hdf(path_or_buf=output_path, key='catalog', mode='w')
@@ -397,6 +434,21 @@ class Data(object):
     def import_catalog(self,
                        input_path: str,
                        overwrite: bool = False):
+        """
+        Import catalog from external file of hdf-format.
+
+        Parameters
+        ----------
+        input_path : str
+            path to the P-Pop output file in a .txt or .fits format
+        overwrite: bool
+            if set to true, exisitng catalogs can overwritten
+
+        Raises
+        ------
+        ValueError
+            If the data class already has an initialized catalog and overwrite is set to False
+        """
         if (self.catalog is not None) and (not overwrite):
             raise ValueError('Can not overwrite existing catalog')
 
