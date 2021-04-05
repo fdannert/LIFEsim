@@ -22,6 +22,7 @@ class InstrumentModule(Module):
     @abc.abstractmethod
     def get_snr(self):
         pass
+    
 
     @abc.abstractmethod
     def get_spectrum(self,

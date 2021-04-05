@@ -1,0 +1,53 @@
+#%%
+import lifesim as ls
+import matplotlib.pyplot as plt
+import pandas as pd
+import numpy as np
+
+"""
+Test and compare the result of timedependent simulation vs original time independent simulation 
+"""
+#%%
+def setup_bus():
+    bus = ls.Bus()
+    bus.data.options.set_scenario('baseline')
+    bus.data.import_catalog("C:/Users/Stoephu/Projects/SemesterProject2021/LIFEsim/output/suitable.hdf5")
+    return bus
+
+#%%
+bus_o = setup_bus() #original sim
+bus_t = setup_bus() #new sim
+
+#%%
+# ---------- MEASUREMENT SIMULATION ---------- copied from lifesim_demo.py by fdannert
+
+# create modules and add to bus
+inst = ls.Instrument(name='inst')
+bus_t.add_module(inst)
+
+transm = ls.TransmissionMap(name='transm')
+bus_t.add_module(transm)
+
+exo = ls.PhotonNoiseExozodi(name='exo')
+bus_t.add_module(exo)
+local = ls.PhotonNoiseLocalzodi(name='local')
+bus_t.add_module(local)
+star = ls.PhotonNoiseStar(name='star')
+bus_t.add_module(star)
+
+# connect all modules
+bus_t.connect(('inst', 'transm'))
+bus_t.connect(('inst', 'exo'))
+bus_t.connect(('inst', 'local'))
+bus_t.connect(('inst', 'star'))
+
+bus_t.connect(('star', 'transm'))
+
+#%%
+inst.get_snr_test()
+
+#%%
+bus_o.data.catalog["snr_1h"]
+#%%
+bus_t.data.catalog["snr_1h"]
+# %%

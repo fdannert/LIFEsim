@@ -301,9 +301,6 @@ class Instrument(InstrumentModule):
         Calculates the signal-to-noise ration for all planets within the catalog if the are
         observed by the LIFE array for the given observing time
 
-        TODO NEW: add time dependence on to the signal and especially transmission of planets orbiting
-        TODO NEW: add Flares
-
         Parameters
         ----------
         c : lifesim.Catalog
