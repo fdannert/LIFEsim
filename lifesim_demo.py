@@ -41,6 +41,7 @@ bus.connect(('inst', 'star'))
 bus.connect(('star', 'transm'))
 
 
+
 # run simulation. This function assigns every planet an SNR for 1 hour of integration time. Since
 # we are currently only simulating photon noise, the SNR will scale with the integration time as sqrt(t)
 inst.get_snr()
@@ -62,11 +63,12 @@ bus.connect(('opt', 'ahgs'))
 opt.ahgs()
 
 # save the catalog to a file
-bus.data.export_catalog(output_path='/path/Test_1.hdf5')
+bus.data.export_catalog(output_path='C:/Users/Stoephu/Projects/SemesterProject2021/LIFEsim/output/Test_1.hdf5')
+
 
 
 # ---------- READ SAVED CATALOG ----------
 # import a previously saved catalog
 bus2 = ls.Bus()
 bus2.data.options.set_scenario('baseline')
-bus2.data.import_catalog(input_path='/path/Test_1.hdf5')
+bus2.data.import_catalog(input_path='C:/Users/Stoephu/Projects/SemesterProject2021/LIFEsim/output/Test_1.hdf5')

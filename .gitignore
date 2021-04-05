@@ -6,3 +6,5 @@
 /lifesim/__pycache__/
 data/baselineSample.fits
 *.pyc
+/output/
+/.vscode/
