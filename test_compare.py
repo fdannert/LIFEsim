@@ -51,3 +51,10 @@ bus_o.data.catalog["snr_1h"]
 #%%
 bus_t.data.catalog["snr_1h"]
 # %%
+snrs = []
+true_anomalies = np.arange(0,2*np.pi,np.pi/360)
+for anomaly in true_anomalies:
+    bus_t.data.catalog["true_anomaly"] = anomaly
+    inst.get_snr_test()
+    snrs.append(bus_t.data.catalog)
+snrs
