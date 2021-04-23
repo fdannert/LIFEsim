@@ -295,7 +295,7 @@ class Instrument(InstrumentModule):
                                                                   * self.data.inst['eff_tot'] \
                                                                   * self.data.inst['telescope_area']]
 
-    def get_snr_test(self,
+    def get_snr_t(self,
                 safe_mode:bool = False):
         """
         Calculates the signal-to-noise ration for all planets within the catalog if the are
@@ -310,7 +310,15 @@ class Instrument(InstrumentModule):
         """
 
         self.apply_options()
-        integration_time = 60 * 60
+        
+        self.data.inst["rotation_period"] = 60 * 60 * 1
+        self.data.inst["rotations"] = 1
+        self.data.inst["integration_time"] = self.data.inst["rotations"] * self.data.inst["rotation_period"]
+        integration_time = self.data.inst["integration_time"]
+        # timestep option; goal is to calculate angular seperation and the transmission coefficient there
+        # then sum noise and singal over all steps
+        # angular seperation calculation starts from true anomaly which is random
+
 
         self.data.catalog['snr_1h'] = np.zeros_like(self.data.catalog.nstar, dtype=float)
         if safe_mode:
@@ -365,7 +373,7 @@ class Instrument(InstrumentModule):
                                                  )
 
                 transm_eff, transm_noise = self.run_socket(s_name='transmission',
-                                                           method='transmission_efficiency',
+                                                           method='transmission_efficiency_t',
                                                            index=n_p)
 
                 # calculate the signal and photon noise flux received from the planet
