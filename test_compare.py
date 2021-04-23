@@ -8,7 +8,7 @@ import numpy as np
 from numpy import cos, sin, pi
 
 """
-Test and compare the result of timedependent simulation vs original time independent simulation 
+Test and compare the result of timedependent simulation vs original time independent simulation
 """
 # %%
 
@@ -70,20 +70,32 @@ bus_t.connect(('inst', 'star'))
 
 bus_t.connect(('star', 'transm'))
 
-#%%
+# %%
 inst_o.get_snr()
-inst.get_snr_t()
 
-#%%
+# %%
 bus_o.data.catalog["snr_1h"]
-#%%
-bus_t.data.catalog["snr_1h"]
+
 # %%
-snrs = []
-true_anomalies = np.arange(0, 2 * np.pi, np.pi / 6)
-for anomaly in true_anomalies:
-    bus_t.data.catalog["theta_p"] = anomaly
-    inst.get_snr_t()
-    snrs.append(bus_t.data.catalog[["theta_p", "snr_1h", "inc_p"]].copy())
-snrs
+
+
+def test_anomalies(n_angles):
+    snrs = []
+    true_anomalies = np.arange(0, 2 * np.pi, np.pi * 2 / n_angles)
+    for anomaly in true_anomalies:
+        bus_t.data.catalog["theta_p"] = anomaly
+        inst.get_snr_t()
+        snrs.append(bus_t.data.catalog[["theta_p", "snr_1h", "inc_p"]].copy())
+    snrs
 # %%
+
+
+def plot_transmission_curves(rotation_time=1, rotation=1, rotation_steps=360):
+    # TODO support more rotation times
+    transmission_curves = []
+    for i in enumerate(bus_t.data.catalog):
+        tr_chop_one_wv = inst.get_transmission_curve(i)[0][0, 0]
+        transmission_curves.append(tr_chop_one_wv)
+        plt.plot(np.linspace(0, 2*pi, 360), tr_chop_one_wv, label=str(i))
+    plt.legend()
+    plt.show()

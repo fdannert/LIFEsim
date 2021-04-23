@@ -525,5 +525,11 @@ class Instrument(InstrumentModule):
                 flux_planet,
                 noise)
 
+    # TODO Write Function which calculates to extract the modulation
+    def get_transmission_curve(self, index):
+        return self.run_socket(s_name='transmission',
+                               method='get_transmission_curve_t',
+                               index=index)
+        pass
 
 

@@ -162,7 +162,7 @@ class Catalog(object):
             inc_p = []  # rad
             large_omega_p = []  # rad
             small_omega_p = []  # rad
-            theta_p = []  # rad
+            theta_p = []  # rad true anomaly
             albedo_bond = []
             albedo_geom_vis = []
             albedo_geom_mir = []

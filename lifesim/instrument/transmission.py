@@ -223,6 +223,35 @@ class TransmissionMap(TransmissionModule):
         vs = rad*Ri.dot(start)
         return vs[0], vs[2]
 
+    def get_transmission_curve_t(self, index):
+        # seperated from transmission efficiency to be able to extract the modulation
+        rotation_steps = 360
+        angsep = self.data.catalog.angsep.iloc[index]
+
+        angsep_rad = angsep / (3600 * 180) * np.pi
+
+        true_anom = self.data.catalog.iloc[index]["theta_p"]
+        inclination = self.data.catalog.iloc[index]["inc_p"]
+        p_orb = self.data.catalog.iloc[index]["p_orb"]
+
+        # How many rotations the instrument does
+        n_rotations = self.data.inst["rotations"]
+
+        # Instrument rotation period 1h/ 5h / 20h / (12h) in seconds
+        rotation_period = self.data.inst["rotation_period"]
+
+        # calculates the time length of one integration step in seconds rounded
+        rotation_step_time = rotation_period / rotation_steps
+        percentage_orbit_step = rotation_step_time / (p_orb * 24 * 60 * 60)
+        delta_theta = percentage_orbit_step * 2 * np.pi
+
+        thetas = np.linspace(true_anom, true_anom + delta_theta * (rotation_steps * n_rotations),
+                             n_rotations * rotation_steps, endpoint=False)
+
+        xs, zs = self.v(thetas, inclination, angsep_rad)
+
+        return self.transmission_curve_t(n_rotations=n_rotations, xs=xs, zs=zs, phi_n=rotation_steps)
+
     def transmission_efficiency_t(self,
                                   index: Union[int, type(None)]):
         """
@@ -248,35 +277,9 @@ class TransmissionMap(TransmissionModule):
             Transmission efficiency per spectral bin for the photon noise received from the exoplanet
             signal
 
-        TODO: how to extract orbit direction from parameters
         """
-        rotation_steps = 360
-        angsep = self.data.catalog.angsep.iloc[index]
 
-        angsep_rad = angsep / (3600 * 180) * np.pi
-
-        true_anom = self.data.catalog.iloc[index]["theta_p"]
-        inclination = self.data.catalog.iloc[index]["inc_p"]
-        p_orb = self.data.catalog.iloc[index]["p_orb"]
-
-        # How many rotations the instrument does
-        n_rotations = self.data.inst["rotations"]
-
-        # Instrument rotation period 1h/ 5h / 20h / (12h) in seconds
-        rotation_period = self.data.inst["rotation_period"]
-
-        # calculates the time length of one integration step in seconds rounded
-        rotation_step_time = rotation_period / rotation_steps
-        percentage_orbit_step = rotation_step_time / (p_orb * 24 * 60 * 60)
-        delta_theta = percentage_orbit_step * 2 * np.pi
-
-        thetas = np.linspace(true_anom, true_anom + delta_theta * (rotation_steps * n_rotations),
-                             n_rotations * rotation_steps, endpoint=False)
-
-        # TODO: xs zs flip sign way to fast
-        xs, zs = self.v(thetas, inclination, angsep_rad)
-
-        tc_chop, tc_tm4 = self.transmission_curve_t(n_rotations=n_rotations, xs=xs, zs=zs, phi_n=rotation_steps)
+        tc_chop, tc_tm4 = self.get_transmission_curve_t(index)
 
         # integrate over angles to get transmission efficiency
         transm_eff = np.sqrt((tc_chop ** 2).mean(axis=(-2, -1)))

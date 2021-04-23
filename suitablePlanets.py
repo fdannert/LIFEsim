@@ -4,17 +4,6 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
 
-#%%
-def min_separation(large_omega_p, inc_p):
-    """
-    Returns value from 0 to 1, 
-    where 0 is the planet travels exactly over the middle of the star(edge_on),
-    where 1 is never comes closer to the star in the projected separation(face_on).
-    tries to give a measure of edge_on'ness
-    """
-    separation = 1
-    separation = np.abs(np.sin(large_omega_p)*np.sin(inc_p))
-    return separation
 
 #%%
 
@@ -24,19 +13,20 @@ bus.data.options.set_scenario('baseline')
 bus.data.import_catalog(input_path='C:/Users/Stoephu/Projects/SemesterProject2021/LIFEsim/output/TestSet.hdf5')
 db = bus.data.catalog
 suitable = pd.DataFrame(data=None, columns=db.columns)
-detected_n = db[db["detected"]]
+detected_n = db[db["snr_1h"] > 10]
 max_period = detected_n["p_orb"].max()
 min_period = detected_n["p_orb"].min()
 m_stars = detected_n[detected_n["stype"] == 4]
-edge_on = detected_n[(min_separation(detected_n["large_omega_p"],detected_n["inc_p"]) <= 0.01)]
-face_on = detected_n[(min_separation(detected_n["large_omega_p"],detected_n["inc_p"]) >= 0.99)]
+face_on = detected_n[(detected_n["inc_p"] <= 0.1) | (detected_n["inc_p"] >= (np.pi - 0.1))]
+edge_on = detected_n[(detected_n["inc_p"] >= (np.pi/2 - 0.02)) & (detected_n["inc_p"] >= (np.pi/2 + 0.02))]
 
 
 
 #%%
-suitable = suitable.append(edge_on[edge_on["p_orb"] <= (min_period + 0.1)].sort_values("snr_1h").iloc[[5]])
-suitable = suitable.append(face_on[face_on["p_orb"] <= (min_period + 0.1)].sort_values("snr_1h").iloc[[9]])
+suitable = suitable.append(edge_on[edge_on["p_orb"] <= (min_period + 0.1)].sort_values("snr_1h").iloc[[0]])
+suitable = suitable.append(face_on[face_on["p_orb"] <= (min_period + 0.1)].sort_values("snr_1h").iloc[[0]])
 #%%
+# TODO Create artificial planets to test limits.
 bus.data.catalog = suitable
 bus.data.export_catalog("C:/Users/Stoephu/Projects/SemesterProject2021/LIFEsim/output/suitable.hdf5")
 
