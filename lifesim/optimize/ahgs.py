@@ -20,7 +20,7 @@ class AhgsModule(SlopeModule):
                                               self.data.catalog.habitable,
                                               np.invert(self.data.catalog.detected)))
             else:
-                mask = np.logical_and(mask, self.data.catalog.detected)
+                mask = np.logical_and(mask, np.invert(self.data.catalog.detected))
             obs = (60 * 60 *
                    (self.data.options.optimization['snr_target'] ** 2
                     - self.data.catalog['snr_current'].loc[mask] ** 2)

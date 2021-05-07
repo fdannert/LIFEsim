@@ -245,6 +245,9 @@ class Instrument(InstrumentModule):
                                             method='noise',
                                             index=n)
 
+            print(nstar)
+            print(np.max(self.data.inst['t_map']))
+
             if type(noise_bg_list) == list:
                 noise_bg = np.zeros_like(noise_bg_list[0])
                 for _, noise in enumerate(noise_bg_list):

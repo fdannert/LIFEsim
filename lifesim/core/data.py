@@ -20,14 +20,17 @@ class Data(object):
 
     Attributes
     ----------
-    inst: dict
-        data used for simulation of the instrument
-    catalog: pd.DataFrame
-        catalog containing all exoplanets in the sample
-    single: dict
-        data used for the spectral simulation of single exoplanets
-    other: dict
-        data storage for various 
+    inst : dict
+        Data used for simulation of the instrument.
+    catalog : pd.DataFrame
+        Catalog containing all exoplanets in the sample.
+    single : dict
+        Data used for the spectral simulation of single exoplanets.
+    other : dict
+        Data storage for any other pertinent data.
+    options : Options
+        Location of the Options class. All options and free parameters used in a LIFEsim simulation
+        must be stored here.
     """
     def __init__(self):
         self.inst = {}
@@ -43,19 +46,20 @@ class Data(object):
     def catalog_from_ppop(self,
                           input_path: str,
                           overwrite: bool = False):
-        """Read the contents of the P-Pop output file (in .txt or .fits format) to a catalog
+        """
+        Read the contents of the P-Pop output file (in .txt or .fits format) to a catalog.
 
         Parameters
         ----------
         input_path : str
-            path to the P-Pop output file in a .txt or .fits format
-        overwrite: bool
-            if set to true, exisitng catalogs can overwritten
+            Path to the P-Pop output file in a .txt or .fits format.
+        overwrite : bool
+            If set to true, existing catalogs can overwritten.
 
         Raises
         ------
         ValueError
-            If the data class already has an initialized catalog and overwrite is set to False
+            If the data class already has an initialized catalog and overwrite is set to False.
         """
 
         # make sure that no catalog exists
@@ -295,7 +299,8 @@ class Data(object):
         star_mask = np.zeros_like(self.catalog.nstar, dtype=bool)
         star_mask[temp] = True
 
-        # transform from equitorial to ecliptic coordinated
+        # TODO: why is this commented out? AFAIK P-Pop uses equitorial coordinates
+        # transform from equitorial to ecliptic coordinates
         # coord = SkyCoord(self.catalog.ra, self.catalog.dec, frame='icrs', unit='deg')
         # coord_ec = coord.transform_to(BarycentricMeanEcliptic())
         # self.catalog['lon'] = np.array(coord_ec.lon.radian)
@@ -333,35 +338,32 @@ class Data(object):
             (self.catalog['radius_p'].ge(0.5)).to_numpy(),
             (self.catalog['radius_p'].le(1.5)).to_numpy()))
 
-    # TODO: Definition of stype here is wrong. It should be an int not a string. But this is stupid
-    #   change it back!
+    # TODO: Definition of stype here is wrong. It should be an int not a string.
+    #   Think about this a bit more. It is important to keep the ints in the DataFrame, but that
+    #   decreases usability. Maybe an option is to use intermediate masks for the stellar types.
     def catalog_remove_distance(self,
-                                stype: str,
+                                stype: int,
                                 dist: float,
                                 mode: str):
         """
         Removes planets around stellar type above or below a certain distance from the sample. A
-        warning is raise if the mode is not recognized
+        warning is raise if the mode is not recognized.
 
         Parameters
         ----------
-        stype : str
+        stype : int
             Planets around stars of the specified stellar type are removed. Possible options are
-            'A', 'F', 'G', 'K', 'M'
+            `0` for A-stars, `1` for F-stars, `2` for G-stars, `3` for K-stars and `4` for M-stars.
         dist : float
-            Specifies the distance over or under which the planets are removed in pc
+            Specifies the distance over or under which the planets are removed in pc.
         mode : str
             'larger':   planets around stars with distances larger than the specified distance are
-                        removed
+                        removed.
             'smaller':  planets around stars with distances smaller than the specified distance are
-                        removed
-        Raises
-        ------
-        ValueError
-            If the given stellar type is not valid (i.e. is not equal to 'A, F, G, K or M')
+                        removed.
         """
 
-        # TODO: Reinstate, hat to be remove because of the stype string/int thing
+        # TODO: Reinstate this check once the int/sting problem is resolved.
         # check if stellar type is valid
         # if not np.isin(stype, np.array(('A', 'F', 'G', 'K', 'M'))):
         #     raise ValueError('Stellar type not recognised')
@@ -387,14 +389,14 @@ class Data(object):
                          data: np.ndarray):
         """
         Add data to the catalog while making sure that none of the catalogs vital properties are
-        disrespected and that no data is deleted
+        disrespected and that no data is deleted.
 
         Parameters
         ----------
         name : str
-            Name key of the data in the pandas DataFrame
+            Name key of the data in the pandas DataFrame.
         data : np.ndarray
-            The data added to the catalog
+            The data added to the catalog.
 
         Raises
         ------
@@ -415,17 +417,17 @@ class Data(object):
     def export_catalog(self,
                        output_path: str):
         """
-        Save the catalog to an file in the hdf-format
+        Save the catalog to an file in the hdf-format.
 
         Parameters
         ----------
-        output_path: str
-            path to and name of the created file
+        output_path : str
+            path to the new file.
 
         Raises
         ------
         ValueError
-            If not catalog exists in this data class
+            If not catalog exists in this data class.
         """
         if self.catalog is None:
             raise ValueError('No catalog found')
@@ -440,14 +442,14 @@ class Data(object):
         Parameters
         ----------
         input_path : str
-            path to the P-Pop output file in a .txt or .fits format
-        overwrite: bool
-            if set to true, exisitng catalogs can overwritten
+            path to the P-Pop output file in a .txt or .fits format.
+        overwrite : bool
+            if set to true, existing catalogs can overwritten.
 
         Raises
         ------
         ValueError
-            If the data class already has an initialized catalog and overwrite is set to False
+            If the data class already has an initialized catalog and overwrite is set to False.
         """
         if (self.catalog is not None) and (not overwrite):
             raise ValueError('Can not overwrite existing catalog')

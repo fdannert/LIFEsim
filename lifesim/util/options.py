@@ -98,7 +98,7 @@ class Options(object):
         self.models['habitable'] = 'MS'
 
         self.optimization['N_pf'] = 25
-        self.optimization['snr_target'] = 5
+        self.optimization['snr_target'] = 7
         self.optimization['limit'] = np.array(((0, 1, 2, 3, 4),
                                                (np.inf, np.inf, np.inf, np.inf, np.inf)))
         self.optimization['habitable'] = True
