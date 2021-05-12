@@ -86,24 +86,25 @@ class Instrument(InstrumentModule):
         self.data.inst['bl'] = self.data.options.array['baseline']
 
         self.data.inst['telescope_area'] = 4. * np.pi \
-                                           * (self.data.options.array['diameter'] / 2.) ** 2
+            * (self.data.options.array['diameter'] / 2.) ** 2
         self.data.inst['eff_tot'] = self.data.options.array['quantum_eff'] \
-                                    * self.data.options.array['throughput']
+            * self.data.options.array['throughput']
 
         self.data.inst['wl_bins'], \
-        self.data.inst['wl_bin_widths'], \
-        self.data.inst['wl_bin_edges'] = self.get_wl_bins_const_spec_res()
+            self.data.inst['wl_bin_widths'], \
+            self.data.inst['wl_bin_edges'] = self.get_wl_bins_const_spec_res()
 
         # fov = wl / D -> hfov=wl/(2*D)
         # TODO remove the double usage of mas and rad, stick to only one
         self.data.inst['hfov'] = self.data.inst['wl_bins'] \
-                                 / (2. * self.data.options.array['diameter'])
+            / (2. * self.data.options.array['diameter'])
 
-        self.data.inst['hfov_mas'] = self.data.inst['hfov'] * (3600000. * 180.) / np.pi
+        self.data.inst['hfov_mas'] = self.data.inst['hfov'] * \
+            (3600000. * 180.) / np.pi
         self.data.inst['rad_pix'] = (2 * self.data.inst['hfov']) \
-                                    / self.data.options.other['image_size']  # Radians per pixel
+            / self.data.options.other['image_size']  # Radians per pixel
         self.data.inst['mas_pix'] = (2 * self.data.inst['hfov_mas']) \
-                                    / self.data.options.other['image_size']  # mas per pixel
+            / self.data.options.other['image_size']  # mas per pixel
 
         # apertures defines the telescope positions (and *relative* radius)
         self.data.inst['apertures'] = np.array([
@@ -138,7 +139,7 @@ class Instrument(InstrumentModule):
 
             # set the wavelength bin width according to the spectral resolution
             wl_bin_width = wl_edge / self.data.options.array['spec_res'] / \
-                           (1 - 1 / self.data.options.array['spec_res'] / 2)
+                (1 - 1 / self.data.options.array['spec_res'] / 2)
 
             # make the last bin shorter when it hits the wavelength limit
             if wl_edge + wl_bin_width > self.data.options.array['wl_max']:
@@ -179,11 +180,14 @@ class Instrument(InstrumentModule):
         hz_center_rad = hz_center / distance_s / (3600 * 180) * np.pi  # in rad
 
         # put first transmission peak of optimal wl on center of HZ
-        self.data.inst['bl'] = 0.589645 / hz_center_rad * self.data.options.other['wl_optimal']*10**(-6)
+        self.data.inst['bl'] = 0.589645 / hz_center_rad * \
+            self.data.options.other['wl_optimal']*10**(-6)
 
         # make sure that the baseline does not exeed the set baseline limits
-        self.data.inst['bl'] = np.maximum(self.data.inst['bl'], self.data.options.array['bl_min'])
-        self.data.inst['bl'] = np.minimum(self.data.inst['bl'], self.data.options.array['bl_max'])
+        self.data.inst['bl'] = np.maximum(
+            self.data.inst['bl'], self.data.options.array['bl_min'])
+        self.data.inst['bl'] = np.minimum(
+            self.data.inst['bl'], self.data.options.array['bl_max'])
 
         # update the position of the apertures
         self.data.inst['apertures'] = np.array([
@@ -199,7 +203,7 @@ class Instrument(InstrumentModule):
 
     # TODO Re-add functionality for calculating the SNR without certain noise term
     def get_snr(self,
-                safe_mode:bool = False):
+                safe_mode: bool = False):
         """
         Calculates the signal-to-noise ration for all planets within the catalog if the are
         observed by the LIFE array for the given observing time
@@ -215,7 +219,8 @@ class Instrument(InstrumentModule):
         self.apply_options()
         integration_time = 60 * 60
 
-        self.data.catalog['snr_1h'] = np.zeros_like(self.data.catalog.nstar, dtype=float)
+        self.data.catalog['snr_1h'] = np.zeros_like(
+            self.data.catalog.nstar, dtype=float)
         if safe_mode:
             self.data.catalog['noise_astro'] = None
             self.data.catalog['planet_flux_use'] = None
@@ -252,7 +257,8 @@ class Instrument(InstrumentModule):
             else:
                 noise_bg = noise_bg_list
 
-            noise_bg = noise_bg * integration_time * self.data.inst['eff_tot'] * 2
+            noise_bg = noise_bg * integration_time * \
+                self.data.inst['eff_tot'] * 2
 
             # go through all planets for the chosen star
             for _, n_p in enumerate(np.argwhere(
@@ -273,30 +279,32 @@ class Instrument(InstrumentModule):
 
                 # calculate the signal and photon noise flux received from the planet
                 flux_planet = flux_planet_thermal \
-                              * transm_eff \
-                              * integration_time \
-                              * self.data.inst['eff_tot'] \
-                              * self.data.inst['telescope_area']
+                    * transm_eff \
+                    * integration_time \
+                    * self.data.inst['eff_tot'] \
+                    * self.data.inst['telescope_area']
                 noise_planet = flux_planet_thermal \
-                               * transm_noise \
-                               * integration_time \
-                               * self.data.inst['eff_tot'] \
-                               * self.data.inst['telescope_area'] \
-                               * 2
+                    * transm_noise \
+                    * integration_time \
+                    * self.data.inst['eff_tot'] \
+                    * self.data.inst['telescope_area'] \
+                    * 2
 
                 # Add up the noise and caluclate the SNR
                 noise = noise_bg + noise_planet
-                self.data.catalog.snr_1h.iat[n_p] = np.sqrt((flux_planet ** 2 / noise).sum())
+                self.data.catalog.snr_1h.iat[n_p] = np.sqrt(
+                    (flux_planet ** 2 / noise).sum())
 
                 if safe_mode:
                     self.data.catalog.noise_astro.iat[n_p] = [noise_bg]
-                    self.data.catalog.planet_flux_use.iat[n_p] = [flux_planet_thermal \
-                                                                  * integration_time \
-                                                                  * self.data.inst['eff_tot'] \
+                    self.data.catalog.planet_flux_use.iat[n_p] = [flux_planet_thermal
+                                                                  * integration_time
+                                                                  * self.data.inst['eff_tot']
                                                                   * self.data.inst['telescope_area']]
 
     def get_snr_t(self,
-                safe_mode:bool = False):
+                  safe_mode: bool = False,
+                  time_dependent: bool = True):
         """
         Calculates the signal-to-noise ration for all planets within the catalog if the are
         observed by the LIFE array for the given observing time
@@ -310,17 +318,15 @@ class Instrument(InstrumentModule):
         """
 
         self.apply_options()
-        
-        self.data.inst["rotation_period"] = 60 * 60 * 1
-        self.data.inst["rotations"] = 1
-        self.data.inst["integration_time"] = self.data.inst["rotations"] * self.data.inst["rotation_period"]
+        if "rotation_period" in self.data.inst is False:
+            self.set_rotation()
         integration_time = self.data.inst["integration_time"]
         # timestep option; goal is to calculate angular seperation and the transmission coefficient there
         # then sum noise and singal over all steps
         # angular seperation calculation starts from true anomaly which is random
 
-
-        self.data.catalog['snr_1h'] = np.zeros_like(self.data.catalog.nstar, dtype=float)
+        self.data.catalog['snr_1h'] = np.zeros_like(
+            self.data.catalog.nstar, dtype=float)
         if safe_mode:
             self.data.catalog['noise_astro'] = None
             self.data.catalog['planet_flux_use'] = None
@@ -357,7 +363,8 @@ class Instrument(InstrumentModule):
             else:
                 noise_bg = noise_bg_list
 
-            noise_bg = noise_bg * integration_time * self.data.inst['eff_tot'] * 2
+            noise_bg = noise_bg * integration_time * \
+                self.data.inst['eff_tot'] * 2
 
             # go through all planets for the chosen star
             for _, n_p in enumerate(np.argwhere(
@@ -374,31 +381,49 @@ class Instrument(InstrumentModule):
 
                 transm_eff, transm_noise = self.run_socket(s_name='transmission',
                                                            method='transmission_efficiency_t',
-                                                           index=n_p)
+                                                           index=n_p,
+                                                           time_dependent=time_dependent)
 
                 # calculate the signal and photon noise flux received from the planet
                 flux_planet = flux_planet_thermal \
-                              * transm_eff \
-                              * integration_time \
-                              * self.data.inst['eff_tot'] \
-                              * self.data.inst['telescope_area']
+                    * transm_eff \
+                    * integration_time \
+                    * self.data.inst['eff_tot'] \
+                    * self.data.inst['telescope_area']
                 noise_planet = flux_planet_thermal \
-                               * transm_noise \
-                               * integration_time \
-                               * self.data.inst['eff_tot'] \
-                               * self.data.inst['telescope_area'] \
-                               * 2
+                    * transm_noise \
+                    * integration_time \
+                    * self.data.inst['eff_tot'] \
+                    * self.data.inst['telescope_area'] \
+                    * 2
 
                 # Add up the noise and caluclate the SNR
                 noise = noise_bg + noise_planet
-                self.data.catalog.snr_1h.iat[n_p] = np.sqrt((flux_planet ** 2 / noise).sum())
+                self.data.catalog.snr_1h.iat[n_p] = np.sqrt(
+                    (flux_planet ** 2 / noise).sum())
 
                 if safe_mode:
                     self.data.catalog.noise_astro.iat[n_p] = [noise_bg]
-                    self.data.catalog.planet_flux_use.iat[n_p] = [flux_planet_thermal \
-                                                                  * integration_time \
-                                                                  * self.data.inst['eff_tot'] \
+                    self.data.catalog.planet_flux_use.iat[n_p] = [flux_planet_thermal
+                                                                  * integration_time
+                                                                  * self.data.inst['eff_tot']
                                                                   * self.data.inst['telescope_area']]
+
+    def set_rotation(self, rotation_period: float = 1, rotations: int = 1, rotation_steps: int = 360):
+        """
+        rotation period: int
+            time passing for 1 rotation of the instrument in hours
+            then save in bus.data.inst in seconds
+        rotations: int
+            number of rotations the instrument does for its integration
+        rotations_steps: int
+            how many integration steps it calculates in one rotation
+        """
+        self.data.inst["rotation_period"] = 60 * 60 * rotation_period
+        self.data.inst["rotations"] = rotations
+        self.data.inst["integration_time"] = self.data.inst["rotations"] * \
+            self.data.inst["rotation_period"]
+        self.data.inst["rotation_steps"] = rotation_steps
 
     # TODO: fix units in documentation
     def get_spectrum(self,
@@ -491,17 +516,17 @@ class Instrument(InstrumentModule):
         # calculate the signal and photon noise flux received from the planet
         # TODO: to be consistent with get_snr, make it such that bin_width is multiplied elsewhere
         flux_planet = flux_planet_spectrum \
-                      * transm_eff \
-                      * integration_time \
-                      * self.data.inst['eff_tot'] \
-                      * self.data.inst['telescope_area'] \
-                      * self.data.inst['wl_bin_widths']
+            * transm_eff \
+            * integration_time \
+            * self.data.inst['eff_tot'] \
+            * self.data.inst['telescope_area'] \
+            * self.data.inst['wl_bin_widths']
         noise_planet = flux_planet_spectrum \
-                       * transm_noise \
-                       * integration_time \
-                       * self.data.inst['eff_tot'] \
-                       * self.data.inst['telescope_area'] \
-                       * self.data.inst['wl_bin_widths']
+            * transm_noise \
+            * integration_time \
+            * self.data.inst['eff_tot'] \
+            * self.data.inst['telescope_area'] \
+            * self.data.inst['wl_bin_widths']
 
         # calculate the noise from the background sources
         noise_bg_list = self.run_socket(s_name='photon_noise',
@@ -525,11 +550,15 @@ class Instrument(InstrumentModule):
                 flux_planet,
                 noise)
 
-    # TODO Write Function which calculates to extract the modulation
-    def get_transmission_curve(self, index):
+    def get_transmission_curve(self, index, time_dependent=True):
+        self.apply_options()
+        if time_dependent:
+            if "rotation_period" in self.data.inst is False:
+                self.set_rotation()
+                print("no rotation set")
+        self.adjust_bl_to_hz(hz_center=float(self.data.catalog.hz_center.iloc[index]),
+                             distance_s=float(self.data.catalog.distance_s.iloc[index]))
         return self.run_socket(s_name='transmission',
-                               method='get_transmission_curve_t',
-                               index=index)
-        pass
-
-
+                               method='get_transmission_curve',
+                               index=index,
+                               time_dependent=time_dependent)

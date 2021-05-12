@@ -210,28 +210,67 @@ class TransmissionMap(TransmissionModule):
          transm_curve_tm4,
          transm_curve_chop) = self.transmission_map(map_selection=['tm4', 'tm_chop'],
                                                     direct_mode=True,
-                                                    d_alpha=angsep_rad * np.cos(phi_lin),
+                                                    d_alpha=angsep_rad *
+                                                    np.cos(phi_lin),
                                                     d_beta=angsep_rad * np.sin(phi_lin))
 
         return transm_curve_chop, transm_curve_tm4
 
-    def v(self, theta, i, rad):
-        start = np.array([np.cos(theta), 0, np.sin(theta)])
+    def projected_vector(self, theta, inc, rad):
+        start = np.array([np.cos(theta), 0*theta, np.sin(theta)])
         Ri = np.array([[1, 0, 0],
-                      [0, np.cos(i), -np.sin(i)],
-                      [0, np.sin(i), np.cos(i)]])
+                       [0, np.cos(inc), -np.sin(inc)],
+                       [0, np.sin(inc), np.cos(inc)]])
         vs = rad*Ri.dot(start)
         return vs[0], vs[2]
 
+    def get_transmission_curve(self, index, time_dependent=True):
+        angsep = self.data.catalog["maxangsep"].iloc[index]
+        theta = self.data.catalog["theta_p"].iloc[index]
+        inclination = self.data.catalog["inc_p"].iloc[index]
+        n_rotations = self.data.inst["rotations"]
+        rotation_steps = self.data.inst["rotation_steps"]
+        angsep_rad = angsep / (3600 * 180) * np.pi
+        if time_dependent:
+            true_anom = self.data.catalog.iloc[index]["theta_p"]
+
+            # period of planet orbit in days
+            p_orb = self.data.catalog.iloc[index]["p_orb"]
+
+            # Instrument rotation period 1h/ 5h / 20h / (12h) in seconds
+            rotation_period = self.data.inst["rotation_period"]
+
+            # calculates the time length of one integration step in seconds
+            rotation_step_time = rotation_period / rotation_steps
+
+            percentage_orbit_step = rotation_step_time / (p_orb * 24 * 60 * 60)
+
+            # delta_theta: change per time_step in true_anomaly
+            delta_theta = percentage_orbit_step * 2 * np.pi
+
+            # movement of planet inside the observation period
+            thetas = np.linspace(true_anom, true_anom + delta_theta * (rotation_steps * n_rotations),
+                                 n_rotations * rotation_steps, endpoint=False, dtype="float")
+
+            xs, zs = self.projected_vector(thetas, inclination, angsep_rad)
+            return self.transmission_curve_t(xs, zs, n_rotations, rotation_steps)
+
+        else:
+            x, z = self.projected_vector(theta, inclination, angsep_rad)
+            return self.transmission_curve_t(x, z, n_rotations, rotation_steps)
+
+
+    """
     def get_transmission_curve_t(self, index):
         # seperated from transmission efficiency to be able to extract the modulation
-        rotation_steps = 360
-        angsep = self.data.catalog.angsep.iloc[index]
+        rotation_steps = self.data.inst["rotation_steps"]
+        angsep = self.data.catalog.iloc[index]["maxangsep"]
 
         angsep_rad = angsep / (3600 * 180) * np.pi
 
         true_anom = self.data.catalog.iloc[index]["theta_p"]
         inclination = self.data.catalog.iloc[index]["inc_p"]
+        # period of planet orbit in days
         p_orb = self.data.catalog.iloc[index]["p_orb"]
 
         # How many rotations the instrument does
@@ -240,20 +279,23 @@ class TransmissionMap(TransmissionModule):
         # Instrument rotation period 1h/ 5h / 20h / (12h) in seconds
         rotation_period = self.data.inst["rotation_period"]
 
-        # calculates the time length of one integration step in seconds rounded
+        # calculates the time length of one integration step in seconds
         rotation_step_time = rotation_period / rotation_steps
         percentage_orbit_step = rotation_step_time / (p_orb * 24 * 60 * 60)
+        # delta_theta: change per time_step in true_anomaly
         delta_theta = percentage_orbit_step * 2 * np.pi
-
+        # movement of planet inside the timespace
         thetas = np.linspace(true_anom, true_anom + delta_theta * (rotation_steps * n_rotations),
-                             n_rotations * rotation_steps, endpoint=False)
+                             n_rotations * rotation_steps, endpoint=False, dtype="float")
 
-        xs, zs = self.v(thetas, inclination, angsep_rad)
+        xs, zs = self.projected_vector(thetas, inclination, angsep_rad)
 
         return self.transmission_curve_t(n_rotations=n_rotations, xs=xs, zs=zs, phi_n=rotation_steps)
+    """
 
     def transmission_efficiency_t(self,
-                                  index: Union[int, type(None)]):
+                                  index: Union[int, type(None)],
+                                  time_dependent=True):
         """
         Integrates over transmission curves to get the transmission efficiency for signal and noise
 
@@ -279,7 +321,7 @@ class TransmissionMap(TransmissionModule):
 
         """
 
-        tc_chop, tc_tm4 = self.get_transmission_curve_t(index)
+        tc_chop, tc_tm4 = self.get_transmission_curve(index, time_dependent)
 
         # integrate over angles to get transmission efficiency
         transm_eff = np.sqrt((tc_chop ** 2).mean(axis=(-2, -1)))
@@ -328,15 +370,17 @@ class TransmissionMap(TransmissionModule):
         # angsep_rad = angsep / (3600 * 180) * np.pi
 
         # create 1D array with azimuthal coordinates
-        phi_lin = np.linspace(0, 2 * (n_rotations) * np.pi, n_rotations * phi_n, endpoint=False)
+        phi_lin = np.linspace(0, 2 * (n_rotations) * np.pi,
+                              n_rotations * phi_n, endpoint=False)
 
         # retrieve the transmission curves
         (_, _, _,
          transm_curve_tm4,
          transm_curve_chop) = self.transmission_map(map_selection=['tm4', 'tm_chop'],
                                                     direct_mode=True,
-                                                    d_alpha=xs * np.cos(phi_lin) + zs * (-np.sin(phi_lin)),
+                                                    d_alpha=xs *
+                                                    np.cos(phi_lin) + zs *
+                                                    (-np.sin(phi_lin)),
                                                     d_beta=xs * np.sin(phi_lin) + zs * np.cos(phi_lin))
 
         return transm_curve_chop, transm_curve_tm4
-

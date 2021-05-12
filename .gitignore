@@ -8,3 +8,5 @@ data/baselineSample.fits
 *.pyc
 /output/
 /.vscode/
+*.pdf
+*.png
