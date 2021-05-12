@@ -19,7 +19,7 @@ def setup_bus():
     bus = ls.Bus()
     bus.data.options.set_scenario('baseline')
     bus.data.import_catalog(
-        "C:/Users/Stoephu/Projects/SemesterProject2021/LIFEsim/output/suitable.hdf5")
+        "./output/suitable.hdf5")
     return bus
 
 # %%
@@ -191,7 +191,7 @@ def simulate(rotation_period=12, ratio=1):
     bus = ls.Bus()
     bus.data.options.set_scenario('baseline')
     bus.data.import_catalog(
-        input_path='C:/Users/Stoephu/Projects/SemesterProject2021/LIFEsim/output/TestSet.hdf5')
+        input_path='./output/TestSet.hdf5')
     inst = ls.Instrument(name='inst')
     bus.add_module(inst)
     if ratio > 0 and ratio < 1:
@@ -264,10 +264,31 @@ def analysis(do, dt):
     min_period = min(do["p_orb"])
     max_period = max(do["p_orb"])
     p_bins = np.arange(min_period, max_period, 1)
-    plt.hist(do_d["p_orb"], p_bins, alpha=0.5, label="original", color="blue")
-    plt.hist(dt_d["p_orb"], p_bins, alpha=0.5, label="Time", color="orange")
+    plt.hist(do["p_orb"], p_bins, alpha=0.5, label="original", color="blue")
+    plt.hist(dt["p_orb"], p_bins, alpha=0.5, label="Time", color="orange")
     plt.xlabel("Period in Days")
-    plt.ylabel("SNR_12h > 7")
+    plt.ylabel("#Counts")
+    plt.axvline(x=50,label="1%")
+    plt.ylim(0,5000)
+    plt.xlim(-1,200)
+    plt.legend()
+    plt.show()
+
+    plt.figure()
+    p_bins = np.arange(min_period,max_period,5)
+    avg_snr = []
+    for small,large in zip(p_bins[:-1],p_bins[1:]):
+        avg_snr.append(np.mean(dt[(dt["p_orb"] < large) & (dt["p_orb"] > small)]["snr_1h"]))
+    avg_snr = np.array(avg_snr)
+    #plt.bar(p_bins[1:],avg_snr,5,label="time")
+    plt.plot(p_bins[1:],avg_snr,label="time")
+    
+    avg_snr = []
+    for small,large in zip(p_bins[:-1],p_bins[1:]):
+        avg_snr.append(np.mean(do[(do["p_orb"] < large) & (do["p_orb"] > small)]["snr_1h"]))
+    avg_snr = np.array(avg_snr)
+    #plt.bar(p_bins[1:],avg_snr,5, alpha =0.5,label="og")
+    plt.plot(p_bins[1:],avg_snr,label="og")
     plt.legend()
     plt.show()
 
@@ -289,6 +310,25 @@ def analysis(do, dt):
             "Anticlockwise", "Clockwise", "Edge_on"], label="Time")
     plt.ylabel("SNR_12h > 7")
     plt.legend()
+
+    plt.figure()
+    difference = dt.copy()
+    difference["snr_1h"] = dt["snr_1h"]- do["snr_1h"]
+    face_on_a = difference[(difference["inc_p"] <= 0.6)]
+    face_on_c = difference[difference["inc_p"] >= (np.pi - 0.6)]
+    edge_on = difference[(difference["inc_p"] >= (np.pi/2 - 0.3))
+                   & (difference["inc_p"] >= (np.pi/2 + 0.3))]
+    counts = [len(face_on_a[face_on_a["snr_1h"]>0]), len(face_on_c[face_on_c["snr_1h"]>0]), len(edge_on[edge_on["snr_1h"]>0])]
+    
+    plt.bar([0, 1, 2], counts, 0.25, tick_label=[
+            "Anticlockwise", "Clockwise", "Edge_on"], label="improvments")
+    counts = [len(face_on_a[face_on_a["snr_1h"]<0]), len(face_on_c[face_on_c["snr_1h"]<0]), len(edge_on[edge_on["snr_1h"]<0])]
+    
+    plt.bar([0.25, 1.25, 2.25], counts, 0.25, tick_label=[
+            "Anticlockwise", "Clockwise", "Edge_on"], label="decreases")
+    plt.ylabel("#Counts")
+    plt.legend()
+    plt.show()
 # %%
 
 

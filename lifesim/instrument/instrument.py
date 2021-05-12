@@ -318,6 +318,7 @@ class Instrument(InstrumentModule):
         """
 
         self.apply_options()
+        # set rotation options if nothing is set beforehand
         if "rotation_period" in self.data.inst is False:
             self.set_rotation()
         integration_time = self.data.inst["integration_time"]
