@@ -1,12 +1,18 @@
 Welcome to LIFEsim's documentation!
 ===================================
 .. toctree::
-   :maxdepth: 3
+   :maxdepth: 4
    :caption: Getting Started
 
    installation
    windows
    example
+
+.. toctree::
+   :maxdepth: 4
+   :caption: Contributing
+
+   contributing
 
 
 .. toctree::

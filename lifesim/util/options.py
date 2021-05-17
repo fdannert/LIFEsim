@@ -3,41 +3,57 @@ import warnings
 import numpy as np
 
 
+# TODO: Rename habitable variable
 class Options(object):
     """
     The Options class contains all options and settings needed for the simulation of the LIFE
     array. Any settings are exclusively found in the Options class and must only be set through
-    changing attributes of the Options class itself
+    changing attributes of the Options class itself.
 
     Attributes
     ----------
     array : dict
         Options concerning the LIFE array itself. They are
-            - ``'diameter'`` : Diameter of single aperture in [m]
+            - ``'diameter'`` : Diameter of single aperture in [m].
             - ``'quantum_eff'`` : Quantum efficiency of the detector in (# of electrons/# of
-              photons)
-            - ``'throughput'`` : Optical throughput of the whole instrument in [%]
-            - ``'wl_min'`` : Minimum wavelength of the spectrometer in [microns]
-            - ``'wl_max'`` : Maximum wavelength of the spectrometer in [microns]
-            - ``'spec_res'`` : Spectral resolution of the spectrometer (dimensionless)
-            - ``'baseline'`` : Length of the shorter nulling baseline in [m]
-            - ``'bl_min'`` : Minimum allowed length of the shorter nulling baseline in [m]
-            - ``'bl_max'`` : Maximum allowed length of the shorter nulling baseline in [m]
+              photons).
+            - ``'throughput'`` : Optical throughput of the whole instrument in [%].
+            - ``'wl_min'`` : Minimum wavelength of the spectrometer in [microns].
+            - ``'wl_max'`` : Maximum wavelength of the spectrometer in [microns].
+            - ``'spec_res'`` : Spectral resolution of the spectrometer (dimensionless).
+            - ``'baseline'`` : Length of the shorter nulling baseline in [m].
+            - ``'bl_min'`` : Minimum allowed length of the shorter nulling baseline in [m].
+            - ``'bl_max'`` : Maximum allowed length of the shorter nulling baseline in [m].
             - ``'ratio'`` : Ratio between the nulling and the imaging baseline. E.g. if the imaging
-              baseline is twice as long as the nulling baseline, the ratio will be 2
+              baseline is twice as long as the nulling baseline, the ratio will be 2.
+            - ``'t_slew'`` : Slew time required for the array to shift from one target system to
+              the next in [s].
+            - ``'t_efficiency'`` : Time efficiency of the observation accounting for overheads.
+              E.g. if the time efficiency is 0.8, 80% of the on-target observation time will be
+              actually spend integrating photons.
     other : dict
         Options concerning simulation parameters. They are
             - ``'image_size'`` : Number of pixels (in one axis) which will be simulated.
               Corresponds to the pixel resolution of the detector. I.e. if image size is 512, the
-              detector will be simulated with 512^2 pixels
-            - ``'wl_optimal'`` : The wavelength to which the baseline is optimized in [micron]
-            - ``'n_plugins'`` : Number of sockets the instrument class will feature
+              detector will be simulated with 512^2 pixels.
+            - ``'wl_optimal'`` : The wavelength to which the baseline is optimized in [micron].
+            - ``'n_plugins'`` : Number of sockets the instrument class will feature.
     models : dict
         Options concerning different models used in the simulation. They are
             - ``'localzodi'`` : Model for the localzodi, possible options are ``'glasse'`` and
               ``'darwinsim'``
             - ``'habitable'`` : Model used for calculating the habitable zone, possible options are
               ``'MS'`` and ``'POST_MS'``
+    optimization : dict
+        Options concerning the methods used to optimally distribute the observing time.
+            - ``'N_pf'`` : Number of sampling locations per orbit.
+            - ``'snr_target'`` : Planets with a larger signal-to-noise ratio than `'snr_target'`
+              are counted as detections.
+            - ``'limit'`` : Limits the number of wanted detections for the different stellar host
+              star types.
+            - ``'habitable'`` : If true, the integration time is optimized towards planets residing
+              in the habitable zone.
+            - ``'t_search'`` : Duration of the search phase in [s].
     """
     def __init__(self):
         """
@@ -98,7 +114,7 @@ class Options(object):
         self.models['habitable'] = 'MS'
 
         self.optimization['N_pf'] = 25
-        self.optimization['snr_target'] = 5
+        self.optimization['snr_target'] = 7
         self.optimization['limit'] = np.array(((0, 1, 2, 3, 4),
                                                (np.inf, np.inf, np.inf, np.inf, np.inf)))
         self.optimization['habitable'] = True
@@ -143,7 +159,7 @@ class Options(object):
             option_set = False
 
             # check if the key exists in any of the options dictionaries
-            for sub_dict in [self.array, self.other, self.models]:
+            for sub_dict in [self.array, self.other, self.models, self.optimization]:
                 if key in sub_dict:
 
                     # set the option

@@ -1,14 +1,43 @@
-import warnings
-
 import numpy as np
-import pandas as pd
 
 
 def single_habitable_zone(model: str,
                           temp_s: float,
                           radius_s: float):
+    """
+    Calculates the location of the habitable zone according to Kaltenegger+2017.
 
-    # TODO which paper is this model based on?
+    Parameters
+    ----------
+    model : str
+        Specifies the model for the habitable zone. The options are 'MS' and 'PRE-MS' according to
+        Kaltenegger+2017 Table 1.
+    temp_s : float
+        Temperature of the star in [K].
+    radius_s : float
+        Radius of the star in [solar radii].
+
+    Returns
+    -------
+    s_in
+        Inner edge of the habitable zone in [earth insolation].
+    s_out
+        Outer edge of the habitable zone in [earth insolation].
+    l_sun
+        Luminosity of the star in [stellar luminosities].
+    hz_in
+        Inner edge of the habitable zone in [AU].
+    hz_out
+        Outer edge of the habitable zone in [AU].
+    hz_center
+        Center of the habitable zone in [AU].
+
+    Raises
+    ------
+    ValueError
+        If the specified model does not exits.
+    """
+    # model based on Kaltenegger+2017
     if model == 'MS':
         s0_in, s0_out = 1.7665, 0.3240
         a_in, a_out = 1.3351E-4, 5.3221E-5
