@@ -7,47 +7,71 @@ from lifesim.util.radiation import black_body
 
 
 class PhotonNoiseExozodi(PhotonNoiseModule):
+    """
+    This class simulates the noise contribution of an exozodi disk to the interferometric
+    measurement of LIFE.
+    """
+
     def __init__(self,
                  name: str):
         super().__init__(name=name)
+        """
+        Parameters
+        ----------
+        name : str
+            Name of the module.
+        """
 
     def noise(self,
               index: Union[int, type(None)]):
         """
         Simulates the amount of photon noise originating from the exozodi of the observed system
-        leaking into the LIFE array measurement
+        leaking into the LIFE array measurement.
 
         Parameters
         ----------
-        image_size : int
-            Number of pixels on one axis of a square detector (dimensionless). I.e. for a 512x512
-            detector this value is 512
-        l_sun : float
-            Luminosity of the observed star in [solar luminosities]
-        distance_s : float
-            Distance between the observed star and the LIFE array in [pc]
-        mas_pix : np.ndarray
-            Contains the size of each pixel projected to the sky in [milliarcseconds]
-        z : float
-            Zodi level in the observed system in [zodis]
-        telescope_area : float
-            Area of all array apertures combined in [m^2]
-        radius_map : np.ndarray
-            Contains the distance of a pixel from the center of the detector in [pix]
-        wl_bins : np.ndarray
-            Central values of the spectral bins in the wavelength regime in [m]
-        wl_bin_edges : np.ndarray
-            Edges of the spectral wavelength bins in [m]. For N bins, this array will contain N+1 edges
-        t_map : np.ndarray
-            Transmission map of the TM3 mode of the array created by the
-            lifesim.TransmissionMap module
+        index: Union[int, type(None)]
+            Specifies the planet for which to calculate the noise contribution. If an integer n is
+            given, the noise will be calculated for the n-th row in the `data.catalog`. If `None`
+            is given, the noise is caluculated for the parameters located in `data.single`.
 
         Returns
         -------
         ez_leak
-            Exozodi leakage in [s^-1] per wavelength bin
+            Exozodi leakage in [photon s-1] per wavelength bin.
+
+        Notes
+        -----
+        All of the following parameters are needed for the calculation of the exozodi noise
+        contribution and should be specified either in `data.catalog` or in `data.single`.
+
+        l_sun : float
+            Luminosity of the observed star in [solar luminosities].
+        distance_s : float
+            Distance between the observed star and the LIFE array in [pc].
+        z : float
+            Zodi level in the observed system in [zodis].
+        mas_pix : np.ndarray
+            Contains the size of each pixel projected to the sky in [milliarcseconds].
+        rad_pix : np.ndarray
+            Contains the size of each pixel projected to the sky in [radians].
+        data.inst['radius_map'] : np.ndarray
+            Contains the distance of a pixel from the center of the detector in [pix].
+        data.options.other['image_size']
+            Number of pixels on one axis of a square detector (dimensionless). I.e. for a 512x512
+            detector this value is 512.
+        wl_bins : np.ndarray
+            Central values of the spectral bins in the wavelength regime in [m].
+        wl_widths : np.ndarray
+            Widths of the spectral wavelength bins in [m].
+        data.inst['telescope_area'] : float
+            Area of all array apertures combined in [m^2].
+        data.inst['t_map'] : np.ndarray
+            Transmission map of the TM3 mode of the array created by the
+            lifesim.TransmissionMap module.
         """
 
+        # read from catalog or single data depending on index specification
         if index is None:
             l_sun = self.data.single['l_sun']
             distance_s = self.data.single['distance_s']
@@ -61,7 +85,7 @@ class PhotonNoiseExozodi(PhotonNoiseModule):
         alpha = 0.34
         r_in = 0.034422617777777775 * np.sqrt(l_sun)
         r_0 = np.sqrt(l_sun)
-        sigma_zero = 7.11889e-8  # Sigma_{m,0} from Kennedy 2015 (doi:10.1088/0067-0049/216/2/23)
+        sigma_zero = 7.11889e-8  # Sigma_{m,0} from Kennedy+2015 (doi:10.1088/0067-0049/216/2/23)
 
         # reshape the mas per pixel array for calculation (to (n, 1, 1))
         mas_pix = np.array([self.data.inst['mas_pix']])
@@ -72,9 +96,11 @@ class PhotonNoiseExozodi(PhotonNoiseModule):
             rad_pix = np.reshape(rad_pix, (rad_pix.shape[-1], 1, 1))
 
         au_pix = mas_pix / 1e3 * distance_s
+
+        # the radius as measured from the central star for every pixel in [AU]
         r_au = self.data.inst['radius_map'] * au_pix
 
-        # identify all pixels where the radius is larges than the inner radius by kennedy2015
+        # identify all pixels where the radius is larges than the inner radius by Kennedy+2015
         r_cond = ((r_au >= r_in)
                   & (r_au <= self.data.options.other['image_size'] / 2 * au_pix))
 

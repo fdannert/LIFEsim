@@ -10,9 +10,10 @@ bus.data.options.set_scenario('baseline')
 
 # set options manually
 # bus.data.options.set_manual(diameter=4.)
+bus.data.options.set_manual(bl_max=200.)
 
 # loading and preparing the catalog
-bus.data.catalog_from_ppop(input_path='/path/baselineSample.fits')
+bus.data.catalog_from_ppop(input_path='/home/felix/Documents/MA/lifeOS/Data/baselineSample.fits')
 bus.data.catalog_remove_distance(stype=0, mode='larger', dist=0.)  # remove all A stars
 bus.data.catalog_remove_distance(stype=4, mode='larger', dist=10.)  # remove M stars > 10pc to speed up calculation
 
@@ -62,12 +63,12 @@ bus.connect(('opt', 'ahgs'))
 opt.ahgs()
 
 # save the catalog to a file
-bus.data.export_catalog(output_path='/path/Test_1.hdf5')
+bus.data.export_catalog(output_path='/home/felix/Documents/MA/Outputs/Thesis/'
+                                    'Baseline_AHGS_habitable_maxbl200.hdf5')
 
 
 # ---------- READ SAVED CATALOG ----------
 # import a previously saved catalog
-bus = ls.Bus()
-bus.data.options.set_scenario('baseline')
-bus.data.import_catalog(input_path='/home/felix/Documents/MA/Outputs/Thesis/Baseline_AHGS_habitable.hdf5')
-pass
+# bus = ls.Bus()
+# bus.data.options.set_scenario('baseline')
+# bus.data.import_catalog(input_path='/home/felix/Documents/MA/Outputs/Thesis/Baseline_AHGS_habitable.hdf5')

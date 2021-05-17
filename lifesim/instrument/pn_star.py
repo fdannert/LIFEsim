@@ -7,9 +7,20 @@ from lifesim.util.radiation import black_body
 
 
 class PhotonNoiseStar(PhotonNoiseModule):
+    """
+    This class simulates the noise contribution of central star to the interferometric measurement
+    of LIFE due to leakage through the null.
+    """
 
     def __init__(self,
                  name: str):
+        """
+        Parameters
+        ----------
+        name : str
+            Name of the module.
+        """
+
         super().__init__(name=name)
         self.add_socket(s_name='transmission_star',
                         s_type=TransmissionModule)
@@ -17,45 +28,43 @@ class PhotonNoiseStar(PhotonNoiseModule):
     def noise(self,
               index: Union[int, type(None)]):
         """
-        Simulates the amount of photon noise originating from the star of the observed system leaking
-        into the LIFE array measurement
+        Simulates the amount of photon noise originating from the star of the observed system
+        leaking into the LIFE array measurement.
 
         Parameters
         ----------
-        image_size : int
-            Number of pixels on one axis of a square detector (dimensionless). I.e. for a 512x512
-            detector this value is 512
-        telescope_area : float
-            Area of all array apertures combined in [m^2]
-        wl_bins : np.ndarray
-            Central values of the spectral bins in the wavelength regime in [m]
-        wl_bin_widths : np.ndarray
-            Widths of the spectral wavelength bins in [m]
-        distance_s : float
-            Distance between the observed star and the LIFE array in [pc]
-        temp_s : float
-            Temperature of the observed star in [K]
-        radius_s : float
-            Radius of the observed star in [sun radii]
-        bl : float
-            Length of the shorter, nulling baseline in [m]
-        map_selection : str
-            Select from which mode of the array the transmission map for the calculation of the leakage
-            is taken
-        ratio : float
-            Ratio between the nulling and the imaging baseline. E.g. if the imaging baseline is twice
-            as long as the nulling baseline, the ratio will be 2
+        index: Union[int, type(None)]
+            Specifies the planet for which to calculate the noise contribution. If an integer n is
+            given, the noise will be calculated for the n-th row in the `data.catalog`. If `None`
+            is given, the noise is caluculated for the parameters located in `data.single`.
 
         Returns
         -------
         sl_leak
-            Stellar light leakage in [s^-1] per wavelength bin
+            Stellar leakage in [photon s-1] per wavelength bin.
+
+        Notes
+        -----
+        All of the following parameters are needed for the calculation of the exozodi noise
+        contribution and should be specified either in `data.catalog` or in `data.single`.
+
+        radius_s : float
+            Radius of the observed star in [sun radii].
+        distance_s : float
+            Distance between the observed star and the LIFE array in [pc].
+        temp_s : float
+            Temperature of the observed star in [K].
+        data.inst['wl_bins'] : np.ndarray
+            Central values of the spectral bins in the wavelength regime in [m].
+        data.inst['wl_widths'] : np.ndarray
+            Widths of the spectral wavelength bins in [m].
+        data.inst['telescope_area'] : float
+            Area of all array apertures combined in [m^2].
 
         Raises
-        ______
-
+        ------
         ValueError
-            If the specified transmission map does not exits
+            If the specified transmission map does not exits.
         """
 
         image_size = 50
