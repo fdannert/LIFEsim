@@ -6,7 +6,7 @@ from lifesim.instrument.pn_exozodi import PhotonNoiseExozodi
 from lifesim.instrument.pn_localzodi import PhotonNoiseLocalzodi
 from lifesim.instrument.pn_star import PhotonNoiseStar
 
-from lifesim.gui.importer import SpectrumImporter
+from lifesim.util.importer import SpectrumImporter
 
 from lifesim.optimize.optimizer import Optimizer
 from lifesim.optimize.ahgs import AhgsModule
