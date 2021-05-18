@@ -1,5 +1,8 @@
 import math
 import warnings
+import urllib.request
+from urllib.error import HTTPError
+import os
 
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import (QApplication, QDialog, QGroupBox, QGridLayout, QLabel,
@@ -18,10 +21,15 @@ from lifesim.gui.custom_widgets import (DoubleBoxLabel, BoxLabel, StringBoxLabel
 
 # change the directory to the path of the spectrum_gui.py file to ensure that the logo is imported
 # correctly
-import os
 os.chdir(os.path.dirname(__file__))
 
 quantity_support()
+
+try:
+    urllib.request.urlretrieve("https://github.com/fdannert/LIFEsim/raw/master/"
+                               "lifesim/gui/logo_blue.png", "logo_blue.png")
+except HTTPError:
+    pass
 
 
 class Frame(QDialog):
@@ -679,6 +687,17 @@ class Frame(QDialog):
             self.distance_spec.hide()
             self.radius_spec.hide()
             self.time_spec.hide()
+
+
+class Gui(object):
+    def __init__(self):
+        os.chdir(os.path.dirname(__file__))
+        quantity_support()
+        app = QApplication([])
+        gallery = Frame()
+        gallery.show()
+        app.exec_()
+
 
 if __name__ == '__main__':
     app = QApplication([])

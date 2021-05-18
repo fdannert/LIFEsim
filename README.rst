@@ -16,7 +16,8 @@ The LIFEsim documentation can be found on TODO
 Web Site
 --------
 
-Please visit the |Life| to learn more about the LIFE mission.
+Please visit the `LIFE website <https://www.life-space-mission.com/>`_  to learn more about the
+LIFE mission.
 
 
 Attribution
@@ -36,9 +37,5 @@ License
 
 Copyright 2019-2020 Felix Dannert, Maurice Ottiger, Sascha Quanz and contributors.
 
-LIFEsim is distributed under the GNU General Public License v3. See the LICENSE file for the terms and conditions.
-
-
-.. |Life| raw:: html
-
-   <a href="https://www.life-space-mission.com/" target="_blank">LIFE website</a>
+LIFEsim is distributed under the GNU General Public License v3. See the LICENSE file for the terms
+and conditions.
