@@ -6,8 +6,8 @@ LIFEsim is available for installation from |github|. It is compatible with Pytho
 .. Hint:: **Installation on Mac OS**
 
    We recommend the usage of a package manager for mac (e.g. |Homebrew|).
-   Putting the Homebrew directory into the PATH environment variable will allow every terminal window
-   opened to access Homebrew. To set this, add
+   Putting the Homebrew directory into the PATH environment variable will allow every terminal
+   window opened to access Homebrew. To set this, add
    ``export PATH="/usr/local/opt/python/libexec/bin:$PATH"`` to the bottom of the file
    ``~/bash_profile``. Create this file if it does not exists.
 
