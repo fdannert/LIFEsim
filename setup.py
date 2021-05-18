@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
     name='LIFEsim',
-    version='0.1.4',
+    version='0.2.0',
     description='Simulator software for the Large Interferometer For Exoplanets (LIFE)',
     long_description=open('README.rst').read(),
     long_description_content_type='text/x-rst',
