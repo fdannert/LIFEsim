@@ -1,36 +1,37 @@
-import lifesim as ls
+import lifesim
 
-# ---------- SET-UP ----------
+# ---------- Set-Up ----------
 
 # create bus
-bus = ls.Bus()
+bus = lifesim.Bus()
 
 # setting the options
 bus.data.options.set_scenario('baseline')
 
 # set options manually
-# bus.data.options.set_manual(diameter=4.)
-bus.data.options.set_manual(bl_max=200.)
+bus.data.options.set_manual(diameter=4.)
 
-# loading and preparing the catalog
-bus.data.catalog_from_ppop(input_path='/home/felix/Documents/MA/lifeOS/Data/baselineSample.fits')
+# ---------- Loading the Catalog ----------
+
+bus.data.catalog_from_ppop(input_path='path_to_LIFEsim/LIFEsim/docs/_static/baselineSample.fits')
 bus.data.catalog_remove_distance(stype=0, mode='larger', dist=0.)  # remove all A stars
-bus.data.catalog_remove_distance(stype=4, mode='larger', dist=10.)  # remove M stars > 10pc to speed up calculation
+bus.data.catalog_remove_distance(stype=4, mode='larger', dist=10.)  # remove M stars > 10pc to
+# speed up calculation
 
-# ---------- MEASUREMENT SIMULATION ----------
+# ---------- Creating the Instrument ----------
 
 # create modules and add to bus
-inst = ls.Instrument(name='inst')
-bus.add_module(inst)
+instrument = lifesim.Instrument(name='inst')
+bus.add_module(instrument)
 
-transm = ls.TransmissionMap(name='transm')
+transm = lifesim.TransmissionMap(name='transm')
 bus.add_module(transm)
 
-exo = ls.PhotonNoiseExozodi(name='exo')
+exo = lifesim.PhotonNoiseExozodi(name='exo')
 bus.add_module(exo)
-local = ls.PhotonNoiseLocalzodi(name='local')
+local = lifesim.PhotonNoiseLocalzodi(name='local')
 bus.add_module(local)
-star = ls.PhotonNoiseStar(name='star')
+star = lifesim.PhotonNoiseStar(name='star')
 bus.add_module(star)
 
 # connect all modules
@@ -41,34 +42,36 @@ bus.connect(('inst', 'star'))
 
 bus.connect(('star', 'transm'))
 
-
-# run simulation. This function assigns every planet an SNR for 1 hour of integration time. Since
-# we are currently only simulating photon noise, the SNR will scale with the integration time as sqrt(t)
-inst.get_snr()
-
-# ---------- DISTRIBUTE THE OBSERVATION TIME ----------
+# ---------- Creating the Optimizer ----------
 # After every planet is given an SNR, we want to distribute the time available in the search phase
 # such that we maximize the number of detections.
 
 # optimizing the result
-opt = ls.Optimizer(name='opt')
+opt = lifesim.Optimizer(name='opt')
 bus.add_module(opt)
-ahgs = ls.AhgsModule(name='ahgs')
+ahgs = lifesim.AhgsModule(name='ahgs')
 bus.add_module(ahgs)
 
 bus.connect(('transm', 'opt'))
 bus.connect(('inst', 'opt'))
 bus.connect(('opt', 'ahgs'))
 
+# ---------- Running the Simulation ----------
+
+# run simulation. This function assigns every planet an SNR for 1 hour of integration time. Since
+# we are currently only simulating photon noise, the SNR will scale with the integration time as
+# sqrt(t)
+instrument.get_snr()
+
 opt.ahgs()
 
-# save the catalog to a file
-bus.data.export_catalog(output_path='/home/felix/Documents/MA/Outputs/Thesis/'
-                                    'Baseline_AHGS_habitable_maxbl200.hdf5')
+# ---------- Saving the Results ----------
+
+bus.data.export_catalog(output_path='path/filename.hdf5')
 
 
-# ---------- READ SAVED CATALOG ----------
+# ---------- Reading the Results ----------
 # import a previously saved catalog
-# bus = ls.Bus()
-# bus.data.options.set_scenario('baseline')
-# bus.data.import_catalog(input_path='/home/felix/Documents/MA/Outputs/Thesis/Baseline_AHGS_habitable.hdf5')
+bus_read = lifesim.Bus()
+bus_read.data.options.set_scenario('baseline')
+bus_read.data.import_catalog(input_path='path/filename.hdf5')

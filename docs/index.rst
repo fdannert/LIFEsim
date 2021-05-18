@@ -12,6 +12,7 @@ Welcome to LIFEsim's documentation!
    :maxdepth: 4
    :caption: Contributing
 
+   architecture
    contributing
 
 

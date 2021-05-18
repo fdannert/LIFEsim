@@ -24,6 +24,20 @@ class Module(ABC):
     sockets : dict
         The sockets dictionary stores the properties of the sockets under the key equal to the
         socket name
+
+    Examples
+    --------
+    When any module is created within LIFEsim, it should inherit the ``Module`` class and define
+    stub methods as follows
+
+    >>> from lifesim.core.core import Module
+    >>> class NewModule(Module):
+    ...     def __init__(self,
+    ...                  name: str):
+    ...         ().__init__(name=name)
+    ...     @abc.abstractmethod
+    ...     def new_method(self):
+    ...         pass
     """
 
     def __init__(self,
@@ -53,6 +67,26 @@ class Module(ABC):
         ------
         ValueError
             If the a socket with the specified socket name already exists.
+
+        Examples
+        --------
+        In this example, a newly coded module needs an interface to the TransmissionModule. A
+        suitable socket can be added as follows
+
+        >>> import abc
+        >>> from lifesim.core.core import Module
+        >>> from lifesim.core.modules import TransmissionModule
+        >>> class NewModule(Module):
+        ...     def __init__(self,
+        ...                  name: str):
+        ...         ().__init__(name=name)
+        ...
+        ...         self.add_socket(s_name='transm',
+        ...                         s_type=TransmissionModule,
+        ...                         s_number=1)
+        ...     @abc.abstractmethod
+        ...     def new_method(self):
+        ...         pass
         """
 
         # check if socket already exists
@@ -99,6 +133,21 @@ class Module(ABC):
         ------
         ValueError
             If there exist no sockets with the specified socket names.
+
+        Example
+        -------
+        Continuing the above example in ``add_socket``, any module added to the socket can be run
+        by using
+
+        >>> class New(NewModule):
+        ...         def __init__(self,
+        ...                      name: str):
+        ...             super().__init__(name=name)
+        ...
+        ...         def new_method(self):
+        ...             _, _, result, _, _ = self.run_socket(s_name='transm',
+        ...                                                  method='transmission_map',
+        ...                                                  map_selection='tm3')
         """
 
         self.socket_exists(s_name=s_name,
