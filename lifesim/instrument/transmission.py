@@ -217,6 +217,15 @@ class TransmissionMap(TransmissionModule):
         return transm_curve_chop, transm_curve_tm4
 
     def projected_vector(self, theta, inc, rad):
+        """
+        Calculating the star to planet vector and projecting it to the 2d image.
+        The planet orbits in XZ axis and the inclination rotates this orbit around the X-axis
+        inc 0 > Face on Counterclockwise
+        inc pi/2 > Edge ON
+        inc pi > Face on clockwise
+        Returns
+        X and Z value after rotation scaled with maxangsep in radiens
+        """
         start = np.array([np.cos(theta), 0*theta, np.sin(theta)])
         Ri = np.array([[1, 0, 0],
                        [0, np.cos(inc), -np.sin(inc)],

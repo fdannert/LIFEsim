@@ -22,6 +22,7 @@ bus.data.import_catalog(
 db = bus.data.catalog
 suitable = pd.DataFrame(data=None, columns=db.columns)
 detected_n = db[(db["snr_1h"] > 10) & db["detected"] == True]
+# detected_n = db.copy()
 max_period = detected_n["p_orb"].max()
 min_period = detected_n["p_orb"].min()
 m_stars = detected_n[detected_n["stype"] == 4]
@@ -51,6 +52,9 @@ suitable = suitable.append(face_on_a[face_on_a["p_orb"] <= (
 suitable = suitable.append(
     face_on_c[face_on_c["p_orb"] >= (90)].sort_values("snr_1h").iloc[[0]])
 
+# edge_on in hz
+suitable = suitable.append(edge_on[edge_on["habitable"]].sort_values("maxangsep").iloc[[-1]])
+
 
 # %%
 # TODO Create artificial planets to test limits.
@@ -59,7 +63,7 @@ suitable = suitable.append(
 def export():
     bus.data.catalog = suitable
     bus.data.export_catalog(
-        "C:/Users/Stoephu/Projects/SemesterProject2021/LIFEsim/output/suitable.hdf5")
+        "./output/suitable.hdf5")
 
 
 # %%
@@ -123,6 +127,7 @@ def inc():
 # 'nuniverse',
 # 'nstar',
 # 'stype',
-# 'id'
+# 'id' 
+# "hz" in au
 
 # %%

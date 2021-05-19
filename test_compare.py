@@ -25,7 +25,7 @@ def setup_bus():
 # %%
 
 
-bus_t = setup_bus()  # new sim
+bus = setup_bus()  # new sim
 
 # %%
 # ---------- MEASUREMENT SIMULATION ---------- copied from lifesim_demo.py by fdannert
@@ -33,25 +33,25 @@ bus_t = setup_bus()  # new sim
 
 # create modules and add to bus
 inst = ls.Instrument(name='inst')
-bus_t.add_module(inst)
+bus.add_module(inst)
 
 transm = ls.TransmissionMap(name='transm')
-bus_t.add_module(transm)
+bus.add_module(transm)
 
 exo = ls.PhotonNoiseExozodi(name='exo')
-bus_t.add_module(exo)
+bus.add_module(exo)
 local = ls.PhotonNoiseLocalzodi(name='local')
-bus_t.add_module(local)
+bus.add_module(local)
 star = ls.PhotonNoiseStar(name='star')
-bus_t.add_module(star)
+bus.add_module(star)
 
 # connect all modules
-bus_t.connect(('inst', 'transm'))
-bus_t.connect(('inst', 'exo'))
-bus_t.connect(('inst', 'local'))
-bus_t.connect(('inst', 'star'))
+bus.connect(('inst', 'transm'))
+bus.connect(('inst', 'exo'))
+bus.connect(('inst', 'local'))
+bus.connect(('inst', 'star'))
 
-bus_t.connect(('star', 'transm'))
+bus.connect(('star', 'transm'))
 
 
 # %%
@@ -61,9 +61,9 @@ def test_anomalies(n_angles):
     snrs = []
     true_anomalies = np.arange(0, 2 * np.pi, np.pi * 2 / n_angles)
     for anomaly in true_anomalies:
-        bus_t.data.catalog["theta_p"] = anomaly
+        bus.data.catalog["theta_p"] = anomaly
         inst.get_snr_t()
-        snrs.append(bus_t.data.catalog[["theta_p", "snr_1h", "inc_p"]].copy())
+        snrs.append(bus.data.catalog[["theta_p", "snr_1h", "inc_p"]].copy())
     return snrs
 # %%
 
@@ -84,7 +84,7 @@ def test_one_anomalies(index, instrument, n_angles=10, rotation_period=12, rotat
     thetas = np.arange(0, 2 * np.pi, np.pi * 2 / n_angles)
     inst.set_rotation(rotation_period, rotations, rotation_steps)
     for theta in thetas:
-        bus_t.data.catalog["theta_p"].iat[index] = theta
+        bus.data.catalog["theta_p"].iat[index] = theta
         plot_transmission_curve(
             instrument, index, rotations, rotation_steps, label=str(theta))
     plt.legend()
@@ -94,7 +94,7 @@ def test_one_anomalies(index, instrument, n_angles=10, rotation_period=12, rotat
 
 def plot_all(instrument, rotation_period, rotations, rotation_steps=360):
     instrument.set_rotation(rotation_period, rotations, rotation_steps)
-    for i in range(len(bus_t.data.catalog)):
+    for i in range(len(bus.data.catalog)):
         # for i in [1, 2, 3]:
         plot_transmission_curve(i, instrument, rotations,
                                 rotation_steps, label=str(i))
@@ -103,7 +103,36 @@ def plot_all(instrument, rotation_period, rotations, rotation_steps=360):
 # %%
 
 
-def compare_t_o(index, inst, rotation_period, rotations, rotation_steps=360):
+def compare_verticalplot(rotation_period=12, rotations=1, rotation_steps=360):
+    inst.set_rotation(rotation_period, rotations, rotation_steps)
+    plt.figure()
+    indeces = [0, 1, 3, 4]
+    labels = ["Edge on", "Face On Clockwise ",
+              "Face On AntiClockwise", "Face On Long Period"]
+    inst.set_rotation(rotation_period, rotations, rotation_steps)
+    for i, index in enumerate(indeces):
+        tr_chop_one_wv = inst.get_transmission_curve(
+            index, time_dependent=False)[0][0, 0]
+        plt.subplot(2, len(indeces), i+1)
+        if i == 0: plt.ylabel("Transmission w/o Time")
+        plt.plot(np.linspace(0, rotations * 2, rotations * rotation_steps),
+                 tr_chop_one_wv, color="blue")
+        plt.title(labels[i])
+    for i, index in enumerate(indeces):
+        tr_chop_one_wv = inst.get_transmission_curve(
+            index, time_dependent=True)[0][0, 0]
+        plt.subplot(2, len(indeces), i+5)
+        if i == 0: plt.ylabel("Transmission With Time")
+        plt.plot(np.linspace(0, rotations * 2, rotations * rotation_steps),
+                 tr_chop_one_wv, color="orange")
+        plt.xlabel("Radiens")
+    plt.legend()
+    plt.tight_layout()
+    plt.savefig("TimeComparison.pdf")
+    plt.show()
+
+
+def compare_t_o(index, rotation_period, rotations, rotation_steps=360):
     inst.set_rotation(rotation_period, rotations, rotation_steps)
     plot_transmission_curve(index, inst, rotations, rotation_steps,
                             label="t independent", time_dependent=False)
@@ -115,8 +144,8 @@ def compare_t_o(index, inst, rotation_period, rotations, rotation_steps=360):
 # %%
 
 
-def transmission_and_path(index, bus, inst, rotation_period=12, rotations=1, rotation_steps=360):
-    image_size = 512
+def transmission_and_path(index, rotation_period=12, rotations=1, rotation_steps=360):
+    image_size = 256
     inst.set_rotation(rotation_period, rotations, rotation_steps)
     inst.apply_options()
     inst.adjust_bl_to_hz(hz_center=float(bus.data.catalog.hz_center.iloc[index]),
@@ -128,7 +157,7 @@ def transmission_and_path(index, bus, inst, rotation_period=12, rotations=1, rot
                                           direct_mode=False,
                                           hfov=None,
                                           image_size=image_size)
-    angsep = bus.data.catalog.iloc[index]["angsep"]
+    angsep = bus.data.catalog.iloc[index]["maxangsep"]
     theta_p = bus.data.catalog.iloc[index]["theta_p"]
     inc = bus.data.catalog.iloc[index]["inc_p"]
     p_orb = bus.data.catalog.iloc[index]["p_orb"] * 24
@@ -161,7 +190,7 @@ def periods(p):
     inst.set_rotation(12, 1, 360)
     inst.apply_options()
     for period in p:
-        bus_t.data.catalog["p_orb"] = period
+        bus.data.catalog["p_orb"] = period
         plot_transmission_curve(3, inst, rotations=1, rotation_steps=360, label=str(
             period), time_dependent=True)
     plot_transmission_curve(3, inst, rotations=1, rotation_steps=360,
@@ -177,7 +206,7 @@ def ffts(periods):
     inst.set_rotation(12, 1, 360)
     inst.apply_options()
     for period in periods:
-        bus_t.data.catalog["p_orb"] = period
+        bus.data.catalog["p_orb"] = period
         tr_chop_one_wv = inst.get_transmission_curve(3)[0][0, 0]
         ft = np.fft.rfft(tr_chop_one_wv)
         plt.plot(np.arange(0, len(ft)), np.abs(ft), label=str(period))
@@ -257,81 +286,122 @@ def compare_detected(o, t):
 # %%
 
 
+def trunc(n, o=2):
+    return int(10**o*n)/10**o
+
+
+def inper(n):
+    return int(n*100)
+
+
 def analysis(do, dt):
-    dt_d = dt[dt["snr_1h"] > 7]
-    do_d = do[do["snr_1h"] > 7]
-    plt.figure()
-    min_period = min(do["p_orb"])
-    max_period = max(do["p_orb"])
-    p_bins = np.arange(min_period, max_period, 1)
-    plt.hist(do["p_orb"], p_bins, alpha=0.5, label="original", color="blue")
-    plt.hist(dt["p_orb"], p_bins, alpha=0.5, label="Time", color="orange")
-    plt.xlabel("Period in Days")
-    plt.ylabel("#Counts")
-    plt.axvline(x=50,label="1%")
-    plt.ylim(0,5000)
-    plt.xlim(-1,200)
-    plt.legend()
-    plt.show()
+    # Periods histogram
+    if False:
+        dt_d = dt[dt["snr_1h"] > 7]
+        do_d = do[do["snr_1h"] > 7]
+        plt.figure()
+        plt.title("Simulated Orbit Period Distribution")
+        min_period = min(do["p_orb"])
+        max_period = max(do["p_orb"])
+        p_bins = np.arange(min_period, max_period, 1)
+        _, _, patches = plt.hist(do["p_orb"], p_bins, alpha=0.5,
+                                 color="blue", density=True)
+        for i in range(len(patches)):
+            if i < 100:
+                patches[i].set_fc("yellow")
+            if i < 50:
+                patches[i].set_fc("orange")
+            if i < 5:
+                patches[i].set_fc("r")
+        plt.xlabel("Period in Days")
+        plt.ylabel("#Counts in %")
+        plt.axvline(x=5, label="1h Instrument: " +
+                    str(inper(len(dt[dt.p_orb < 5])/len(dt))) + "%", color="red")
+        plt.axvline(x=50, label="12h Instrument:" +
+                    str(inper(len(dt[dt.p_orb < 50])/len(dt))) + "%", color="orange")
+        plt.axvline(x=100, label="24h Instrument:" +
+                    str(inper(len(dt[dt.p_orb < 100])/len(dt))) + "%", color="yellow")
+        # plt.ylim(0, 5000)
+        plt.xlim(-1, 150)
+        plt.legend()
+        plt.show()
+    # Average SNR per period histogram
+    if False:
+        plt.figure()
+        p_bins = np.arange(min_period, max_period, 5)
+        avg_snr = []
+        for small, large in zip(p_bins[:-1], p_bins[1:]):
+            avg_snr.append(
+                np.mean(dt[(dt["p_orb"] < large) & (dt["p_orb"] > small)]["snr_1h"]))
+        avg_snr = np.array(avg_snr)
+        # plt.bar(p_bins[1:],avg_snr,5,label="time")
+        plt.plot(p_bins[1:], avg_snr, label="time")
 
-    plt.figure()
-    p_bins = np.arange(min_period,max_period,5)
-    avg_snr = []
-    for small,large in zip(p_bins[:-1],p_bins[1:]):
-        avg_snr.append(np.mean(dt[(dt["p_orb"] < large) & (dt["p_orb"] > small)]["snr_1h"]))
-    avg_snr = np.array(avg_snr)
-    #plt.bar(p_bins[1:],avg_snr,5,label="time")
-    plt.plot(p_bins[1:],avg_snr,label="time")
-    
-    avg_snr = []
-    for small,large in zip(p_bins[:-1],p_bins[1:]):
-        avg_snr.append(np.mean(do[(do["p_orb"] < large) & (do["p_orb"] > small)]["snr_1h"]))
-    avg_snr = np.array(avg_snr)
-    #plt.bar(p_bins[1:],avg_snr,5, alpha =0.5,label="og")
-    plt.plot(p_bins[1:],avg_snr,label="og")
-    plt.legend()
-    plt.show()
+        avg_snr = []
+        for small, large in zip(p_bins[:-1], p_bins[1:]):
+            avg_snr.append(
+                np.mean(do[(do["p_orb"] < large) & (do["p_orb"] > small)]["snr_1h"]))
+        avg_snr = np.array(avg_snr)
+        # plt.bar(p_bins[1:],avg_snr,5, alpha =0.5,label="og")
+        plt.plot(p_bins[1:], avg_snr, label="og")
+        plt.legend()
+        plt.show()
+    #  EDGE_On Face_On SNR Thersholhd Bar plot
+    if False:
+        plt.figure()
+        face_on_a = do_d[(do_d["inc_p"] <= 0.6)]
+        face_on_c = do_d[do_d["inc_p"] >= (np.pi - 0.6)]
+        edge_on = do_d[(do_d["inc_p"] >= (np.pi/2 - 0.3))
+                       & (do_d["inc_p"] >= (np.pi/2 + 0.3))]
+        counts = [len(face_on_a), len(face_on_c), len(edge_on)]
+        plt.bar([0, 1, 2], counts, 0.25, tick_label=[
+                "Anticlockwise", "Clockwise", "Edge_on"], label="original")
 
-    plt.figure()
-    face_on_a = do_d[(do_d["inc_p"] <= 0.6)]
-    face_on_c = do_d[do_d["inc_p"] >= (np.pi - 0.6)]
-    edge_on = do_d[(do_d["inc_p"] >= (np.pi/2 - 0.3))
-                   & (do_d["inc_p"] >= (np.pi/2 + 0.3))]
-    counts = [len(face_on_a), len(face_on_c), len(edge_on)]
-    plt.bar([0, 1, 2], counts, 0.25, tick_label=[
-            "Anticlockwise", "Clockwise", "Edge_on"], label="original")
+        face_on_a = dt_d[(dt_d["inc_p"] <= 0.2)]
+        face_on_c = dt_d[dt_d["inc_p"] >= (np.pi - 0.2)]
+        edge_on = dt_d[(dt_d["inc_p"] >= (np.pi/2 - 0.02))
+                       & (dt_d["inc_p"] >= (np.pi/2 + 0.02))]
+        counts = [len(face_on_a), len(face_on_c), len(edge_on)]
+        plt.bar([0.25, 1.25, 2.25], counts, 0.25, tick_label=[
+                "Anticlockwise", "Clockwise", "Edge_on"], label="Time")
+        plt.ylabel("SNR_12h > 7")
+        plt.legend()
+    # Bar plot improvments in SNR
+    if True:
+        plt.figure()
+        difference = dt.copy()
+        difference["snr_1h"] = dt["snr_1h"] - do["snr_1h"]
+        face_on_a = difference[(difference["inc_p"] <= 0.6)]
+        face_on_c = difference[difference["inc_p"] >= (np.pi - 0.6)]
+        edge_on = difference[(difference["inc_p"] >= (np.pi/2 - 0.3))
+                             & (difference["inc_p"] >= (np.pi/2 + 0.3))]
+        counts = np.array([len(face_on_a[face_on_a["snr_1h"] > 0]), len(
+            face_on_c[face_on_c["snr_1h"] > 0]), len(edge_on[edge_on["snr_1h"] > 0])])/len(dt)
 
-    face_on_a = dt_d[(dt_d["inc_p"] <= 0.2)]
-    face_on_c = dt_d[dt_d["inc_p"] >= (np.pi - 0.2)]
-    edge_on = dt_d[(dt_d["inc_p"] >= (np.pi/2 - 0.02))
-                   & (dt_d["inc_p"] >= (np.pi/2 + 0.02))]
-    counts = [len(face_on_a), len(face_on_c), len(edge_on)]
-    plt.bar([0.25, 1.25, 2.25], counts, 0.25, tick_label=[
-            "Anticlockwise", "Clockwise", "Edge_on"], label="Time")
-    plt.ylabel("SNR_12h > 7")
-    plt.legend()
+        plt.bar([-0.15, 0.85, 1.85], counts, 0.3,
+                label="improvments", color="green")
+        counts = np.array([len(face_on_a[face_on_a["snr_1h"] < 0]), len(
+            face_on_c[face_on_c["snr_1h"] < 0]), len(edge_on[edge_on["snr_1h"] < 0])])/len(dt)
 
-    plt.figure()
-    difference = dt.copy()
-    difference["snr_1h"] = dt["snr_1h"]- do["snr_1h"]
-    face_on_a = difference[(difference["inc_p"] <= 0.6)]
-    face_on_c = difference[difference["inc_p"] >= (np.pi - 0.6)]
-    edge_on = difference[(difference["inc_p"] >= (np.pi/2 - 0.3))
-                   & (difference["inc_p"] >= (np.pi/2 + 0.3))]
-    counts = [len(face_on_a[face_on_a["snr_1h"]>0]), len(face_on_c[face_on_c["snr_1h"]>0]), len(edge_on[edge_on["snr_1h"]>0])]
-    
-    plt.bar([0, 1, 2], counts, 0.25, tick_label=[
-            "Anticlockwise", "Clockwise", "Edge_on"], label="improvments")
-    counts = [len(face_on_a[face_on_a["snr_1h"]<0]), len(face_on_c[face_on_c["snr_1h"]<0]), len(edge_on[edge_on["snr_1h"]<0])]
-    
-    plt.bar([0.25, 1.25, 2.25], counts, 0.25, tick_label=[
-            "Anticlockwise", "Clockwise", "Edge_on"], label="decreases")
-    plt.ylabel("#Counts")
-    plt.legend()
-    plt.show()
+        plt.bar([0.15, 1.15, 2.15], counts, 0.3,
+                label="decreases", color="red")
+        plt.xticks([0, 1, 2], labels=[
+            "Anticlockwise", "Clockwise", "Edge_on"])
+        plt.ylabel("Counts in Percent")
+        plt.title("Changes in SNR for certain inclinations")
+        plt.legend()
+        plt.show()
+    # SNR Distribution
+    if False:
+        snr_min = -1  # min((min(dt.snr_1h), min(do.snr_1h)))
+        snr_max = 20  # max((max(dt.snr_1h), max(do.snr_1h)))
+        snr_bins = np.arange(snr_min, snr_max, 0.01)
+        plt.figure()
+        plt.hist(do.snr_1h, snr_bins, label="original")
+        plt.hist(dt.snr_1h, snr_bins, label="time", alpha=0.3)
+        plt.legend()
+        plt.show()
 # %%
-
-
 
 
 # %%
