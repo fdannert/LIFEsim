@@ -108,14 +108,14 @@ def compare_verticalplot(rotation_period=12, rotations=1, rotation_steps=360):
     plt.figure()
     indeces = [0, 1, 3, 4]
     labels = ["Edge on", "Face On Clockwise ",
-              "Face On AntiClockwise", "Face On Long Period"]
+              "Face On Anticlockwise", "Face On Long Period"]
     inst.set_rotation(rotation_period, rotations, rotation_steps)
     for i, index in enumerate(indeces):
         tr_chop_one_wv = inst.get_transmission_curve(
             index, time_dependent=False)[0][0, 0]
         plt.subplot(2, len(indeces), i+1)
         if i == 0: plt.ylabel("Transmission w/o Time")
-        plt.plot(np.linspace(0, rotations * 2, rotations * rotation_steps),
+        plt.plot(np.linspace(0, rotations * 2 * pi, rotations * rotation_steps),
                  tr_chop_one_wv, color="blue")
         plt.title(labels[i])
     for i, index in enumerate(indeces):
@@ -123,7 +123,7 @@ def compare_verticalplot(rotation_period=12, rotations=1, rotation_steps=360):
             index, time_dependent=True)[0][0, 0]
         plt.subplot(2, len(indeces), i+5)
         if i == 0: plt.ylabel("Transmission With Time")
-        plt.plot(np.linspace(0, rotations * 2, rotations * rotation_steps),
+        plt.plot(np.linspace(0, rotations * 2 * pi, rotations * rotation_steps),
                  tr_chop_one_wv, color="orange")
         plt.xlabel("Radiens")
     plt.legend()
