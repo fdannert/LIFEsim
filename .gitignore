@@ -6,7 +6,6 @@
 /lifesim/__pycache__/
 data/baselineSample.fits
 *.pyc
-/output/
+*.hdf5
 /.vscode/
-*.pdf
 *.png
