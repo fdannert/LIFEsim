@@ -297,8 +297,7 @@ def inper(n):
 def analysis(do, dt):
     # Periods histogram
     if False:
-        dt_d = dt[dt["snr_1h"] > 7]
-        do_d = do[do["snr_1h"] > 7]
+
         plt.figure()
         plt.title("Simulated Orbit Period Distribution")
         min_period = min(do["p_orb"])
@@ -321,6 +320,35 @@ def analysis(do, dt):
                     str(inper(len(dt[dt.p_orb < 50])/len(dt))) + "%", color="orange")
         plt.axvline(x=100, label="24h Instrument:" +
                     str(inper(len(dt[dt.p_orb < 100])/len(dt))) + "%", color="yellow")
+        # plt.ylim(0, 5000)
+        plt.xlim(-1, 150)
+        plt.legend()
+        plt.show()
+    # Periods histogram of only detected
+    if True:
+        plt.figure()
+        plt.title("Simulated Orbit Period Distribution of only detected")
+        detected = dt[dt["detected"]]
+        min_period = min(detected["p_orb"])
+        max_period = max(detected["p_orb"])
+        p_bins = np.arange(min_period, max_period, 1)
+        _, _, patches = plt.hist(detected["p_orb"], p_bins, alpha=0.5,
+                                 color="blue", density=True)
+        for i in range(len(patches)):
+            if i < 100:
+                patches[i].set_fc("yellow")
+            if i < 50:
+                patches[i].set_fc("orange")
+            if i < 5:
+                patches[i].set_fc("r")
+        plt.xlabel("Period in Days")
+        plt.ylabel("#Counts in %")
+        plt.axvline(x=5, label="1h Instrument: " +
+                    str(inper(len(detected[detected.p_orb < 5])/len(detected))) + "%", color="red")
+        plt.axvline(x=50, label="12h Instrument:" +
+                    str(inper(len(detected[detected.p_orb < 50])/len(detected))) + "%", color="orange")
+        plt.axvline(x=100, label="24h Instrument:" +
+                    str(inper(len(detected[detected.p_orb < 100])/len(detected))) + "%", color="yellow")
         # plt.ylim(0, 5000)
         plt.xlim(-1, 150)
         plt.legend()
@@ -367,7 +395,7 @@ def analysis(do, dt):
         plt.ylabel("SNR_12h > 7")
         plt.legend()
     # Bar plot improvments in SNR
-    if True:
+    if False:
         plt.figure()
         difference = dt.copy()
         difference["snr_1h"] = dt["snr_1h"] - do["snr_1h"]
@@ -401,7 +429,4 @@ def analysis(do, dt):
         plt.hist(dt.snr_1h, snr_bins, label="time", alpha=0.3)
         plt.legend()
         plt.show()
-# %%
-
-
 # %%
