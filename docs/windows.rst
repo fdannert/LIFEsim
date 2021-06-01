@@ -22,8 +22,9 @@ First, open the Conda Prompt, navigate to where you want to create the virtual e
 
 .. code-block:: console
 
-   > conda create --name new_folder/
+   > conda create --name new_folder python=3.8
 
+Note that we specify the required python version in this command.
 Some conda commands will ask for confirmation, which can be affirmed by typing.
 
 .. code-block:: console
@@ -33,15 +34,50 @@ Some conda commands will ask for confirmation, which can be affirmed by typing.
 
 A virtual environment in the folder ``new_folder`` is created in the current directory
 
+.. Hint:: You might need to deactivate the conda base
+
+   .. code-block:: console
+
+      > conda deactivate
+
 To activate and deactivate your new virtual environment use the following commands respectively
 
 .. code-block:: console
 
    > conda activate new_folder\
 
+Check the python version with the following command
+
+.. code-block:: console
+
+   > python --version
+
 .. code-block:: console
 
    > conda deactivate
+
+Download from PyPI (Recommended)
+--------------------------------
+
+.. Hint:: You will likely need to install git first
+
+  .. code-block:: console
+
+      > conda install git
+
+With the new environment activated, install LIFEsim via pip.
+
+.. code-block:: console
+
+   > pip install LIFEsim
+
+
+LIFEsim need a modified version of the package |SpectRes| to run. It can also be installed using
+pip. Run
+
+.. code-block:: console
+
+   > pip install git+https://github.com/fdannert/SpectRes.git
 
 
 Download from Github

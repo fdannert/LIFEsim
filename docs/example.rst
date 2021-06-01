@@ -17,11 +17,18 @@ As a first step, activate the virtual environment containing the LIFEsim install
 
    $ source path_to_new_folder/new_folder/bin/activate
 
-Then, open the LIFEsim spectrum simulator GUI by running
+Open python
 
 .. code-block:: console
 
-   $ python path_to_LIFEsim/LIFEsim/lifesim/gui/spectrum_gui.py
+   $ python
+
+Then, open the LIFEsim spectrum simulator GUI by running
+
+.. code-block:: python
+
+   >>> from lifesim import Gui
+   >>> Gui()
 
 With executing this command, the following GUI will open
 
@@ -44,7 +51,7 @@ For importing a spectrum, navigate to the *Preview* tab.
    :align: center
 
 Begin by choosing a spectrum to import (in .txt format) by clicking on *Browse...*. To complete
-this example, please open the file ``path_to_LIFEsim/LIFEsim/docs/_static/example_spectrum.txt`` in
+this example, please download |ThisFile| and open it in
 the pop-up dialog. Leave the option as *absolute* to only use the imported spectrum. Setting the
 option to *additive* will add the imported spectrum to the planets black body spectrum calculated
 according to given parameters.
@@ -354,3 +361,7 @@ Note the division by 500 to factor out the 500 simulated universes.
 
    <a href="https://github.com/kammerje/P-pop" target="_blank">P-Pop</a>
 
+
+.. |ThisFile| raw:: html
+
+   <a href="https://raw.githubusercontent.com/fdannert/LIFEsim/master/docs/_static/example_spectrum.txt" target="_blank">this file from the LIFEsim GitHub</a>

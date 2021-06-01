@@ -10,3 +10,5 @@ from lifesim.util.importer import SpectrumImporter
 
 from lifesim.optimize.optimizer import Optimizer
 from lifesim.optimize.ahgs import AhgsModule
+
+from lifesim.gui.spectrum_gui import Gui

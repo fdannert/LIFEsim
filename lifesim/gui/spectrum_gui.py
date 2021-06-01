@@ -169,7 +169,7 @@ class Frame(QDialog):
                                          value=10.,
                                          suffix='pc')
 
-        self.lat = DoubleBoxLabel(label='Galactic Latitude',
+        self.lat = DoubleBoxLabel(label='Ecliptic Latitude',
                                   mini=0.,
                                   maxi=2*math.pi,
                                   step=0.1,
@@ -343,7 +343,7 @@ class Frame(QDialog):
         self.logo = QWidget()
 
         image = QLabel()
-        pixmap = QPixmap('logo_blue.png').scaledToWidth(300)
+        pixmap = QPixmap('logo_blue.png').scaledToWidth(150)
         image.setPixmap(pixmap)
 
         website = QLabel('life-space-mission.com')
