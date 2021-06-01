@@ -1,7 +1,7 @@
 Installation (Linux and Mac OS)
 ===============================
 
-LIFEsim is available for installation from |github|. It is compatible with Python 3.7.
+LIFEsim is available for installation from |github|. It is compatible with Python 3.8.
 
 .. Hint:: **Installation on Mac OS**
 
@@ -33,7 +33,6 @@ LIFEsim is available for installation from |github|. It is compatible with Pytho
 
 Virtual Environment
 -------------------
-.. TODO: link pip, add installation for macos and windows
 
 It is highly recommended to install LIFEsim in a *virtual environment*. This ensures installed
 packages and changes made do not affect other projects on a system. The package dependencies of
@@ -49,7 +48,7 @@ Then a virtual environment in the folder ``new_folder`` is created in the curren
 
 .. code-block:: console
 
-   $ virtualenv -p python3 new_folder
+   $ virtualenv -p python3.8 new_folder
 
 To activate and deactivate your new virtual environment use the following statement respectively
 
@@ -57,10 +56,34 @@ To activate and deactivate your new virtual environment use the following statem
 
    $ source path_to_new_folder/new_folder/bin/activate
 
+Check that you are using the correct python version.
+
+.. code-block:: console
+
+   $ python --version
+   Python 3.8.X
+
 .. code-block:: console
 
    $ deactivate
 
+Download from PyPI (Recommended)
+--------------------------------
+
+First, activate the virtual environment as shown above. LIFEsim can be installed from PyPI using
+the pip command.
+
+.. code-block:: console
+
+   $ pip install lifesim
+
+.. Important::
+   LIFEsim need a modified version of the package |SpectRes| to run. It can also be installed using
+   pip. Run
+
+   .. code-block:: console
+
+      $ pip install git+https://github.com/fdannert/SpectRes.git
 
 Download from Github
 --------------------

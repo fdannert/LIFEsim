@@ -22,8 +22,9 @@ First, open the Conda Prompt, navigate to where you want to create the virtual e
 
 .. code-block:: console
 
-   > conda create --name new_folder/
+   > conda create --name new_folder/ python=3.8
 
+Note that we specify the required python version in this command.
 Some conda commands will ask for confirmation, which can be affirmed by typing.
 
 .. code-block:: console
