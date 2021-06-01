@@ -5,31 +5,15 @@ LIFEsim is available for installation from |github|. It is compatible with Pytho
 
 .. Hint:: **Installation on Mac OS**
 
-   We recommend the usage of a package manager for mac (e.g. |Homebrew|).
-   Putting the Homebrew directory into the PATH environment variable will allow every terminal
-   window opened to access Homebrew. To set this, add
-   ``export PATH="/usr/local/opt/python/libexec/bin:$PATH"`` to the bottom of the file
-   ``~/bash_profile``. Create this file if it does not exists.
+   We recommend the usage of a package manager for mac (e.g. |Conda|). Follow the installation
+   instruction given by the respective package manager, making sure that you use the correct
+   version of python (3.8).
 
-   With homebrew installed, run
+   Open a terminal window and activate conda by running
 
    .. code-block:: console
 
-      $ brew install python
-
-   Now, check your python install with
-
-   .. code-block:: console
-
-      $ brew install python3 --version
-      Python 3.7.6
-
-   Pip is installed alongside with python. To check, run
-
-   .. code-block:: console
-
-      $ brew install pip --version
-      pip 20.3.3
+      $ conda activate
 
 Virtual Environment
 -------------------
@@ -49,6 +33,12 @@ Then a virtual environment in the folder ``new_folder`` is created in the curren
 .. code-block:: console
 
    $ virtualenv -p python3.8 new_folder
+
+.. Hint:: You might need to deactivate the conda base
+
+   .. code-block:: console
+
+      $ conda deactivate
 
 To activate and deactivate your new virtual environment use the following statement respectively
 
@@ -77,13 +67,12 @@ the pip command.
 
    $ pip install lifesim
 
-.. Important::
-   LIFEsim need a modified version of the package |SpectRes| to run. It can also be installed using
-   pip. Run
+LIFEsim need a modified version of the package |SpectRes| to run. It can also be installed using
+pip. Run
 
-   .. code-block:: console
+.. code-block:: console
 
-      $ pip install git+https://github.com/fdannert/SpectRes.git
+   $ pip install git+https://github.com/fdannert/SpectRes.git
 
 Download from Github
 --------------------
@@ -186,3 +175,7 @@ This should return the speed of light in [m s
 .. |Homebrew| raw:: html
 
    <a href="https://brew.sh" target="_blank">Homebrew</a>
+
+.. |Conda| raw:: html
+
+   <a href="https://conda.io/projects/conda/en/latest/user-guide/install/index.html" target="_blank">Miniconda</a>

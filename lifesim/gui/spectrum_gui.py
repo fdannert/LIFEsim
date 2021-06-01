@@ -343,7 +343,7 @@ class Frame(QDialog):
         self.logo = QWidget()
 
         image = QLabel()
-        pixmap = QPixmap('logo_blue.png').scaledToWidth(300)
+        pixmap = QPixmap('logo_blue.png').scaledToWidth(150)
         image.setPixmap(pixmap)
 
         website = QLabel('life-space-mission.com')
