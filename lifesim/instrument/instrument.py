@@ -321,7 +321,8 @@ class Instrument(InstrumentModule):
         # problem is it doesn't calculate the snr of 1 hour, but calucaltes the snr
         # of one rotation period(default:12h)
         # set rotation options if nothing is set beforehand
-        if "rotation_period" in self.data.inst is False:
+        
+        if not "rotation_period" in self.data.inst:
             # set rotation defaults are: 12h rotation period, 1 rotation and 360 rotation steps per rotation
             self.set_rotation()
         integration_time = self.data.inst["integration_time"] # is calculatet from rotations * rotation_period
