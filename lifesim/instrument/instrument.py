@@ -305,26 +305,27 @@ class Instrument(InstrumentModule):
     def get_snr_t(self,
                   safe_mode: bool = False,
                   time_dependent: bool = True):
+        #copied most of get_snr
         """
         Calculates the signal-to-noise ration for all planets within the catalog if the are
         observed by the LIFE array for the given observing time
 
         Parameters
         ----------
-        c : lifesim.Catalog
-            The catalog for which the SNRs will be calculated and added to
-        time : float
-            The observation time per planet in [s]
+        time_dependent:
+            true => simulates the positional changes of the exoplanet starting from true_anomaly of P_pop generation
+            false => should create the same modulated signal as the original get_snr, by fixing the position of the exoplanet
         """
 
         self.apply_options()
+        # problem is it doesn't calculate the snr of 1 hour, but calucaltes the snr
+        # of one rotation period(default:12h)
         # set rotation options if nothing is set beforehand
         if "rotation_period" in self.data.inst is False:
+            # set rotation defaults are: 12h rotation period, 1 rotation and 360 rotation steps per rotation
             self.set_rotation()
-        integration_time = self.data.inst["integration_time"]
-        # timestep option; goal is to calculate angular seperation and the transmission coefficient there
-        # then sum noise and singal over all steps
-        # angular seperation calculation starts from true anomaly which is random
+        integration_time = self.data.inst["integration_time"] # is calculatet from rotations * rotation_period
+        
 
         self.data.catalog['snr_1h'] = np.zeros_like(
             self.data.catalog.nstar, dtype=float)
@@ -380,6 +381,7 @@ class Instrument(InstrumentModule):
                                                  distance=self.data.catalog['distance_s'].iloc[n_p]
                                                  )
 
+                # using the time variant of transmission efficiency
                 transm_eff, transm_noise = self.run_socket(s_name='transmission',
                                                            method='transmission_efficiency_t',
                                                            index=n_p,
@@ -552,6 +554,11 @@ class Instrument(InstrumentModule):
                 noise)
 
     def get_transmission_curve(self, index, time_dependent=True):
+        """
+        Help function to simulate and extract the modulation signal.
+        index: int 
+            index of the planet in the currently loaded catalog 
+        """
         self.apply_options()
         if time_dependent:
             if "rotation_period" in self.data.inst is False:

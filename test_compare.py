@@ -7,6 +7,7 @@ from tqdm import tqdm
 from matplotlib.colors import Colormap, Normalize
 import matplotlib.pyplot as plt
 import lifesim as ls
+# ipython magic
 %matplotlib
 
 """
@@ -114,19 +115,23 @@ def compare_verticalplot(rotation_period=12, rotations=1, rotation_steps=360):
         tr_chop_one_wv = inst.get_transmission_curve(
             index, time_dependent=False)[0][0, 0]
         plt.subplot(2, len(indeces), i+1)
-        if i == 0: plt.ylabel("Transmission w/o Time")
+        if i == 0:
+            plt.ylabel("Transmission w/o Time")
         plt.plot(np.linspace(0, rotations * 2 * pi, rotations * rotation_steps),
                  tr_chop_one_wv, color="blue")
-        plt.xticks([0,pi/2,pi,3/2*pi,2*pi],["0",r'$\pi/2$',r'$\pi$',r'$3/2\pi$',r'$2\pi$'])
+        plt.xticks([0, pi/2, pi, 3/2*pi, 2*pi],
+                   ["0", r'$\pi/2$', r'$\pi$', r'$3/2\pi$', r'$2\pi$'])
         plt.title(labels[i])
     for i, index in enumerate(indeces):
         tr_chop_one_wv = inst.get_transmission_curve(
             index, time_dependent=True)[0][0, 0]
         plt.subplot(2, len(indeces), i+5)
-        if i == 0: plt.ylabel("Transmission With Time")
+        if i == 0:
+            plt.ylabel("Transmission With Time")
         plt.plot(np.linspace(0, rotations * 2 * pi, rotations * rotation_steps),
                  tr_chop_one_wv, color="orange")
-        plt.xticks([0,pi/2,pi,3/2*pi,2*pi],["0",r'$\pi/2$',r'$\pi$',r'$3/2\pi$',r'$2\pi$'])
+        plt.xticks([0, pi/2, pi, 3/2*pi, 2*pi],
+                   ["0", r'$\pi/2$', r'$\pi$', r'$3/2\pi$', r'$2\pi$'])
         plt.xlabel("Radiens")
     plt.tight_layout()
     plt.show()
@@ -182,11 +187,12 @@ def transmission_and_path(index, rotation_period=12, rotations=1, rotation_steps
     # plt.xlim(-1, 1)
     plt.show()
 
+
 def artificial_t_a_p(angsep, p_orb, inc_p):
-    index=0 
-    rotation_period=12 
-    rotations=1 
-    rotation_steps=360
+    index = 0
+    rotation_period = 12
+    rotations = 1
+    rotation_steps = 360
     image_size = 512
     inst.set_rotation(rotation_period, rotations, rotation_steps)
     inst.apply_options()
@@ -218,10 +224,10 @@ def artificial_t_a_p(angsep, p_orb, inc_p):
     mas_pix = bus.data.inst["mas_pix"][0]
     xs = xs/mas_pix + image_size//2
     ys = ys/mas_pix + image_size//2
-    plt.imshow(tm_chop[0], vmin=-1, vmax=1,cmap = "twilight")
+    plt.imshow(tm_chop[0], vmin=-1, vmax=1, cmap="twilight")
     print(mas_pix)
-    plt.plot(xs, ys, "--", color = "white")
-    plt.plot(256,256,color="yellow", marker="*")
+    plt.plot(xs, ys, "--", color="white")
+    plt.plot(256, 256, color="yellow", marker="*")
     size = 100
     plt.ylim(256-size, 256+size)
     plt.xlim(256-size, 256+size)
