@@ -1,3 +1,5 @@
+from warnings import warn
+
 import numpy as np
 from tqdm import tqdm
 from spectres import spectres
@@ -170,12 +172,33 @@ class Instrument(InstrumentModule):
 
         # put first transmission peak of optimal wl on center of HZ
         # for the origin of the value 0.5.. see Ottiger+2021
-        self.data.inst['bl'] = (0.589645 / hz_center_rad
+        baseline = (0.589645 / hz_center_rad
                                 * self.data.options.other['wl_optimal'] * 10 ** (-6))
 
+        self.apply_baseline(baseline=baseline)
+
+    def apply_baseline(self,
+                       baseline: float,
+                       print_warning: bool = False):
+        """
+        Adjusts the nulling baseline of the array to the specified value.
+
+        Parameters
+        ----------
+        baseline : float
+            Length of the nulling baseline in [m].
+        print_warning : bool
+            If set to true, function will print a warning if the specified baseline lies outside
+            the allow baseline range.
+        """
         # make sure that the baseline does not exeed the set baseline limits
-        self.data.inst['bl'] = np.maximum(self.data.inst['bl'], self.data.options.array['bl_min'])
-        self.data.inst['bl'] = np.minimum(self.data.inst['bl'], self.data.options.array['bl_max'])
+        self.data.inst['bl'] = np.maximum(baseline,
+                                          self.data.options.array['bl_min'])
+        self.data.inst['bl'] = np.minimum(baseline,
+                                          self.data.options.array['bl_max'])
+        if (self.data.inst['bl'] != baseline) and print_warning:
+            warn('Specified baseline exceeded baseline limits. Baseline fixed to '
+                 'respective limit')
 
         # update the position of the apertures
         self.data.inst['apertures'] = np.array([
@@ -303,7 +326,10 @@ class Instrument(InstrumentModule):
                      z: float,  # in zodis
                      angsep: float,  # in arcsec
                      flux_planet_spectrum: list,  # in ph m-3 s-1 over m
-                     integration_time: float):
+                     integration_time: float,  # in s
+                     pbar = None,
+                     baseline_to_planet: bool = False,
+                     baseline: float = None):
         """
         Calculate the signal-to-noise ratio per spectral bin of a given spectrum of a single
         planet.
@@ -330,6 +356,15 @@ class Instrument(InstrumentModule):
             [photons m-3 s-1].
         integration_time : float
             Time that the LIFE array spends for integrating on the observed planet in [s].
+        pbar
+            Takes a PyQt5 QProgressBar to display the progress of the baseline optimization.
+        baseline_to_planet : bool
+            If set to True, the baseline will be optimized to the position of the planet. If set
+            to False, the baseline will be optimized to the center of the habitable zone of the
+            host star.
+        baseline : float
+            Specifies a custom baseline. To have an effect, baseline_to_planet must be set to
+            False.
 
         Returns
         -------
@@ -364,20 +399,68 @@ class Instrument(InstrumentModule):
 
         self.data.single['l_sun'] = l_sun
 
-        # adjust the baseline of the array to the habitable zone
-        self.adjust_bl_to_hz(hz_center=hz_center,
-                             distance_s=distance_s)
+        # use spectres to rescale the spectrum onto the correct wl bins
+        flux_planet_spectrum_input = flux_planet_spectrum
+        flux_planet_spectrum = spectres(new_wavs=self.data.inst['wl_bin_edges'],
+                                        spec_wavs=flux_planet_spectrum[0].value,
+                                        spec_fluxes=flux_planet_spectrum[1].value,
+                                        edge_mode=True)
+
+        # adjust the baseline
+        if baseline_to_planet:
+            # adjust baseline to planet
+            bl = np.linspace(self.data.options.array['bl_min'],
+                             self.data.options.array['bl_max'],
+                             20)
+            snr_analog = np.zeros_like(bl)
+            for i in range(len(bl)):
+                spec_snr, _, _ = self.get_spectrum(temp_s=temp_s,
+                                                   radius_s=radius_s,
+                                                   distance_s=distance_s,
+                                                   lat_s=lat_s,
+                                                   z=z,
+                                                   angsep=angsep,
+                                                   flux_planet_spectrum=flux_planet_spectrum_input,
+                                                   integration_time=integration_time,
+                                                   baseline=bl[i])
+                snr_analog[i] = np.sqrt((spec_snr[1]**2).sum())
+                if pbar is not None:
+                    pbar.setValue(30+i/20*30)
+            max_int = np.argmax(snr_analog)
+
+            bl = np.linspace(bl[np.amax((max_int-1, 0))],
+                             bl[np.amin((max_int+1, len(bl)-1))],
+                             20)
+            snr_analog = np.zeros_like(bl)
+            for i in range(len(bl)):
+                spec_snr, _, _ = self.get_spectrum(temp_s=temp_s,
+                                                   radius_s=radius_s,
+                                                   distance_s=distance_s,
+                                                   lat_s=lat_s,
+                                                   z=z,
+                                                   angsep=angsep,
+                                                   flux_planet_spectrum=flux_planet_spectrum_input,
+                                                   integration_time=integration_time,
+                                                   baseline=bl[i])
+                snr_analog[i] = np.sqrt((spec_snr[1] ** 2).sum())
+                if pbar is not None:
+                    pbar.setValue(60+i/20*30)
+            self.apply_baseline(baseline=bl[np.argmax(snr_analog)])
+
+        else:
+            if baseline is not None:
+                # set baseline manually
+                self.apply_baseline(baseline=baseline,
+                                    print_warning=True)
+            else:
+                # adjust baseline to HZ
+                self.adjust_bl_to_hz(hz_center=hz_center,
+                                     distance_s=distance_s)
 
         # calculate the transmission map
         _, _, self.data.inst['t_map'], _, _ = self.run_socket(s_name='transmission',
                                                               method='transmission_map',
                                                               map_selection='tm3')
-
-        # update and run the photon noise plugins
-        flux_planet_spectrum = spectres(new_wavs=self.data.inst['wl_bin_edges'],
-                                        spec_wavs=flux_planet_spectrum[0].value,
-                                        spec_fluxes=flux_planet_spectrum[1].value,
-                                        edge_mode=True)
 
         transm_eff, transm_noise = self.run_socket(s_name='transmission',
                                                    method='transmission_efficiency',
