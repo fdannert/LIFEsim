@@ -1,12 +1,12 @@
 import math
 import warnings
 import urllib.request
-from urllib.error import HTTPError
+from urllib.error import HTTPError, URLError
 import os
 
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import (QApplication, QDialog, QGroupBox, QGridLayout, QLabel,
-                             QVBoxLayout, QWidget, QHBoxLayout,
+                             QVBoxLayout, QWidget, QHBoxLayout, QProgressBar,
                              QDoubleSpinBox, QPushButton, QTabWidget, QCheckBox,
                              QProgressBar, QComboBox, QSizePolicy)
 from PyQt5.QtGui import QPixmap
@@ -17,7 +17,7 @@ from astropy.visualization import quantity_support
 import lifesim as ls
 from lifesim.util.radiation import black_body
 from lifesim.gui.custom_widgets import (DoubleBoxLabel, BoxLabel, StringBoxLabel, DoubleBoxRange,
-                                        FileBrowser, FileSaver, PlotCanvas)
+                                        FileBrowser, FileSaver, PlotCanvas, RadioButtonWidget)
 
 # change the directory to the path of the spectrum_gui.py file to ensure that the logo is imported
 # correctly
@@ -28,7 +28,7 @@ quantity_support()
 try:
     urllib.request.urlretrieve("https://github.com/fdannert/LIFEsim/raw/master/"
                                "lifesim/gui/logo_blue.png", "logo_blue.png")
-except HTTPError:
+except (HTTPError, URLError) as e:
     pass
 
 
@@ -117,6 +117,8 @@ class Frame(QDialog):
 
         self.r_spec = None
 
+        self.change_visibility()
+
     def create_instrument(self):
         self.instrument = QGroupBox('Instrument')
 
@@ -135,6 +137,10 @@ class Frame(QDialog):
                                  value=20,
                                  suffix='')
 
+        self.baseline_mode = RadioButtonWidget()
+
+        self.baseline_used = QLabel(text='Baseline Used: ')
+
         layout = QGridLayout(self.instrument)
         layout.addWidget(self.diameter.label, 0, 0)
         layout.addWidget(self.diameter, 0, 1)
@@ -142,6 +148,10 @@ class Frame(QDialog):
         layout.addWidget(self.spec_res, 1, 1)
         layout.addWidget(self.wl_range.label, 2, 0)
         layout.addWidget(self.wl_range, 2, 1)
+        layout.addWidget(self.baseline_mode.label, 3, 0)
+        layout.addWidget(self.baseline_mode.bl_HZ, 3, 1)
+        layout.addWidget(self.baseline_mode.bl_pl, 4, 1)
+        layout.addWidget(self.baseline_used, 5, 0)
 
     def create_star(self):
         self.star = QGroupBox('Star')
@@ -304,14 +314,17 @@ class Frame(QDialog):
         n_layout.addWidget(self.box_lz)
         n_layout.addWidget(self.box_ez)
 
-        simulate = QPushButton('Run Simulation')
+        self.simulate = QPushButton('Run Simulation')
 
-        simulate.clicked.connect(self.run_simulation)
+        self.simulate.clicked.connect(self.run_simulation)
+
+        self.progress = QProgressBar()
 
         layout = QVBoxLayout(self.simulation)
         layout.addWidget(t, alignment=Qt.AlignBottom)
         layout.addWidget(noise, alignment=Qt.AlignBottom)
-        layout.addWidget(simulate, alignment=Qt.AlignBottom)
+        layout.addWidget(self.simulate, alignment=Qt.AlignBottom)
+        layout.addWidget(self.progress, alignment=Qt.AlignHCenter)
 
     def create_scenario(self):
         self.scenario = QGroupBox('Set Scenario')
@@ -610,8 +623,12 @@ class Frame(QDialog):
         ax2a.remove()
 
     def run_simulation(self):
+        self.progress.setValue(10)
+
         self.show_preview()
         self.update_options()
+
+        self.progress.setValue(20)
 
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
@@ -625,6 +642,8 @@ class Frame(QDialog):
         if self.box_ez.isChecked():
             self.bus.connect(module_names=('life', 'ez'))
 
+        self.progress.setValue(30)
+
         self.r_spec, self.flux_p, self.flux_n = self.bus.modules['life'].get_spectrum(
             temp_s=self.temp_s.value(),
             radius_s=self.radius_s.value(),
@@ -633,11 +652,22 @@ class Frame(QDialog):
             lat_s=self.lat.value(),
             z=self.z.value(),
             angsep=self.angsep.value(),
-            integration_time=self.time_b.value()*60*60)
+            integration_time=self.time_b.value()*60*60,
+            baseline_to_planet=self.baseline_mode.bl_pl.isChecked(),
+            pbar=self.progress)
+
+        self.progress.setValue(90)
 
         self.show_spectrum(self.r_spec,
                            self.flux_p,
                            self.flux_n)
+
+        self.baseline_used.setText('Nulling Baseline Used: '
+                                   + str(np.round(self.bus.data.inst['bl'],
+                                                  decimals=1))
+                                   + ' m')
+
+        self.progress.setValue(100)
 
     def set_values(self):
         self.diameter.set(self.bus.data.options.array['diameter'])
@@ -667,26 +697,44 @@ class Frame(QDialog):
         if self.spec_kind.currentText() == 'additive':
             self.temp_p.show()
             self.temp_p.label.setText('Temperature Planet')
+            self.temp_p.label.show()
             self.x_units.show()
+            self.x_units.label.show()
             self.y_units.show()
+            self.y_units.label.show()
             self.distance_spec.show()
+            self.distance_spec.label.show()
             self.radius_spec.show()
+            self.radius_spec.label.show()
             self.time_spec.show()
+            self.time_spec.label.show()
         elif self.spec_kind.currentText() == 'absolute':
             self.temp_p.hide()
+            self.temp_p.label.hide()
             self.x_units.show()
+            self.x_units.label.show()
             self.y_units.show()
+            self.y_units.label.show()
             self.distance_spec.show()
+            self.distance_spec.label.show()
             self.radius_spec.show()
+            self.radius_spec.label.show()
             self.time_spec.show()
+            self.time_spec.label.show()
         elif self.spec_kind.currentText() == 'contrast':
-            self.temp_p.hide()
+            self.temp_p.show()
             self.temp_p.label.setText('Temperature Star')
+            self.temp_p.label.show()
             self.x_units.show()
+            self.x_units.label.show()
             self.y_units.hide()
+            self.y_units.label.hide()
             self.distance_spec.hide()
+            self.distance_spec.label.hide()
             self.radius_spec.hide()
+            self.radius_spec.label.hide()
             self.time_spec.hide()
+            self.time_spec.label.hide()
 
 
 class Gui(object):

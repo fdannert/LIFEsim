@@ -1,11 +1,34 @@
 from PyQt5.QtCore import (Qt, QRegExp)
 from PyQt5.QtWidgets import (QLabel, QLineEdit, QWidget, QHBoxLayout, QDoubleSpinBox, QFileDialog,
-                             QPushButton)
+                             QPushButton, QButtonGroup, QRadioButton, QVBoxLayout)
 from PyQt5.QtGui import (QDoubleValidator,QRegExpValidator)
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
 
 
+class RadioButtonWidget(QWidget):
+    def __init__(self, *args, **kwargs):
+        super(RadioButtonWidget, self).__init__(*args, **kwargs)
+        hlayout = QHBoxLayout(self)
+        vlayout = QVBoxLayout()
+        bg = QButtonGroup(self)
+
+        self.label = QLabel('Array Baseline')
+
+        self.bl_HZ = QRadioButton("Optimize for eHZ", self)
+        self.bl_HZ.setChecked(True)
+
+        self.bl_pl = QRadioButton("Optimize for Planet", self)
+
+        bg.addButton(self.bl_HZ)
+        bg.addButton(self.bl_pl)
+
+        vlayout.addWidget(self.bl_HZ)
+        vlayout.addWidget(self.bl_pl)
+        vlayout.setAlignment(Qt.AlignRight)
+
+        hlayout.addWidget(self.label)
+        hlayout.addLayout(vlayout)
 
 class DoubleBoxLabel(QWidget):
     def __init__(self, label, mini, maxi, step, value, suffix, *args, **kwargs):
