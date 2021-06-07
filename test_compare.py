@@ -4,7 +4,7 @@ from numpy import cos, sin, pi
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
-from matplotlib.colors import Normalize
+from matplotlib.colors import Colormap, Normalize
 import matplotlib.pyplot as plt
 import lifesim as ls
 %matplotlib
@@ -117,6 +117,7 @@ def compare_verticalplot(rotation_period=12, rotations=1, rotation_steps=360):
         if i == 0: plt.ylabel("Transmission w/o Time")
         plt.plot(np.linspace(0, rotations * 2 * pi, rotations * rotation_steps),
                  tr_chop_one_wv, color="blue")
+        plt.xticks([0,pi/2,pi,3/2*pi,2*pi],["0",r'$\pi/2$',r'$\pi$',r'$3/2\pi$',r'$2\pi$'])
         plt.title(labels[i])
     for i, index in enumerate(indeces):
         tr_chop_one_wv = inst.get_transmission_curve(
@@ -125,10 +126,9 @@ def compare_verticalplot(rotation_period=12, rotations=1, rotation_steps=360):
         if i == 0: plt.ylabel("Transmission With Time")
         plt.plot(np.linspace(0, rotations * 2 * pi, rotations * rotation_steps),
                  tr_chop_one_wv, color="orange")
+        plt.xticks([0,pi/2,pi,3/2*pi,2*pi],["0",r'$\pi/2$',r'$\pi$',r'$3/2\pi$',r'$2\pi$'])
         plt.xlabel("Radiens")
-    plt.legend()
     plt.tight_layout()
-    plt.savefig("TimeComparison.pdf")
     plt.show()
 
 
@@ -139,13 +139,12 @@ def compare_t_o(index, rotation_period, rotations, rotation_steps=360):
     plot_transmission_curve(
         index, inst, rotations, rotation_steps, label="t dependent", time_dependent=True)
     plt.legend()
-    plt.savefig("Comparison"+str(index)+".pdf")
     plt.show()
 # %%
 
 
 def transmission_and_path(index, rotation_period=12, rotations=1, rotation_steps=360):
-    image_size = 256
+    image_size = 512
     inst.set_rotation(rotation_period, rotations, rotation_steps)
     inst.apply_options()
     inst.adjust_bl_to_hz(hz_center=float(bus.data.catalog.hz_center.iloc[index]),
@@ -181,6 +180,51 @@ def transmission_and_path(index, rotation_period=12, rotations=1, rotation_steps
     plt.plot(xs, ys)
     # plt.ylim(-1, 1)
     # plt.xlim(-1, 1)
+    plt.show()
+
+def artificial_t_a_p(angsep, p_orb, inc_p):
+    index=0 
+    rotation_period=12 
+    rotations=1 
+    rotation_steps=360
+    image_size = 512
+    inst.set_rotation(rotation_period, rotations, rotation_steps)
+    inst.apply_options()
+    inst.adjust_bl_to_hz(hz_center=float(bus.data.catalog.hz_center.iloc[index]),
+                         distance_s=float(bus.data.catalog.distance_s.iloc[index]))
+    _, _, _, _, tm_chop = inst.run_socket(s_name='transmission',
+                                          method='transmission_map',
+                                          map_selection=[
+                                              "tm_3", "tm_4", "tm_chop"],
+                                          direct_mode=False,
+                                          hfov=None,
+                                          image_size=image_size)
+    angsep = angsep
+    theta_p = bus.data.catalog.iloc[index]["theta_p"]
+    inc = inc_p
+    p_orb = p_orb
+    thetas = np.linspace(theta_p, theta_p + 2*pi * rotation_period / p_orb * rotations,
+                         rotations * rotation_steps, endpoint=False, dtype="float")
+    v = inst.run_socket(s_name="transmission",
+                        method="projected_vector",
+                        theta=thetas,
+                        inc=inc,
+                        rad=angsep)
+
+    phi_lin = np.linspace(0, 2 * (rotations) * np.pi,
+                          rotations * rotation_steps, endpoint=False)
+    xs = v[0] * np.cos(phi_lin) + v[1] * (-np.sin(phi_lin))
+    ys = v[0] * np.sin(phi_lin) + v[1] * np.cos(phi_lin)
+    mas_pix = bus.data.inst["mas_pix"][0]
+    xs = xs/mas_pix + image_size//2
+    ys = ys/mas_pix + image_size//2
+    plt.imshow(tm_chop[0], vmin=-1, vmax=1,cmap = "twilight")
+    print(mas_pix)
+    plt.plot(xs, ys, "--", color = "white")
+    plt.plot(256,256,color="yellow", marker="*")
+    size = 100
+    plt.ylim(256-size, 256+size)
+    plt.xlim(256-size, 256+size)
     plt.show()
 # %%
 
@@ -296,7 +340,7 @@ def inper(n):
 
 def analysis(do, dt):
     # Periods histogram
-    if False:
+    if True:
 
         plt.figure()
         plt.title("Simulated Orbit Period Distribution")
@@ -312,8 +356,8 @@ def analysis(do, dt):
                 patches[i].set_fc("orange")
             if i < 5:
                 patches[i].set_fc("r")
-        plt.xlabel("Period in Days")
-        plt.ylabel("#Counts in %")
+        plt.xlabel("Orbit Period in Days")
+        plt.ylabel("Percent of planets")
         plt.axvline(x=5, label="1h Instrument: " +
                     str(inper(len(dt[dt.p_orb < 5])/len(dt))) + "%", color="red")
         plt.axvline(x=50, label="12h Instrument:" +
@@ -341,8 +385,8 @@ def analysis(do, dt):
                 patches[i].set_fc("orange")
             if i < 5:
                 patches[i].set_fc("r")
-        plt.xlabel("Period in Days")
-        plt.ylabel("#Counts in %")
+        plt.xlabel("Orbit Period in Days")
+        plt.ylabel("Percent of planets")
         plt.axvline(x=5, label="1h Instrument: " +
                     str(inper(len(detected[detected.p_orb < 5])/len(detected))) + "%", color="red")
         plt.axvline(x=50, label="12h Instrument:" +
