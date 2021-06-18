@@ -360,11 +360,11 @@ def analysis(do, dt):
                 patches[i].set_fc("yellow")
             if i < 50:
                 patches[i].set_fc("orange")
-            if i < 5:
+            if i < 4:
                 patches[i].set_fc("r")
         plt.xlabel("Orbit Period in Days")
         plt.ylabel("Percent of planets")
-        plt.axvline(x=5, label="1h Instrument: " +
+        plt.axvline(x=4.17, label="1h Instrument: " +
                     str(inper(len(dt[dt.p_orb < 5])/len(dt))) + "%", color="red")
         plt.axvline(x=50, label="12h Instrument:" +
                     str(inper(len(dt[dt.p_orb < 50])/len(dt))) + "%", color="orange")
@@ -389,11 +389,11 @@ def analysis(do, dt):
                 patches[i].set_fc("yellow")
             if i < 50:
                 patches[i].set_fc("orange")
-            if i < 5:
+            if i < 4:
                 patches[i].set_fc("r")
         plt.xlabel("Orbit Period in Days")
         plt.ylabel("Percent of planets")
-        plt.axvline(x=5, label="1h Instrument: " +
+        plt.axvline(x=4.17, label="1h Instrument: " +
                     str(inper(len(detected[detected.p_orb < 5])/len(detected))) + "%", color="red")
         plt.axvline(x=50, label="12h Instrument:" +
                     str(inper(len(detected[detected.p_orb < 50])/len(detected))) + "%", color="orange")
