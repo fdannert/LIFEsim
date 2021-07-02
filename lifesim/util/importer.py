@@ -46,18 +46,26 @@ class SpectrumImporter(object):
 
     def adjust_to_target(self):
         if self.distance_s_spectrum == 0:
-            self.y_data = self.y_data / (self.distance_s_target * u.pc)**2 / 4
+            self.y_data = self.y_data / (self.distance_s_target * u.pc)**2 / np.pi
         elif self.distance_s_spectrum is None:
             pass
         else:
             self.y_data = self.y_data * (self.distance_s_spectrum / self.distance_s_target)**2
         if self.radius_p_spectrum == 0:
-            self.y_data = self.y_data * 4 * np.pi * (self.radius_p_target * c.R_earth)**2
+            self.y_data = self.y_data * np.pi * (self.radius_p_target * c.R_earth)**2
         elif self.radius_p_spectrum is None:
             pass
         else:
             self.y_data = self.y_data * (self.radius_p_target / self.radius_p_spectrum)**2
         self.y_data = self.y_data.decompose()
+
+    def remove_sr(self):
+        if u.rad in self.y_data.unit.decompose().bases:
+            if (self.y_data.unit.powers[np.where(np.equal(np.array(self.y_data.unit.decompose().bases), u.rad))[0][0]]
+                    == -2):
+                self.y_data = self.y_data * u.sr * np.pi
+            else:
+                raise ValueError('Given units cannot be converted to units required by LIFEsim')
 
     # TODO: Implement that the user can select which column is x and which is y
     # TODO: Check whether the vector is [N,2] or [2,N] and transpose accordingly
@@ -108,7 +116,11 @@ class SpectrumImporter(object):
         self.to_wavelength()
         self.to_counts()
         self.to_per_second()
+        self.remove_sr()
         self.adjust_to_target()
+
+        if (self.y_data.unit != (u.ph / u.m ** 3 / u.s)) or (self.x_data.unit != u.m):
+            raise ValueError('Given units cannot be converted to units required by LIFEsim')
 
 # all settings
 # in_string = 'erg cm-2 s-1 Hz-1'

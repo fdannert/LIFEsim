@@ -126,14 +126,14 @@ class DoubleBoxRange(QWidget):
 class FileBrowser(QWidget):
     def __init__(self, label, *args, **kwargs):
         super(FileBrowser, self).__init__(*args, **kwargs)
-        label = QLabel(label)
+        self.label = QLabel(label)
         self.filepath = QLineEdit()
         button = QPushButton('Browse...')
 
         button.clicked.connect(self.open_browse)
 
         layout = QHBoxLayout(self)
-        layout.addWidget(label)
+        layout.addWidget(self.label)
         layout.addWidget(self.filepath)
         layout.addWidget(button)
 

@@ -100,7 +100,7 @@ The dependencies required by LIFEsim can be installed with
 
 .. code-block:: console
 
-   > conda install --file requirements_windows.txt
+   > conda install --file requirements.txt
 
 .. Important::
    LIFEsim need a modified version of the package |SpectRes| to run. Please install it via the

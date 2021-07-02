@@ -3,6 +3,7 @@ from warnings import warn
 import numpy as np
 from tqdm import tqdm
 from spectres import spectres
+from PyQt5.QtGui import QGuiApplication
 
 from lifesim.core.modules import InstrumentModule
 from lifesim.util.habitable import single_habitable_zone
@@ -426,6 +427,7 @@ class Instrument(InstrumentModule):
                 snr_analog[i] = np.sqrt((spec_snr[1]**2).sum())
                 if pbar is not None:
                     pbar.setValue(30+i/20*30)
+                    QGuiApplication.processEvents()
             max_int = np.argmax(snr_analog)
 
             bl = np.linspace(bl[np.amax((max_int-1, 0))],
@@ -445,6 +447,7 @@ class Instrument(InstrumentModule):
                 snr_analog[i] = np.sqrt((spec_snr[1] ** 2).sum())
                 if pbar is not None:
                     pbar.setValue(60+i/20*30)
+                    QGuiApplication.processEvents()
             self.apply_baseline(baseline=bl[np.argmax(snr_analog)])
 
         else:

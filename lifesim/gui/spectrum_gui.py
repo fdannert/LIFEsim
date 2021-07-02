@@ -9,7 +9,7 @@ from PyQt5.QtWidgets import (QApplication, QDialog, QGroupBox, QGridLayout, QLab
                              QVBoxLayout, QWidget, QHBoxLayout, QProgressBar,
                              QDoubleSpinBox, QPushButton, QTabWidget, QCheckBox,
                              QProgressBar, QComboBox, QSizePolicy)
-from PyQt5.QtGui import QPixmap
+from PyQt5.QtGui import QPixmap, QGuiApplication
 import numpy as np
 from astropy import units as u
 from astropy.visualization import quantity_support
@@ -128,16 +128,28 @@ class Frame(QDialog):
                                        step=0.5,
                                        value=2,
                                        suffix='m')
+        self.diameter.label.setToolTip('Diameter of a single aperture of one of the collector spacecraft. The overall'
+                                       'collecting area is spanned by four collector spacecraft')
 
         self.wl_range = DoubleBoxRange(label='Wavelength Range')
+        self.wl_range.label.setToolTip('Lower and upper wavelength bound of the spectrograph')
 
         self.spec_res = BoxLabel(label='Spectral Resolution',
                                  mini=1,
                                  maxi=100,
                                  value=20,
                                  suffix='')
+        self.spec_res.label.setToolTip('Spectral resolution of the spectrograph')
 
         self.baseline_mode = RadioButtonWidget()
+        self.baseline_mode.label.setToolTip('The distance between the collector spacecraft (i.e. the baseline) <br> '
+                                            'has a major influence on the detectability of exoplanets. It has to be '
+                                            'adjusted '
+                                            'to match the separation between the target exoplanet and its host star. '
+                                            'If the separation of the exoplanet is assumed to be unkown prior to the '
+                                            'observation, the baseline can be set to optimal for planets in the HZ. '
+                                            'If the separation of the target planet is known, the baseline can be set '
+                                            'optimally for the planet position')
 
         self.baseline_used = QLabel(text='Baseline Used: ')
 
@@ -163,7 +175,7 @@ class Frame(QDialog):
                                      step=100.,
                                      value=5778.,
                                      suffix='K')
-        self.temp_s.label.setToolTip('Test Tip')
+        self.temp_s.label.setToolTip('Temperature of the host star')
 
         self.radius_s = DoubleBoxLabel(label='Radius',
                                        mini=0.,
@@ -171,6 +183,7 @@ class Frame(QDialog):
                                        step=0.5,
                                        value=1.,
                                        suffix='R☉')
+        self.radius_s.label.setToolTip('Radius of the host star')
 
         self.distance_s = DoubleBoxLabel(label='Distance',
                                          mini=0.,
@@ -178,6 +191,7 @@ class Frame(QDialog):
                                          step=1.,
                                          value=10.,
                                          suffix='pc')
+        self.distance_s.label.setToolTip('Distance between the solar system and the host star of the target')
 
         self.lat = DoubleBoxLabel(label='Ecliptic Latitude',
                                   mini=0.,
@@ -185,6 +199,9 @@ class Frame(QDialog):
                                   step=0.1,
                                   value=0.79,
                                   suffix='rad')
+        self.lat.label.setToolTip('Ecliptic latitude of the target. Since the localzodiacal dust lies in the <br>'
+                                  'ecplitic of the solar system, this will influence how much localzodi light will '
+                                  'leak into the measurement')
 
         self.z = DoubleBoxLabel(label='Exozodis',
                                 mini=0.,
@@ -192,6 +209,9 @@ class Frame(QDialog):
                                 step=0.5,
                                 value=1.,
                                 suffix='z')
+        self.z.label.setToolTip('Exozodi level in the target system. The zodi-number indicates how much more <br>'
+                                'zodiacal dust is present in the target system when compared to the solar system in '
+                                'terms of surface density')
 
         layout = QGridLayout(temp)
         layout.addWidget(self.temp_s.label, 0, 0)
@@ -221,6 +241,8 @@ class Frame(QDialog):
                                      value=0.1,
                                      step=0.1,
                                      suffix='arcsec')
+        self.angsep.label.setToolTip('Angular separation between target exoplanet and its host star')
+
 
         self.radius_p = DoubleBoxLabel(label='Radius',
                                        mini=0.,
@@ -228,6 +250,7 @@ class Frame(QDialog):
                                        value=1.,
                                        step=0.5,
                                        suffix='R⊕')
+        self.radius_p.label.setToolTip('Radius of the target exoplanets')
 
         layout = QGridLayout(self.planet)
         layout.addWidget(self.angsep.label, 0, 0)
@@ -252,6 +275,8 @@ class Frame(QDialog):
 
         self.error_field = QLabel()
         self.error_field.setStyleSheet("QLabel { color : red; }")
+        self.error_field.setWordWrap(True)
+
 
         self.p_plot.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
 
@@ -372,17 +397,32 @@ class Frame(QDialog):
 
         self.spec_kind = QComboBox()
         self.spec_kind.addItems(['absolute', 'additive', 'contrast'])
+        self.spec_kind.setToolTip('For absolute, the absolute values of the given spectrum are used. For additive, <br>'
+                                  'the values of the given spectrum are added onto a blackbody spectrum based on the '
+                                  'temperature specified for the target planet. For constrast, the values of the given '
+                                  'spectrum are interpreted as contrast values to a blackbody spectrum of the host '
+                                  'star')
 
         self.browse = FileBrowser(label='Spectrum')
+        self.browse.label.setToolTip('Location of the file containing the spectrum. The file should contain two <br>'
+                                     'space-separated columns. The first column should contain the position of the '
+                                     'wavelength bins. The second should contain the flux-like values corresponding to '
+                                     'these wavelength bins')
 
         self.x_units = StringBoxLabel('x-axis units')
+        self.x_units.label.setToolTip(r'Units of the wavelength bin location in the given spectrum. Units can be typed '
+                                      r'in as free text, e.g. "micron"')
         self.y_units = StringBoxLabel('y-axis units')
+        self.y_units.label.setToolTip(r'Units of the flux-like values in the given spectrum. Units can be typed '
+                                      r'in as free text, e.g. "photon micron-1 s-1 m-2"')
         self.temp_p = DoubleBoxLabel(label='Temperature Planet',
                                      mini=0.,
                                      maxi=10000.,
                                      step=1.,
                                      value=0.,
                                      suffix='K')
+        self.temp_p.label.setToolTip('Temperature of the target planet')
+
         temp = QWidget()
         ly = QHBoxLayout(temp)
         ly.addWidget(self.temp_p.label)
@@ -406,6 +446,10 @@ class Frame(QDialog):
                                             step=1.,
                                             value=0.,
                                             suffix='pc')
+        self.distance_spec.label.setToolTip('If a distance to the target system was used during the creation of <br>'
+                                            ' the spectrum, specify it here. This will allow LIFEsim to simulate the '
+                                            'planet at different distances to the solar system specified in the '
+                                            'settings tab')
 
         self.radius_spec = DoubleBoxLabel(label='Radius Planet',
                                           mini=0.,
@@ -413,6 +457,9 @@ class Frame(QDialog):
                                           value=0.,
                                           step=0.5,
                                           suffix='R⊕')
+        self.radius_spec.label.setToolTip('If a radius of the target planet was used during the creation of <br>'
+                                          ' the spectrum, specify it here. This will allow LIFEsim to simulate the '
+                                          'planet in idfferent sizes specified in the settings tab')
 
         self.time_spec = DoubleBoxLabel(label='Integration Time',
                                         mini=0.,
@@ -420,6 +467,8 @@ class Frame(QDialog):
                                         step=60.,
                                         value=0.,
                                         suffix='s')
+        self.time_spec.label.setToolTip('If an integration time was used during the creation of the spectrum, specify '
+                                        'it here')
 
         layout_p = QGridLayout(param)
         layout_p.addWidget(self.distance_spec.label, 0, 0)
@@ -578,8 +627,8 @@ class Frame(QDialog):
             self.p_plot.axes.grid()
             self.p_plot.axes.ticklabel_format(axis='x', style='sci')
             self.p_plot.draw()
-        except:
-            self.error_field.setText('An error occured during import')
+        except Exception as e:
+            self.error_field.setText('Import Error: ' + str(e))
 
     def show_spectrum(self,
                       spectrum,
@@ -624,11 +673,13 @@ class Frame(QDialog):
 
     def run_simulation(self):
         self.progress.setValue(10)
+        QGuiApplication.processEvents()
 
         self.show_preview()
         self.update_options()
 
         self.progress.setValue(20)
+        QGuiApplication.processEvents()
 
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
@@ -643,6 +694,7 @@ class Frame(QDialog):
             self.bus.connect(module_names=('life', 'ez'))
 
         self.progress.setValue(30)
+        QGuiApplication.processEvents()
 
         self.r_spec, self.flux_p, self.flux_n = self.bus.modules['life'].get_spectrum(
             temp_s=self.temp_s.value(),
@@ -657,6 +709,7 @@ class Frame(QDialog):
             pbar=self.progress)
 
         self.progress.setValue(90)
+        QGuiApplication.processEvents()
 
         self.show_spectrum(self.r_spec,
                            self.flux_p,
@@ -668,6 +721,7 @@ class Frame(QDialog):
                                    + ' m')
 
         self.progress.setValue(100)
+        QGuiApplication.processEvents()
 
     def set_values(self):
         self.diameter.set(self.bus.data.options.array['diameter'])
