@@ -235,9 +235,12 @@ class Instrument(InstrumentModule):
         integration_time = 60 * 60
 
         self.data.catalog['snr_1h'] = np.zeros_like(self.data.catalog.nstar, dtype=float)
+        self.data.catalog['baseline'] = np.zeros_like(self.data.catalog.nstar, dtype=float)
         if safe_mode:
             self.data.catalog['noise_astro'] = None
             self.data.catalog['planet_flux_use'] = None
+            self.data.catalog['photon_rate_planet'] = None
+            self.data.catalog['photon_rate_noise'] = None
 
         # create mask returning only unique stars
         _, temp = np.unique(self.data.catalog.nstar, return_index=True)
@@ -294,21 +297,24 @@ class Instrument(InstrumentModule):
                                                            index=n_p)
 
                 # calculate the signal and photon noise flux received from the planet
-                flux_planet = flux_planet_thermal \
-                              * transm_eff \
-                              * integration_time \
-                              * self.data.inst['eff_tot'] \
-                              * self.data.inst['telescope_area']
-                noise_planet = flux_planet_thermal \
-                               * transm_noise \
-                               * integration_time \
-                               * self.data.inst['eff_tot'] \
-                               * self.data.inst['telescope_area'] \
-                               * 2
+                flux_planet = (flux_planet_thermal
+                               * transm_eff
+                               * integration_time
+                               * self.data.inst['eff_tot']
+                               * self.data.inst['telescope_area'])
+                noise_planet = (flux_planet_thermal
+                                * transm_noise
+                                * integration_time
+                                * self.data.inst['eff_tot']
+                                * self.data.inst['telescope_area']
+                                * 2)
 
                 # Add up the noise and caluclate the SNR
                 noise = noise_bg + noise_planet
                 self.data.catalog.snr_1h.iat[n_p] = np.sqrt((flux_planet ** 2 / noise).sum())
+
+                # save baseline
+                self.data.catalog['baseline'].iat[n_p] = self.data.inst['bl']
 
                 if safe_mode:
                     self.data.catalog.noise_astro.iat[n_p] = [noise_bg]
@@ -317,6 +323,12 @@ class Instrument(InstrumentModule):
                          * integration_time
                          * self.data.inst['eff_tot']
                          * self.data.inst['telescope_area']])
+                    self.data.catalog['photon_rate_planet'].iat[n_p] = (flux_planet
+                                                                        / integration_time
+                                                                        / self.data.inst['eff_tot']).sum()
+                    self.data.catalog['photon_rate_noise'].iat[n_p] = (noise
+                                                                        / integration_time
+                                                                        / self.data.inst['eff_tot']).sum()
 
     # TODO: fix units in documentation
     def get_spectrum(self,
