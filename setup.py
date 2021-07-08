@@ -3,7 +3,7 @@ from setuptools import setup
 
 setup(
     name='LIFEsim',
-    version='0.2.12',
+    version='0.2.13',
     description='Simulator software for the Large Interferometer For Exoplanets (LIFE)',
     long_description=open('README.rst').read(),
     long_description_content_type='text/x-rst',
@@ -24,6 +24,7 @@ setup(
                       'pandas==1.2.4',
                       'PyQt5==5.15.4',
                       'tqdm==4.61.0',
+                      'tables==3.6.1'
                       ],
     license='GPLv3',
     zip_safe=False,
