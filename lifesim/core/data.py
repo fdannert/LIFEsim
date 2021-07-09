@@ -215,6 +215,13 @@ class Data(object):
             sys.stdout.flush()
             print('')
 
+            # TODO: Move the stype to char
+            # convert stellar type to int
+            stype = np.array(stype)
+            stype_int = np.zeros_like(stype, dtype=int)
+            for _, k in enumerate(self.other['stype_key'].keys()):
+                stype_int[stype == k] = self.other['stype_key'][k]
+
             # save the data to the pandas DataFrame
             self.catalog['nuniverse'] = np.array(nuniverse).astype(int)
             self.catalog['radius_p'] = np.array(radius_p).astype(float)
@@ -241,7 +248,7 @@ class Data(object):
             self.catalog['mass_s'] = np.array(mass_s)
             self.catalog['temp_s'] = np.array(temp_s)
             self.catalog['distance_s'] = np.array(distance_s)
-            self.catalog['stype'] = np.array(stype)
+            self.catalog['stype'] = stype_int
             self.catalog['ra'] = np.array(ra)
             self.catalog['dec'] = np.array(dec)
             self.catalog['id'] = np.arange(0, len(dec), 1)
