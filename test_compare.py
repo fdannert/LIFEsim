@@ -70,6 +70,7 @@ def test_anomalies(n_angles):
 
 
 def plot_transmission_curve(index, inst, rotations=1, rotation_steps=360, label="", time_dependent=True):
+    plt.figure()
     tr_chop_one_wv = inst.get_transmission_curve(
         index, time_dependent=time_dependent)[0][0, 0]
     plt.plot(np.linspace(0, rotations * 2, rotations * rotation_steps),
@@ -172,7 +173,7 @@ def transmission_and_path(index, rotation_period=12, rotations=1, rotation_steps
                         theta=thetas,
                         inc=inc,
                         rad=angsep)
-
+    v = np.array(v)*2000
     phi_lin = np.linspace(0, 2 * (rotations) * np.pi,
                           rotations * rotation_steps, endpoint=False)
     xs = v[0] * np.cos(phi_lin) + v[1] * (-np.sin(phi_lin))
@@ -180,13 +181,17 @@ def transmission_and_path(index, rotation_period=12, rotations=1, rotation_steps
     mas_pix = bus.data.inst["mas_pix"][0]
     xs = xs/mas_pix + image_size//2
     ys = ys/mas_pix + image_size//2
-    plt.imshow(tm_chop[0], vmin=-1, vmax=1)
+    plt.figure()
+    plt.imshow(tm_chop[0], vmin=-1, vmax=1, cmap="twilight")
     print(mas_pix)
-    plt.plot(xs, ys)
+    plt.plot(xs[0],ys[0],"x")
+    plt.plot(image_size//2,image_size//2,"*", color = "yellow")
+    plt.plot(xs, ys, color = "white")
     # plt.ylim(-1, 1)
     # plt.xlim(-1, 1)
     plt.show()
 
+#%%
 
 def artificial_t_a_p(angsep, p_orb, inc_p):
     index = 0
@@ -224,8 +229,10 @@ def artificial_t_a_p(angsep, p_orb, inc_p):
     mas_pix = bus.data.inst["mas_pix"][0]
     xs = xs/mas_pix + image_size//2
     ys = ys/mas_pix + image_size//2
+    plt.figure()
     plt.imshow(tm_chop[0], vmin=-1, vmax=1, cmap="twilight")
     print(mas_pix)
+
     plt.plot(xs, ys, "--", color="white")
     plt.plot(256, 256, color="yellow", marker="*")
     size = 100
@@ -365,7 +372,7 @@ def analysis(do, dt):
         plt.xlabel("Orbit Period in Days")
         plt.ylabel("Percent of planets")
         plt.axvline(x=4.17, label="1h Instrument: " +
-                    str(inper(len(dt[dt.p_orb < 5])/len(dt))) + "%", color="red")
+                    str(inper(len(dt[dt.p_orb < 4.17])/len(dt))) + "%", color="red")
         plt.axvline(x=50, label="12h Instrument:" +
                     str(inper(len(dt[dt.p_orb < 50])/len(dt))) + "%", color="orange")
         plt.axvline(x=100, label="24h Instrument:" +
@@ -394,7 +401,7 @@ def analysis(do, dt):
         plt.xlabel("Orbit Period in Days")
         plt.ylabel("Percent of planets")
         plt.axvline(x=4.17, label="1h Instrument: " +
-                    str(inper(len(detected[detected.p_orb < 5])/len(detected))) + "%", color="red")
+                    str(inper(len(detected[detected.p_orb < 4.17])/len(detected))) + "%", color="red")
         plt.axvline(x=50, label="12h Instrument:" +
                     str(inper(len(detected[detected.p_orb < 50])/len(detected))) + "%", color="orange")
         plt.axvline(x=100, label="24h Instrument:" +
