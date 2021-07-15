@@ -2,6 +2,7 @@
 import time
 from numpy import cos, sin, pi
 import numpy as np
+from numpy.lib.function_base import diff
 import pandas as pd
 from tqdm import tqdm
 from matplotlib.colors import Colormap, Normalize
@@ -353,7 +354,7 @@ def inper(n):
 
 def analysis(do, dt):
     # Periods histogram
-    if True:
+    if False:
 
         plt.figure()
         plt.title("Simulated Orbit Period Distribution")
@@ -382,7 +383,7 @@ def analysis(do, dt):
         plt.legend()
         plt.show()
     # Periods histogram of only detected
-    if True:
+    if False:
         plt.figure()
         plt.title("Simulated Orbit Period Distribution of only detected")
         detected = dt[dt["detected"]]
@@ -486,4 +487,89 @@ def analysis(do, dt):
         plt.hist(dt.snr_1h, snr_bins, label="time", alpha=0.3)
         plt.legend()
         plt.show()
+    if False:
+        rng = 100
+        steps = 1
+        diff_snr = dt.snr_1h - do.snr_1h
+        max_diff = max(diff_snr)
+        max_diff = max_diff if max_diff <= 1000 else 1000
+        min_diff = min(diff_snr)
+        min_diff = min_diff if min_diff >= -1000 else -1000
+        rng = max([max_diff,-min_diff])
+        snr_bins = np.arange(-rng,rng, steps)
+        plt.figure()
+        _, _, patches = plt.hist(diff_snr,snr_bins)
+        for i in range(len(patches)):
+            pos = i*steps -rng
+            if  pos < 0:
+                patches[i].set_fc("red")
+            else:
+                patches[i].set_fc("green")
+    if True:
+        diff_snr = dt.snr_1h - do.snr_1h
+        bins = np.arange(0,180,1)
+        counts_p_1 = np.zeros((180)) 
+        counts_p_2 = np.zeros((180)) 
+        counts_p_10 = np.zeros((180))
+        counts_p_50 = np.zeros((180))  
+        counts_n_1 = np.zeros((180)) 
+        counts_n_2 = np.zeros((180)) 
+        counts_n_10 = np.zeros((180))
+        counts_n_50 = np.zeros((180))   
+        for i in range(len(dt)):
+            d_snr = diff_snr[i]
+            inc = dt.inc_p[i]/pi*180
+            if d_snr>=0:
+                if d_snr>=50:
+                    counts_p_50[int(inc)] += 1
+                elif d_snr>=10:
+                    counts_p_10[int(inc)] += 1
+                elif d_snr>=2:
+                    counts_p_2[int(inc)] += 1
+                else:
+                    counts_p_1[int(inc)] += 1
+                    
+            elif d_snr <= 0:
+                if d_snr<=-50:
+                    counts_n_50[int(inc)] += 1
+                elif d_snr<=-10:
+                    counts_n_10[int(inc)] += 1
+                elif d_snr<=-2:
+                    counts_n_2[int(inc)] += 1
+                else:
+                    counts_n_1[int(inc)] += 1
+        tot = counts_p_1+counts_p_2+counts_p_10+counts_p_50+counts_n_1+counts_n_2+counts_n_10+counts_n_50
+        plt.figure()
+        plt.suptitle("Changes in SNR depending on inclination")
+        plt.subplot(1,2,1)
+        plt.bar(bins,counts_p_1,1,label = "+ 0-2")
+        plt.bar(bins,counts_p_2,1,bottom=counts_p_1,label = "+ 2-10")
+        plt.bar(bins,counts_p_10,1,bottom=counts_p_1 + counts_p_2,label = "+ 10-50")
+        plt.bar(bins,counts_p_50,1,bottom=counts_p_1 + counts_p_2+counts_p_10,label = "+ 50+")
+        plt.bar(bins,-counts_n_1,1,label = "- 0-2")
+        plt.bar(bins,-counts_n_2,1,bottom=-counts_n_1,label = "- 2-10")
+        plt.bar(bins,-counts_n_10,1,bottom=-counts_n_1 - counts_n_2,label = "- 10-50")
+        plt.bar(bins,-counts_n_50,1,bottom=-counts_n_1 - counts_n_2 - counts_n_10,label = "- 50+")
+        plt.ylabel("Counts")
+        plt.xlabel("Degrees of inclination")
+        plt.subplot(1,2,2)
+        plt.bar(bins,counts_p_1/tot,1,label = "+ 0-2")
+        plt.bar(bins,counts_p_2/tot,1,bottom=counts_p_1/tot,label = "+ 2-10")
+        plt.bar(bins,counts_p_10/tot,1,bottom=(counts_p_1 + counts_p_2)/tot,label = "+ 10-50")
+        plt.bar(bins,counts_p_50/tot,1,bottom=(counts_p_1 + counts_p_2+counts_p_10)/tot,label = "+ 50+")
+        plt.bar(bins,-counts_n_1/tot,1,label = "- 0-2")
+        plt.bar(bins,-counts_n_2/tot,1,bottom=-counts_n_1/tot,label = "- 2-10")
+        plt.bar(bins,-counts_n_10/tot,1,bottom=-(counts_n_1 + counts_n_2)/tot,label = "- 10-50")
+        plt.bar(bins,-counts_n_50/tot,1,bottom=-(counts_n_1 + counts_n_2 + counts_n_10)/tot,label = "- 50+")
+        plt.legend(loc="center")
+        plt.ylabel("Percentage")
+        plt.xlabel("Degrees of inclination")
+        #plt.plot(bins, counts_p- counts_n,  "-", color = "gray")
+# %%
+def get_db(file):
+    bus = ls.Bus()
+    bus.data.options.set_scenario('baseline')
+    bus.data.import_catalog(
+        "./output/"+file+".hdf5")
+    return bus.data.catalog.copy()
 # %%
