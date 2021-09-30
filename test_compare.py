@@ -134,7 +134,7 @@ def compare_verticalplot(rotation_period=12, rotations=1, rotation_steps=360):
                  tr_chop_one_wv, color="orange")
         plt.xticks([0, pi/2, pi, 3/2*pi, 2*pi],
                    ["0", r'$\pi/2$', r'$\pi$', r'$3/2\pi$', r'$2\pi$'])
-        plt.xlabel("Radiens")
+        plt.xlabel("Radians")
     plt.tight_layout()
     plt.show()
 
@@ -411,6 +411,37 @@ def analysis(do, dt):
         plt.xlim(-1, 150)
         plt.legend()
         plt.show()
+    #Mstar
+    if True:
+        plt.figure(figsize=(9,3))
+        plt.title("Orbit period distribution with F-star host")
+        detected = dt[dt["detected"]]
+        detected = detected[detected["stype"]==1]
+        min_period = min(detected["p_orb"])
+        max_period = max(detected["p_orb"])
+        p_bins = np.arange(min_period, max_period, 1)
+        _, _, patches = plt.hist(detected["p_orb"], p_bins, alpha=0.5,
+                                 color="blue", density=True)
+        for i in range(len(patches)):
+            if i < 100:
+                patches[i].set_fc("yellow")
+            if i < 50:
+                patches[i].set_fc("orange")
+            if i < 4:
+                patches[i].set_fc("r")
+        plt.xlabel("Orbit Period in Days")
+        plt.ylabel("Percent of planets")
+        plt.axvline(x=4.17, label="1h Instrument: " +
+                    str(inper(len(detected[detected.p_orb < 4.17])/len(detected))) + "%", color="red")
+        plt.axvline(x=50, label="12h Instrument:" +
+                    str(inper(len(detected[detected.p_orb < 50])/len(detected))) + "%", color="orange")
+        plt.axvline(x=100, label="24h Instrument:" +
+                    str(inper(len(detected[detected.p_orb < 100])/len(detected))) + "%", color="yellow")
+        # plt.ylim(0, 5000)
+        plt.xlim(-1, 150)
+        plt.legend()
+        plt.tight_layout()
+        plt.show()
     # Average SNR per period histogram
     if False:
         plt.figure()
@@ -498,14 +529,14 @@ def analysis(do, dt):
         rng = max([max_diff,-min_diff])
         snr_bins = np.arange(-rng,rng, steps)
         plt.figure()
-        _, _, patches = plt.hist(diff_snr,snr_bins)
+        _, _, patches = plt.hist(diff_snr,snr_bins,density=True)
         for i in range(len(patches)):
             pos = i*steps -rng
             if  pos < 0:
                 patches[i].set_fc("red")
             else:
                 patches[i].set_fc("green")
-    if True:
+    if False:
         diff_snr = dt.snr_1h - do.snr_1h
         bins = np.arange(0,180,1)
         counts_p_1 = np.zeros((180)) 
