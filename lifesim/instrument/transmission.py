@@ -5,8 +5,18 @@ from lifesim.core.modules import TransmissionModule
 
 
 class TransmissionMap(TransmissionModule):
+    """
+    Module for calculating nulling interferometer transmission maps.
+    """
     def __init__(self,
                  name: str):
+        """
+        Parameters
+        ----------
+        name : str
+            Name of the module.
+        """
+
         super().__init__(name)
 
     def transmission_map(self,
@@ -17,36 +27,30 @@ class TransmissionMap(TransmissionModule):
                          hfov: np.ndarray = None,
                          image_size: int = None):
         """
-        Return the transmission map the LIFE array
+        Return the transmission map of a double-Bracewell configuration for the LIFE array.
 
         Parameters
         ----------
-        image_size : int
-            Number of pixels on one axis of a square detector (dimensionless). I.e. for a 512x512
-            detector this value is 512
-        bl : float
-            Length of the shorter, nulling baseline in [m]
-        wl_bins : np.ndarray
-            Central values of the spectral bins in the wavelength regime in [m]
-        hfov : np.ndarray
-            Contains the half field of view of the observatory in [rad] for each of the spectral
-            bins
         map_selection : list
             A list of strings specifying the array transmission mode from which the transmission
-            map is generated. The possible options are 'tm1', 'tm2', 'tm3', 'tm4'
-        ratio : float
-            Ratio between the nulling and the imaging baseline. E.g. if the imaging baseline is
-            twice as long as the nulling baseline, the ratio will be 2
+            map is generated. The possible options are 'tm1', 'tm2', 'tm3', 'tm4'.
         direct_mode: bool
             If direct mode is set to True, the variables wl_bins, d_alpha and d_beta are injected
             into the transmission calculation directly. The output is not necessarily in the the
-            form of a map. The inputs hfov and image size will be ignored in this mode
+            form of a map. The inputs hfov and image size will be ignored in this mode.
         d_alpha: np.ndarray
             The x-positions of the points to be evaluated measured from the central viewing axis in
-            [rad]
+            [rad].
         d_beta: np.ndarray
             The y-positions of the points to be evaluated measured from the central viewing axis in
-            [rad]
+            [rad].
+        hfov : np.ndarray
+            Contains the half field of view of the observatory in [rad] for each of the spectral
+            bins. If no value is given, `data.inst['hfov']` is used.
+        image_size : int
+            Number of pixels on one axis of a square detector (dimensionless). I.e. for a 512x512
+            detector this value is 512. If no value is given, `data.options.other['image_size']` is
+            used.
 
         Returns
         -------
@@ -60,6 +64,19 @@ class TransmissionMap(TransmissionModule):
             Transmission map from fourth mode
         tm_chop
             The chopped transmission map calculated by subtracting tm4 from tm3
+
+        Notes
+        -----
+        The following additional parameters are required for the calculation of the transmission
+        maps and should be specified either in `data.catalog` or in `data.single`.
+
+        data.inst['wl_bins'] : np.ndarray
+            Central values of the spectral bins in the wavelength regime in [m].
+        data.inst['bl'] : float
+            Length of the shorter, nulling baseline in [m].
+        data.options.array['ratio'] : float
+            Ratio between the nulling and the imaging baseline. E.g. if the imaging baseline is
+            twice as long as the nulling baseline, the ratio will be 2.
         """
 
         if hfov is None:
@@ -127,8 +144,8 @@ class TransmissionMap(TransmissionModule):
 
             # if they don't exist, calculate the chopped transmission from formula
             else:
+                # chopped transm. map
                 tm_chop = np.sin(2 * np.pi * L * alpha / wl_bins) ** 2 * np.sin(
-                    # chopped transm. map
                     4 * self.data.options.array['ratio'] * np.pi * L * beta / wl_bins)
 
         return tm1, tm2, tm3, tm4, tm_chop
@@ -136,27 +153,38 @@ class TransmissionMap(TransmissionModule):
     def transmission_efficiency(self,
                                 index: Union[int, type(None)]):
         """
-        Integrates over transmission curves to get the transmission efficiency for signal and noise
+        Integrates over transmission curves to get the transmission efficiency for signal and
+        noise.
 
         Parameters
         ----------
-        bl : float
-            Length of the shorter, nulling baseline in [m]
-        wl_bins : np.ndarray
-            Central values of the spectral bins in the wavelength regime in [m]
-        angsep : float
-            Angular separation between the observed star and the observed exoplanet in [arcsec]
-        ratio : float
-            Ratio between the nulling and the imaging baseline. E.g. if the imaging baseline is
-            twice as long as the nulling baseline, the ratio will be 2
+        index: Union[int, type(None)]
+            Specifies the planet for which to calculate the transmission efficiency. If an integer
+            n is given, the noise will be calculated for the n-th row in the `data.catalog`. If
+            `None` is given, the noise is caluculated for the parameters located in `data.single`.
 
         Returns
         -------
         transm_eff
             Transmission efficiency per spectral bin for the exoplanet signal
         transm_noise
-            Transmission efficiency per spectral bin for the photon noise received from the exoplanet
-            signal
+            Transmission efficiency per spectral bin for the photon noise received from the
+            exoplanet signal
+
+        Notes
+        -----
+        The following additional parameters are required for the calculation of the transmission
+        efficiency and should be specified either in `data.catalog` or in `data.single`.
+
+        data.single['angsep']
+            Angular separation between the observed star and the observed exoplanet in [arcsec].
+        data.inst['wl_bins'] : np.ndarray
+            Central values of the spectral bins in the wavelength regime in [m].
+        data.inst['bl'] : float
+            Length of the shorter, nulling baseline in [m].
+        data.options.array['ratio'] : float
+            Ratio between the nulling and the imaging baseline. E.g. if the imaging baseline is
+            twice as long as the nulling baseline, the ratio will be 2.
         """
 
         if index is None:
@@ -179,24 +207,17 @@ class TransmissionMap(TransmissionModule):
 
         Parameters
         ----------
-        bl : float
-            Length of the shorter, nulling baseline in [m]
-        wl_bins : np.ndarray
-            Central values of the spectral bins in the wavelength regime in [m]
         angsep : float
-            Angular separation between the observed star and the observed exoplanet in [arcsec]
+            Angular separation between the observed star and the observed exoplanet in [arcsec].
         phi_n : int
-            Number of rotation steps used in integration
-        ratio : float
-            Ratio between the nulling and the imaging baseline. E.g. if the imaging baseline is twice
-            as long as the nulling baseline, the ratio will be 2
+            Number of rotation steps used in integration.
 
         Returns
         -------
         transm_curve_chop
-            Radial transmission curve corresponding to the chopped transmission map
+            Radial transmission curve corresponding to the chopped transmission map.
         transm_curve_tm4
-            Radial transmission curve corresponding to the transmission map of the 4th mode 'tm4'
+            Radial transmission curve corresponding to the transmission map of the 4th mode 'tm4'.
         """
 
         # convert angular separation to radians

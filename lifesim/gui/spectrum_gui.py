@@ -1,217 +1,35 @@
 import math
-import os
 import warnings
+import urllib.request
+from urllib.error import HTTPError, URLError
+import os
 
-from PyQt5.QtCore import (Qt, QRegExp)
-from PyQt5.QtWidgets import (QApplication, QDialog, QGroupBox, QSlider, QGridLayout, QLabel,
-                             QVBoxLayout, QLineEdit, QWidget, QSpinBox, QHBoxLayout,
-                             QDoubleSpinBox, QFileDialog, QPushButton, QTabWidget, QCheckBox,
-                             QProgressBar, QComboBox, QSizePolicy, QFormLayout)
-from PyQt5.QtGui import (QPixmap, QDoubleValidator, QIntValidator, QRegExpValidator)
-from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
-from matplotlib.figure import Figure
+from PyQt5.QtCore import Qt
+from PyQt5.QtWidgets import (QApplication, QDialog, QGroupBox, QGridLayout, QLabel,
+                             QVBoxLayout, QWidget, QHBoxLayout, QProgressBar,
+                             QDoubleSpinBox, QPushButton, QTabWidget, QCheckBox,
+                             QProgressBar, QComboBox, QSizePolicy)
+from PyQt5.QtGui import QPixmap, QGuiApplication
 import numpy as np
 from astropy import units as u
 from astropy.visualization import quantity_support
 
 import lifesim as ls
 from lifesim.util.radiation import black_body
+from lifesim.gui.custom_widgets import (DoubleBoxLabel, BoxLabel, StringBoxLabel, DoubleBoxRange,
+                                        FileBrowser, FileSaver, PlotCanvas, RadioButtonWidget)
 
 # change the directory to the path of the spectrum_gui.py file to ensure that the logo is imported
 # correctly
-import os
 os.chdir(os.path.dirname(__file__))
 
 quantity_support()
 
-
-class CustomSlider(QWidget):
-    def __init__(self, *args, **kwargs):
-        super(CustomSlider, self).__init__(*args, **kwargs)
-        self.slider = QSlider(Qt.Horizontal)
-        self.numbox = QDoubleSpinBox()
-        self.numbox.setRange(self.slider.minimum(), self.slider.maximum())
-        self.slider.valueChanged.connect(self.numbox.setValue)
-        self.slider.rangeChanged.connect(self.numbox.setRange)
-        self.numbox.valueChanged.connect(self.slider.setValue)
-        layout = QHBoxLayout(self)
-        layout.addWidget(self.numbox)
-        layout.addWidget(self.slider)
-
-
-class DoubleBoxLabel_old(QWidget):
-    def __init__(self, label, mini, maxi, step, value, suffix, *args, **kwargs):
-        super(DoubleBoxLabel_old, self).__init__(*args, **kwargs)
-        self.box = QDoubleSpinBox()
-        self.label = QLabel(text=label)
-
-        self.box.setMinimum(mini)
-        self.box.setMaximum(maxi)
-        self.box.setSingleStep(step)
-        self.box.setValue(value)
-        self.box.setSuffix(suffix)
-
-        layout = QHBoxLayout(self)
-        layout.addWidget(self.label)
-        layout.addWidget(self.box)
-
-
-class DoubleBoxLabel(QWidget):
-    def __init__(self, label, mini, maxi, step, value, suffix, *args, **kwargs):
-        super(DoubleBoxLabel, self).__init__(*args, **kwargs)
-        self.box = QLineEdit()
-        self.label = QLabel(text=label)
-
-        self.val = QDoubleValidator(bottom=mini,
-                                    top=maxi)
-
-        rx = QRegExp()
-        rx.setPattern('\d*\.?\d*')
-        self.val = QRegExpValidator(rx)
-
-        self.box.setValidator(self.val)
-        self.box.setAlignment(Qt.AlignRight)
-        self.suf = QLabel(text=suffix)
-        self.box.setText(str(float(value)))
-
-        layout = QHBoxLayout(self)
-        # layout.addWidget(self.label)
-        layout.addWidget(self.box)
-        layout.addWidget(self.suf)
-
-    def value(self):
-        return float(self.box.text())
-
-    def set(self, value):
-        self.box.setText(str(float(value)))
-
-
-class BoxLabel_old(QWidget):
-    def __init__(self, label, mini, maxi, value, suffix, *args, **kwargs):
-        super(BoxLabel_old, self).__init__(*args, **kwargs)
-        self.box = QSpinBox()
-        self.label = QLabel(text=label)
-
-        self.box.setMinimum(mini)
-        self.box.setMaximum(maxi)
-        self.box.setValue(value)
-        self.box.setSuffix(suffix)
-
-        layout = QHBoxLayout(self)
-        layout.addWidget(self.label)
-        layout.addWidget(self.box)
-
-
-class BoxLabel(QWidget):
-    def __init__(self, label, mini, maxi, value, suffix, *args, **kwargs):
-        super(BoxLabel, self).__init__(*args, **kwargs)
-        self.box = QLineEdit()
-        self.label = QLabel(text=label)
-
-        rx = QRegExp()
-        rx.setPattern('\d*')
-        self.val = QRegExpValidator(rx)
-
-        self.box.setValidator(self.val)
-        self.box.setAlignment(Qt.AlignRight)
-        self.suf = QLabel(text=suffix)
-        self.box.setText(str(int(value)))
-
-        layout = QHBoxLayout(self)
-        # layout.addWidget(self.label)
-        layout.addWidget(self.box)
-        layout.addWidget(self.suf)
-
-    def value(self):
-        return int(self.box.text())
-
-    def set(self, value):
-        self.box.setText(str(int(value)))
-
-
-class StringBoxLabel(QWidget):
-    def __init__(self, label, *args, **kwargs):
-        super(StringBoxLabel, self).__init__(*args, **kwargs)
-        self.box = QLineEdit()
-        self.label = QLabel(text=label)
-
-        layout = QHBoxLayout(self)
-        layout.addWidget(self.label)
-        layout.addWidget(self.box)
-
-
-class DoubleBoxRange(QWidget):
-    def __init__(self, label, *args, **kwargs):
-        super(DoubleBoxRange, self).__init__(*args, **kwargs)
-        self.label = QLabel(text=label)
-        self.lower = QDoubleSpinBox()
-        self.upper = QDoubleSpinBox()
-        self.dash = QLabel('-')
-
-        self.lower.setMinimum(1.)
-        self.upper.setMaximum(20.)
-        self.upper.valueChanged.connect(self.lower.setMaximum)
-        self.lower.valueChanged.connect(self.upper.setMinimum)
-        self.lower.setValue(4.)
-        self.upper.setValue(18.5)
-        self.lower.setSingleStep(0.5)
-        self.upper.setSingleStep(0.5)
-        self.lower.setSuffix('μm')
-        self.upper.setSuffix('μm')
-
-        layout = QHBoxLayout(self)
-        # layout.addWidget(self.label)
-        layout.addWidget(self.lower)
-        layout.addWidget(self.dash)
-        layout.addWidget(self.upper)
-
-
-class FileBrowser(QWidget):
-    def __init__(self, label, *args, **kwargs):
-        super(FileBrowser, self).__init__(*args, **kwargs)
-        label = QLabel(label)
-        self.filepath = QLineEdit()
-        button = QPushButton('Browse...')
-
-        # self.filepath.setText('/home/felix/Documents/MA/life_sim_share/input_data/planet_spectra'
-        #                       '/Earth_Clear_R1000_10pc_Björn_Konrad.txt')
-
-        button.clicked.connect(self.open_browse)
-
-        layout = QHBoxLayout(self)
-        layout.addWidget(label)
-        layout.addWidget(self.filepath)
-        layout.addWidget(button)
-
-    def open_browse(self):
-        data_path, _ = QFileDialog.getOpenFileName(self, 'Open File')
-        self.filepath.setText(data_path)
-
-
-class FileSaver(QWidget):
-    def __init__(self, *args, **kwargs):
-        super(FileSaver, self).__init__(*args, **kwargs)
-        self.filepath = QLineEdit()
-        button = QPushButton('Browse...')
-        button.clicked.connect(self.open_browse)
-
-        layout = QHBoxLayout(self)
-        layout.addWidget(self.filepath)
-        layout.addWidget(button)
-
-    def open_browse(self):
-        dialog = QFileDialog()
-        dialog.setDefaultSuffix('txt')
-        dialog.setAcceptMode(1)
-        dialog.exec_()
-        data_path = dialog.selectedFiles()
-        self.filepath.setText(data_path[0])
-
-class PlotCanvas(FigureCanvasQTAgg):
-    def __init__(self, parent=None, width=10, height=10, dpi=200):
-        fig = Figure(figsize=(width, height), dpi=dpi)
-        self.axes = fig.add_subplot(111)
-        super(PlotCanvas, self).__init__(fig)
+try:
+    urllib.request.urlretrieve("https://github.com/fdannert/LIFEsim/raw/master/"
+                               "lifesim/gui/logo_blue.png", "logo_blue.png")
+except (HTTPError, URLError) as e:
+    pass
 
 
 class Frame(QDialog):
@@ -299,6 +117,8 @@ class Frame(QDialog):
 
         self.r_spec = None
 
+        self.change_visibility()
+
     def create_instrument(self):
         self.instrument = QGroupBox('Instrument')
 
@@ -308,24 +128,30 @@ class Frame(QDialog):
                                        step=0.5,
                                        value=2,
                                        suffix='m')
+        self.diameter.label.setToolTip('Diameter of a single aperture of one of the collector spacecraft. The overall'
+                                       'collecting area is spanned by four collector spacecraft')
 
         self.wl_range = DoubleBoxRange(label='Wavelength Range')
+        self.wl_range.label.setToolTip('Lower and upper wavelength bound of the spectrograph')
 
         self.spec_res = BoxLabel(label='Spectral Resolution',
                                  mini=1,
                                  maxi=100,
                                  value=20,
                                  suffix='')
+        self.spec_res.label.setToolTip('Spectral resolution of the spectrograph')
 
-        # line = QWidget()
-        # l_layout = QHBoxLayout(line)
-        # l_layout.addWidget(self.diameter, alignment=Qt.AlignLeft)
-        # l_layout.addWidget(self.spec_res, alignment=Qt.AlignLeft)
+        self.baseline_mode = RadioButtonWidget()
+        self.baseline_mode.label.setToolTip('The distance between the collector spacecraft (i.e. the baseline) <br> '
+                                            'has a major influence on the detectability of exoplanets. It has to be '
+                                            'adjusted '
+                                            'to match the separation between the target exoplanet and its host star. '
+                                            'If the separation of the exoplanet is assumed to be unkown prior to the '
+                                            'observation, the baseline can be set to optimal for planets in the HZ. '
+                                            'If the separation of the target planet is known, the baseline can be set '
+                                            'optimally for the planet position')
 
-        # layout = QVBoxLayout(self.instrument)
-        # layout.addWidget(self.diameter)
-        # layout.addWidget(self.spec_res)
-        # layout.addWidget(self.wl_range)
+        self.baseline_used = QLabel(text='Baseline Used: ')
 
         layout = QGridLayout(self.instrument)
         layout.addWidget(self.diameter.label, 0, 0)
@@ -334,6 +160,10 @@ class Frame(QDialog):
         layout.addWidget(self.spec_res, 1, 1)
         layout.addWidget(self.wl_range.label, 2, 0)
         layout.addWidget(self.wl_range, 2, 1)
+        layout.addWidget(self.baseline_mode.label, 3, 0)
+        layout.addWidget(self.baseline_mode.bl_HZ, 3, 1)
+        layout.addWidget(self.baseline_mode.bl_pl, 4, 1)
+        layout.addWidget(self.baseline_used, 5, 0)
 
     def create_star(self):
         self.star = QGroupBox('Star')
@@ -345,8 +175,7 @@ class Frame(QDialog):
                                      step=100.,
                                      value=5778.,
                                      suffix='K')
-        # self.temp_s.box.setDecimals(0)
-        self.temp_s.label.setToolTip('Test Tip')
+        self.temp_s.label.setToolTip('Temperature of the host star')
 
         self.radius_s = DoubleBoxLabel(label='Radius',
                                        mini=0.,
@@ -354,6 +183,7 @@ class Frame(QDialog):
                                        step=0.5,
                                        value=1.,
                                        suffix='R☉')
+        self.radius_s.label.setToolTip('Radius of the host star')
 
         self.distance_s = DoubleBoxLabel(label='Distance',
                                          mini=0.,
@@ -361,14 +191,17 @@ class Frame(QDialog):
                                          step=1.,
                                          value=10.,
                                          suffix='pc')
-#        self.distance_s.box.setDecimals(0)
+        self.distance_s.label.setToolTip('Distance between the solar system and the host star of the target')
 
-        self.lat = DoubleBoxLabel(label='Galactic Latitude',
+        self.lat = DoubleBoxLabel(label='Ecliptic Latitude',
                                   mini=0.,
                                   maxi=2*math.pi,
                                   step=0.1,
                                   value=0.79,
                                   suffix='rad')
+        self.lat.label.setToolTip('Ecliptic latitude of the target. Since the localzodiacal dust lies in the <br>'
+                                  'ecplitic of the solar system, this will influence how much localzodi light will '
+                                  'leak into the measurement')
 
         self.z = DoubleBoxLabel(label='Exozodis',
                                 mini=0.,
@@ -376,44 +209,25 @@ class Frame(QDialog):
                                 step=0.5,
                                 value=1.,
                                 suffix='z')
+        self.z.label.setToolTip('Exozodi level in the target system. The zodi-number indicates how much more <br>'
+                                'zodiacal dust is present in the target system when compared to the solar system in '
+                                'terms of surface density')
 
-        # layout = QFormLayout(temp)
         layout = QGridLayout(temp)
         layout.addWidget(self.temp_s.label, 0, 0)
         layout.addWidget(self.temp_s, 0, 1)
-        # layout.addWidget(self.temp_s.suf, 0, 2)
 
         layout.addWidget(self.radius_s.label, 1, 0)
         layout.addWidget(self.radius_s, 1, 1)
-        # layout.addWidget(self.radius_s.suf, 1, 2)
 
         layout.addWidget(self.distance_s.label, 2, 0)
         layout.addWidget(self.distance_s, 2, 1)
-        # layout.addWidget(self.distance_s.suf, 2, 2)
 
         layout.addWidget(self.lat.label, 3, 0)
         layout.addWidget(self.lat, 3, 1)
-        # layout.addWidget(self.lat.suf, 3, 2)
 
         layout.addWidget(self.z.label, 4, 0)
         layout.addWidget(self.z, 4, 1)
-        # layout.addWidget(self.z.suf, 4, 2)
-
-        # layout.setAlignment(Qt.AlignTop)
-        # layout.addWidget(self.temp_s)
-        # layout.addWidget(self.radius_s)
-        # layout.addWidget(self.distance_s)
-        # layout.addWidget(self.lat)
-        # layout.addWidget(self.z)
-        # layout.addRow(self.temp_s.label, self.temp_s)
-        # layout.addRow(self.radius_s.label, self.radius_s)
-        # layout.addRow(self.distance_s.label.text(), self.distance_s)
-        # layout.addRow(self.lat.label.text(), self.lat)
-        # layout.addRow(self.z.label.text(), self.z)
-
-        # self.temp_s.label.setAlignment(Qt.AlignCenter)
-        # layout.setFormAlignment(Qt.AlignVCenter)
-        # layout.setLabelAlignment(Qt.AlignBottom)
 
         s_layout = QVBoxLayout(self.star)
         s_layout.addWidget(temp)
@@ -427,6 +241,8 @@ class Frame(QDialog):
                                      value=0.1,
                                      step=0.1,
                                      suffix='arcsec')
+        self.angsep.label.setToolTip('Angular separation between target exoplanet and its host star')
+
 
         self.radius_p = DoubleBoxLabel(label='Radius',
                                        mini=0.,
@@ -434,23 +250,17 @@ class Frame(QDialog):
                                        value=1.,
                                        step=0.5,
                                        suffix='R⊕')
-
-        # layout = QVBoxLayout()
-        # layout.addWidget(self.angsep)
-        # layout.addWidget(self.radius_p)
-        # self.planet.setLayout(layout)
+        self.radius_p.label.setToolTip('Radius of the target exoplanets')
 
         layout = QGridLayout(self.planet)
         layout.addWidget(self.angsep.label, 0, 0)
         layout.addWidget(self.angsep, 0, 1)
         layout.addWidget(self.radius_p.label, 1, 0)
         layout.addWidget(self.radius_p, 1, 1)
-        # layout.setAlignment(Qt.AlignTop)
 
     def preview_spectrum(self):
         self.s_preview = QWidget()
         self.p_plot = PlotCanvas(self, width=5, height=4, dpi=100)
-        # self.p_plot.axes.plot([0, 1, 2, 3, 4], [10, 1, 20, 3, 40])
 
         top = QWidget()
         self.prev_kind = QComboBox()
@@ -465,9 +275,10 @@ class Frame(QDialog):
 
         self.error_field = QLabel()
         self.error_field.setStyleSheet("QLabel { color : red; }")
+        self.error_field.setWordWrap(True)
+
 
         self.p_plot.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-        # self.p_plot.setMinimumWidth(self.p_plot.height())
 
         layout = QVBoxLayout(self.s_preview)
         layout.addWidget(top, alignment=Qt.AlignTop)
@@ -478,7 +289,6 @@ class Frame(QDialog):
         self.s_result = QWidget()
 
         self.r_plot = PlotCanvas(self, width=5, height=4, dpi=100)
-        # self.p_plot.axes.plot([0, 1, 2, 3, 4], [10, 1, 20, 3, 40])
 
         self.save_dialog = QGroupBox('Save Spectrum to File')
 
@@ -529,14 +339,17 @@ class Frame(QDialog):
         n_layout.addWidget(self.box_lz)
         n_layout.addWidget(self.box_ez)
 
-        simulate = QPushButton('Run Simulation')
+        self.simulate = QPushButton('Run Simulation')
 
-        simulate.clicked.connect(self.run_simulation)
+        self.simulate.clicked.connect(self.run_simulation)
+
+        self.progress = QProgressBar()
 
         layout = QVBoxLayout(self.simulation)
         layout.addWidget(t, alignment=Qt.AlignBottom)
         layout.addWidget(noise, alignment=Qt.AlignBottom)
-        layout.addWidget(simulate, alignment=Qt.AlignBottom)
+        layout.addWidget(self.simulate, alignment=Qt.AlignBottom)
+        layout.addWidget(self.progress, alignment=Qt.AlignHCenter)
 
     def create_scenario(self):
         self.scenario = QGroupBox('Set Scenario')
@@ -568,7 +381,7 @@ class Frame(QDialog):
         self.logo = QWidget()
 
         image = QLabel()
-        pixmap = QPixmap('logo_blue.png').scaledToWidth(300)
+        pixmap = QPixmap('logo_blue.png').scaledToWidth(150)
         image.setPixmap(pixmap)
 
         website = QLabel('life-space-mission.com')
@@ -577,17 +390,6 @@ class Frame(QDialog):
         layout.addWidget(image)
         layout.addWidget(website)
 
-    # def create_save(self):
-    #     self.save_dialog = QGroupBox('Save Spectrum to File')
-    #
-    #     self.save = FileSaver()
-    #     button = QPushButton('Save')
-    #     button.clicked.connect(self.save_spectrum)
-    #
-    #     layout = QHBoxLayout(self.save_dialog)
-    #     layout.addWidget(self.save)
-    #     layout.addWidget(button)
-
     def create_input(self):
         self.input = QWidget()
 
@@ -595,19 +397,32 @@ class Frame(QDialog):
 
         self.spec_kind = QComboBox()
         self.spec_kind.addItems(['absolute', 'additive', 'contrast'])
+        self.spec_kind.setToolTip('For absolute, the absolute values of the given spectrum are used. For additive, <br>'
+                                  'the values of the given spectrum are added onto a blackbody spectrum based on the '
+                                  'temperature specified for the target planet. For constrast, the values of the given '
+                                  'spectrum are interpreted as contrast values to a blackbody spectrum of the host '
+                                  'star')
 
         self.browse = FileBrowser(label='Spectrum')
+        self.browse.label.setToolTip('Location of the file containing the spectrum. The file should contain two <br>'
+                                     'space-separated columns. The first column should contain the position of the '
+                                     'wavelength bins. The second should contain the flux-like values corresponding to '
+                                     'these wavelength bins')
 
         self.x_units = StringBoxLabel('x-axis units')
+        self.x_units.label.setToolTip(r'Units of the wavelength bin location in the given spectrum. Units can be typed '
+                                      r'in as free text, e.g. "micron"')
         self.y_units = StringBoxLabel('y-axis units')
-        # self.x_units.box.setText('micron')
-        # self.y_units.box.setText('photon micron-1 h-1 m-2')
+        self.y_units.label.setToolTip(r'Units of the flux-like values in the given spectrum. Units can be typed '
+                                      r'in as free text, e.g. "photon micron-1 s-1 m-2"')
         self.temp_p = DoubleBoxLabel(label='Temperature Planet',
                                      mini=0.,
                                      maxi=10000.,
                                      step=1.,
                                      value=0.,
                                      suffix='K')
+        self.temp_p.label.setToolTip('Temperature of the target planet')
+
         temp = QWidget()
         ly = QHBoxLayout(temp)
         ly.addWidget(self.temp_p.label)
@@ -631,8 +446,10 @@ class Frame(QDialog):
                                             step=1.,
                                             value=0.,
                                             suffix='pc')
-        # self.distance_spec.box.setDecimals(0)
-        # self.distance_spec.box.setValue(10.)
+        self.distance_spec.label.setToolTip('If a distance to the target system was used during the creation of <br>'
+                                            ' the spectrum, specify it here. This will allow LIFEsim to simulate the '
+                                            'planet at different distances to the solar system specified in the '
+                                            'settings tab')
 
         self.radius_spec = DoubleBoxLabel(label='Radius Planet',
                                           mini=0.,
@@ -640,7 +457,9 @@ class Frame(QDialog):
                                           value=0.,
                                           step=0.5,
                                           suffix='R⊕')
-        # self.radius_spec.box.setValue(1.)
+        self.radius_spec.label.setToolTip('If a radius of the target planet was used during the creation of <br>'
+                                          ' the spectrum, specify it here. This will allow LIFEsim to simulate the '
+                                          'planet in idfferent sizes specified in the settings tab')
 
         self.time_spec = DoubleBoxLabel(label='Integration Time',
                                         mini=0.,
@@ -648,11 +467,8 @@ class Frame(QDialog):
                                         step=60.,
                                         value=0.,
                                         suffix='s')
-
-        # layout_p = QVBoxLayout(param)
-        # layout_p.addWidget(self.distance_spec)
-        # layout_p.addWidget(self.radius_spec)
-        # layout_p.addWidget(self.time_spec)
+        self.time_spec.label.setToolTip('If an integration time was used during the creation of the spectrum, specify '
+                                        'it here')
 
         layout_p = QGridLayout(param)
         layout_p.addWidget(self.distance_spec.label, 0, 0)
@@ -674,7 +490,6 @@ class Frame(QDialog):
         self.bus.modules['life'].apply_options()
 
     def show_preview(self):
-        # TODO: Automatically import the spectrum on run command
         self.error_field.setText('')
         self.update_options()
         try:
@@ -812,8 +627,8 @@ class Frame(QDialog):
             self.p_plot.axes.grid()
             self.p_plot.axes.ticklabel_format(axis='x', style='sci')
             self.p_plot.draw()
-        except:
-            self.error_field.setText('An error occured during import')
+        except Exception as e:
+            self.error_field.setText('Import Error: ' + str(e))
 
     def show_spectrum(self,
                       spectrum,
@@ -857,8 +672,14 @@ class Frame(QDialog):
         ax2a.remove()
 
     def run_simulation(self):
+        self.progress.setValue(10)
+        QGuiApplication.processEvents()
+
         self.show_preview()
         self.update_options()
+
+        self.progress.setValue(20)
+        QGuiApplication.processEvents()
 
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
@@ -872,6 +693,9 @@ class Frame(QDialog):
         if self.box_ez.isChecked():
             self.bus.connect(module_names=('life', 'ez'))
 
+        self.progress.setValue(30)
+        QGuiApplication.processEvents()
+
         self.r_spec, self.flux_p, self.flux_n = self.bus.modules['life'].get_spectrum(
             temp_s=self.temp_s.value(),
             radius_s=self.radius_s.value(),
@@ -880,13 +704,24 @@ class Frame(QDialog):
             lat_s=self.lat.value(),
             z=self.z.value(),
             angsep=self.angsep.value(),
-            integration_time=self.time_b.value()*60*60)
+            integration_time=self.time_b.value()*60*60,
+            baseline_to_planet=self.baseline_mode.bl_pl.isChecked(),
+            pbar=self.progress)
 
-        # print(self.r_spec[1][np.argmin(np.abs(self.r_spec[0]-11e-6))])
+        self.progress.setValue(90)
+        QGuiApplication.processEvents()
 
         self.show_spectrum(self.r_spec,
                            self.flux_p,
                            self.flux_n)
+
+        self.baseline_used.setText('Nulling Baseline Used: '
+                                   + str(np.round(self.bus.data.inst['bl'],
+                                                  decimals=1))
+                                   + ' m')
+
+        self.progress.setValue(100)
+        QGuiApplication.processEvents()
 
     def set_values(self):
         self.diameter.set(self.bus.data.options.array['diameter'])
@@ -908,10 +743,6 @@ class Frame(QDialog):
 
     def save_spectrum(self):
         if self.r_spec is not None:
-            # file = open(self.save.filepath.text(), 'w')
-            # file.write('Wavelength  SNR per bin\n')
-            # file.writelines([self.r_spec[0], self.r_spec[1]])
-            # file.close()
             np.savetxt(fname=self.save.filepath.text(),
                        X=np.array([self.r_spec[0], self.r_spec[1], self.flux_p]).T,
                        header='Wavelength [m]   SNR per bin for 1h  Input flux')
@@ -920,28 +751,55 @@ class Frame(QDialog):
         if self.spec_kind.currentText() == 'additive':
             self.temp_p.show()
             self.temp_p.label.setText('Temperature Planet')
+            self.temp_p.label.show()
             self.x_units.show()
+            self.x_units.label.show()
             self.y_units.show()
+            self.y_units.label.show()
             self.distance_spec.show()
+            self.distance_spec.label.show()
             self.radius_spec.show()
+            self.radius_spec.label.show()
             self.time_spec.show()
+            self.time_spec.label.show()
         elif self.spec_kind.currentText() == 'absolute':
             self.temp_p.hide()
+            self.temp_p.label.hide()
             self.x_units.show()
+            self.x_units.label.show()
             self.y_units.show()
+            self.y_units.label.show()
             self.distance_spec.show()
+            self.distance_spec.label.show()
             self.radius_spec.show()
+            self.radius_spec.label.show()
             self.time_spec.show()
+            self.time_spec.label.show()
         elif self.spec_kind.currentText() == 'contrast':
-            self.temp_p.hide()
+            self.temp_p.show()
             self.temp_p.label.setText('Temperature Star')
+            self.temp_p.label.show()
             self.x_units.show()
+            self.x_units.label.show()
             self.y_units.hide()
+            self.y_units.label.hide()
             self.distance_spec.hide()
+            self.distance_spec.label.hide()
             self.radius_spec.hide()
+            self.radius_spec.label.hide()
             self.time_spec.hide()
+            self.time_spec.label.hide()
 
-        # self.temp_p.hide()
+
+class Gui(object):
+    def __init__(self):
+        os.chdir(os.path.dirname(__file__))
+        quantity_support()
+        app = QApplication([])
+        gallery = Frame()
+        gallery.show()
+        app.exec_()
+
 
 if __name__ == '__main__':
     app = QApplication([])

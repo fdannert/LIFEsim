@@ -20,7 +20,7 @@ class AhgsModule(SlopeModule):
                                               self.data.catalog.habitable,
                                               np.invert(self.data.catalog.detected)))
             else:
-                mask = np.logical_and(mask, self.data.catalog.detected)
+                mask = np.logical_and(mask, np.invert(self.data.catalog.detected))
             obs = (60 * 60 *
                    (self.data.options.optimization['snr_target'] ** 2
                     - self.data.catalog['snr_current'].loc[mask] ** 2)
@@ -115,7 +115,7 @@ class AhgsModule(SlopeModule):
                 obs[no_star, :] = np.inf
                 obs[no_star, :temp.shape[0]] = temp
 
-            print(self.data.optm['sum_detected']/500)
+            print(self.data.optm['sum_detected'] / self.data.optm['num_universe'])
 
             if np.any(
                     np.logical_and(
@@ -124,7 +124,7 @@ class AhgsModule(SlopeModule):
                         np.invert(self.data.optm['hit_limit']))):
                 print('HIT LIMIT, RECOUNTING -------------------')
                 self.data.optm['hit_limit'] = ((self.data.optm['sum_detected']
-                                                / (self.data.optm['num_universe'] + 1))
+                                                / (self.data.optm['num_universe']))
                                                >= self.data.options.optimization['limit'][1][:])
                 obs = np.zeros((stars.shape[0], np.max(n))) + np.inf
 

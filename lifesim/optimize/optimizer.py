@@ -66,9 +66,9 @@ class Optimizer(OptimizationModule):
     def ahgs(self):
         self.data.optm['hit_limit'] = np.zeros(5)
         self.data.optm['sum_detected'] = np.zeros(5)
-        self.data.optm['num_universe'] = self.data.catalog.nuniverse.max()
+        self.data.optm['num_universe'] = self.data.catalog.nuniverse.max() + 1
         self.data.optm['hit_limit'] = ((self.data.optm['sum_detected']
-                                       / (self.data.optm['num_universe'] + 1))
+                                       / (self.data.optm['num_universe']))
                                        >= self.data.options.optimization['limit'][1][:])
         self.data.optm['tot_time'] = 0
 
