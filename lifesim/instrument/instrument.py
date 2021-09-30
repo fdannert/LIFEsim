@@ -173,16 +173,11 @@ class Instrument(InstrumentModule):
         hz_center_rad = hz_center / distance_s / (3600 * 180) * np.pi  # in rad
 
         # put first transmission peak of optimal wl on center of HZ
-<<<<<<< HEAD
-        self.data.inst['bl'] = 0.589645 / hz_center_rad * \
-            self.data.options.other['wl_optimal']*10**(-6)
-=======
         # for the origin of the value 0.5.. see Ottiger+2021
         baseline = (0.589645 / hz_center_rad
                                 * self.data.options.other['wl_optimal'] * 10 ** (-6))
 
         self.apply_baseline(baseline=baseline)
->>>>>>> FDannertMaster/master
 
     def apply_baseline(self,
                        baseline: float,
@@ -199,12 +194,6 @@ class Instrument(InstrumentModule):
             the allow baseline range.
         """
         # make sure that the baseline does not exeed the set baseline limits
-<<<<<<< HEAD
-        self.data.inst['bl'] = np.maximum(
-            self.data.inst['bl'], self.data.options.array['bl_min'])
-        self.data.inst['bl'] = np.minimum(
-            self.data.inst['bl'], self.data.options.array['bl_max'])
-=======
         self.data.inst['bl'] = np.maximum(baseline,
                                           self.data.options.array['bl_min'])
         self.data.inst['bl'] = np.minimum(baseline,
@@ -212,7 +201,6 @@ class Instrument(InstrumentModule):
         if (self.data.inst['bl'] != baseline) and print_warning:
             warn('Specified baseline exceeded baseline limits. Baseline fixed to '
                  'respective limit')
->>>>>>> FDannertMaster/master
 
         # update the position of the apertures
         self.data.inst['apertures'] = np.array([
@@ -247,13 +235,8 @@ class Instrument(InstrumentModule):
         # time
         integration_time = 60 * 60
 
-<<<<<<< HEAD
-        self.data.catalog['snr_1h'] = np.zeros_like(
-            self.data.catalog.nstar, dtype=float)
-=======
         self.data.catalog['snr_1h'] = np.zeros_like(self.data.catalog.nstar, dtype=float)
         self.data.catalog['baseline'] = np.zeros_like(self.data.catalog.nstar, dtype=float)
->>>>>>> FDannertMaster/master
         if safe_mode:
             self.data.catalog['noise_astro'] = None
             self.data.catalog['planet_flux_use'] = None
@@ -316,19 +299,6 @@ class Instrument(InstrumentModule):
                                                            index=n_p)
 
                 # calculate the signal and photon noise flux received from the planet
-<<<<<<< HEAD
-                flux_planet = flux_planet_thermal \
-                    * transm_eff \
-                    * integration_time \
-                    * self.data.inst['eff_tot'] \
-                    * self.data.inst['telescope_area']
-                noise_planet = flux_planet_thermal \
-                    * transm_noise \
-                    * integration_time \
-                    * self.data.inst['eff_tot'] \
-                    * self.data.inst['telescope_area'] \
-                    * 2
-=======
                 flux_planet = (flux_planet_thermal
                                * transm_eff
                                * integration_time
@@ -340,7 +310,6 @@ class Instrument(InstrumentModule):
                                 * self.data.inst['eff_tot']
                                 * self.data.inst['telescope_area']
                                 * 2)
->>>>>>> FDannertMaster/master
 
                 # Add up the noise and caluclate the SNR
                 noise = noise_bg + noise_planet
@@ -352,12 +321,6 @@ class Instrument(InstrumentModule):
 
                 if safe_mode:
                     self.data.catalog.noise_astro.iat[n_p] = [noise_bg]
-<<<<<<< HEAD
-                    self.data.catalog.planet_flux_use.iat[n_p] = [flux_planet_thermal
-                                                                  * integration_time
-                                                                  * self.data.inst['eff_tot']
-                                                                  * self.data.inst['telescope_area']]
-=======
                     self.data.catalog.planet_flux_use.iat[n_p] = (
                         [flux_planet_thermal
                          * integration_time
@@ -369,7 +332,6 @@ class Instrument(InstrumentModule):
                     self.data.catalog['photon_rate_noise'].iat[n_p] = (noise
                                                                         / integration_time
                                                                         / self.data.inst['eff_tot']).sum()
->>>>>>> FDannertMaster/master
 
     def get_snr_t(self,
                   safe_mode: bool = False,
