@@ -118,6 +118,12 @@ class Instrument(InstrumentModule):
                         + (y_map - (self.data.options.other['image_size'] - 1) / 2) ** 2)
         self.data.inst['radius_map'] = np.sqrt(r_square_map)
 
+        # rotation steps at which the measurement is evaluated in radians
+        self.data.inst['rotation_steps'] = np.linspace(0,
+                                                       2 * np.pi,
+                                                       self.data.options.other['rotation_steps'],
+                                                       endpoint=False)
+
     def get_wl_bins_const_spec_res(self):
         """
         Create the wavelength bins for the given spectral resolution and wavelength limits.
@@ -343,6 +349,7 @@ class Instrument(InstrumentModule):
                      pbar = None,
                      baseline_to_planet: bool = False,
                      baseline: float = None,
+                     inclination_ez: float = 0.,  # inclination of the exozodi disk in radians
                      safe_mode: bool = False):
         """
         Calculate the signal-to-noise ratio per spectral bin of a given spectrum of a single
@@ -403,6 +410,7 @@ class Instrument(InstrumentModule):
         self.data.single['lat'] = lat_s
         self.data.single['z'] = z
         self.data.single['angsep'] = angsep
+        self.data.single['inclination_ez'] = inclination_ez
 
         # calculate the habitable zone of the specified star
         s_in, s_out, l_sun, \
@@ -514,6 +522,169 @@ class Instrument(InstrumentModule):
         # Add up the noise and caluclate the SNR
         noise = (noise_bg + noise_planet) * 2
         snr_spec = np.sqrt((flux_planet ** 2 / noise))
+
+        if not safe_mode:
+            return ([self.data.inst['wl_bins'], snr_spec],
+                    flux_planet,
+                    noise)
+        else:
+            return ([self.data.inst['wl_bins'], snr_spec],
+                    flux_planet,
+                    [noise, noise_bg_list])
+
+    # TODO: fix units in documentation
+    def get_spectrum_inclined(self,
+                              temp_s: float,  # in K
+                              radius_s: float,  # in R_sun
+                              distance_s: float,  # in pc
+                              lat_s: float,  # in radians
+                              z: float,  # in zodis
+                              angsep: float,  # in arcsec
+                              flux_planet_spectrum: list,  # in ph m-3 s-1 over m
+                              integration_time: float,  # in s
+                              pbar=None,
+                              baseline_to_planet: bool = False,
+                              baseline: float = None,
+                              inclination_ez: float = 0.,  # inclination of the exozodi disk in radians
+                              ascending_node_ez: float = 0.,  # ascending node of the exozodi disk in radians
+                              safe_mode: bool = False):
+        """
+        Calculate the signal-to-noise ratio per spectral bin of a given spectrum of a single
+        planet.
+
+        Parameters
+        ----------
+        temp_s : float
+            Temperature of the observed star in [K].
+        radius_s : float
+            Radius of the observed star in [sun radii].
+        distance_s : float
+            Distance between the observed star and the LIFE array in [pc].
+        lat_s : float
+            Ecliptic latitude of the observed star in [rad].
+        z : float
+            Zodi level in the observed system in [zodis], i.e. the dust surface density of the
+            observed system is z-times as high as in the solar system.
+        angsep : float
+            Angular separation between the observed star and the observed exoplanet in [arcsec].
+        flux_planet_spectrum : list
+            Spectrum of the planet. In the first element of the list `flux_planet_spectrum[0]`, the
+            wavelength bins of the spectrum must be given in [m]. In the second element
+            `flux_planet_spectrum[1]`, the photon count within the spectral bin must be given in
+            [photons m-3 s-1].
+        integration_time : float
+            Time that the LIFE array spends for integrating on the observed planet in [s].
+        pbar
+            Takes a PyQt5 QProgressBar to display the progress of the baseline optimization.
+        baseline_to_planet : bool
+            If set to True, the baseline will be optimized to the position of the planet. If set
+            to False, the baseline will be optimized to the center of the habitable zone of the
+            host star.
+        baseline : float
+            Specifies a custom baseline. To have an effect, baseline_to_planet must be set to
+            False.
+
+        Returns
+        -------
+        Tuple[wl_bins, snr_spec]
+            Returns the wavelength bins in [m] in the first element and the SNR per wavelength bin
+            in the second element.
+        flux_planet
+            Returns the flux of the planet as used in the simulation in [photons]
+        noise
+            Returns the noise contribution in [photons]
+        """
+
+        # options are applied before the simulation run
+        self.apply_options()
+
+        # write the given parameters to the single planet data in the bus. If the connected modules
+        # are given an empty index to specify the star, they will use the data saved in this single
+        # planet location
+        self.data.single['temp_s'] = temp_s
+        self.data.single['radius_s'] = radius_s
+        self.data.single['distance_s'] = distance_s
+        self.data.single['lat'] = lat_s
+        self.data.single['z'] = z
+        self.data.single['angsep'] = angsep
+        self.data.single['inclination_ez'] = inclination_ez
+        self.data.single['ascending_node_ez'] = ascending_node_ez
+
+        # calculate the habitable zone of the specified star
+        s_in, s_out, l_sun, \
+        hz_in, hz_out, \
+        hz_center = single_habitable_zone(model=self.data.options.models['habitable'],
+                                          temp_s=temp_s,
+                                          radius_s=radius_s)
+
+        self.data.single['l_sun'] = l_sun
+
+        # use spectres to rescale the spectrum onto the correct wl bins
+        flux_planet_spectrum_input = flux_planet_spectrum
+        flux_planet_spectrum = spectres(new_wavs=self.data.inst['wl_bin_edges'],
+                                        spec_wavs=flux_planet_spectrum[0].value,
+                                        spec_fluxes=flux_planet_spectrum[1].value,
+                                        edge_mode=True)
+
+
+        self.adjust_bl_to_hz(hz_center=hz_center,
+                             distance_s=distance_s)
+
+        # calculate the transmission map
+        _, _, self.data.inst['t_map'], _, _ = self.run_socket(s_name='transmission',
+                                                              method='transmission_map',
+                                                              map_selection='tm3')
+
+        transm_curve_chop, transm_curve_tm4 = self.run_socket(s_name='transmission',
+                                                              method='transmission_curve',
+                                                              angsep=angsep)
+
+        # fix the dimensions
+        transm_curve_chop = np.squeeze(transm_curve_chop)
+        transm_curve_tm4 = np.squeeze(transm_curve_tm4)
+
+        # calculate the signal and photon noise flux received from the planet
+        # TODO: to be consistent with get_snr, make it such that bin_width is multiplied elsewhere
+        flux_planet = (flux_planet_spectrum[:, np.newaxis]
+                       * transm_curve_chop
+                       * integration_time
+                       / len(transm_curve_chop)
+                       * self.data.inst['eff_tot']
+                       * self.data.inst['telescope_area']
+                       * self.data.inst['wl_bin_widths'][:, np.newaxis])
+        noise_planet = (flux_planet_spectrum[:, np.newaxis]
+                        * transm_curve_tm4
+                        / len(transm_curve_tm4)
+                        * integration_time
+                        * self.data.inst['eff_tot']
+                        * self.data.inst['telescope_area']
+                        * self.data.inst['wl_bin_widths'][:, np.newaxis])
+
+        # calculate the noise from the background sources
+        noise_bg_list = self.run_socket(s_name='photon_noise',
+                                        method='noise',
+                                        index=None)
+
+        noise_rotation = self.run_socket(s_name='photon_noise_rotation',
+                                         method='noise',
+                                         index=None)
+
+        if type(noise_bg_list) == list:
+            noise_bg = np.zeros_like(noise_bg_list[0])
+            for _, noise in enumerate(noise_bg_list):
+                noise_bg += noise
+        else:
+            noise_bg = noise_bg_list
+
+        noise_bg = noise_bg * integration_time * self.data.inst['eff_tot']
+        noise_bg = np.repeat(noise_bg[:, np.newaxis], repeats=self.data.options.other['rotation_steps'], axis=1)
+        noise_rotation = noise_rotation * integration_time / len(transm_curve_chop)
+
+        noise = (noise_bg + noise_rotation + noise_planet) * 2
+
+        # Add up the noise and caluclate the SNR
+        snr_rotation = flux_planet / np.sqrt(noise)
+        snr_spec = np.sqrt(np.sum(snr_rotation ** 2, axis=1))
 
         if not safe_mode:
             return ([self.data.inst['wl_bins'], snr_spec],

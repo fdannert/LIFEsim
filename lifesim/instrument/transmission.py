@@ -200,8 +200,7 @@ class TransmissionMap(TransmissionModule):
         return transm_eff, transm_noise
 
     def transmission_curve(self,
-                           angsep: float,
-                           phi_n: int = 360):
+                           angsep: float):
         """
         Calculates the radial transmission curve of the LIFE array
 
@@ -209,8 +208,6 @@ class TransmissionMap(TransmissionModule):
         ----------
         angsep : float
             Angular separation between the observed star and the observed exoplanet in [arcsec].
-        phi_n : int
-            Number of rotation steps used in integration.
 
         Returns
         -------
@@ -224,7 +221,7 @@ class TransmissionMap(TransmissionModule):
         angsep_rad = angsep / (3600 * 180) * np.pi
 
         # create 1D array with azimuthal coordinates
-        phi_lin = np.linspace(0, 2 * np.pi, phi_n, endpoint=False)
+        phi_lin = self.data.inst['rotation_steps']
 
         # retrieve the transmission curves
         (_, _, _,

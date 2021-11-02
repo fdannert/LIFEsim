@@ -73,7 +73,8 @@ class Options(object):
 
         self.other = {'image_size': 0,
                       'wl_optimal': 0.,
-                      'n_plugins': 0}
+                      'n_plugins': 0,
+                      'rotation_steps': 0.}
 
         self.models = {'localzodi': '',
                        'habitable': ''}
@@ -109,6 +110,7 @@ class Options(object):
         self.other['image_size'] = 256  # TODO: or 512?
         self.other['wl_optimal'] = 15
         self.other['n_plugins'] = 5
+        self.other['rotation_steps'] = 360
 
         self.models['localzodi'] = 'darwinsim'
         self.models['habitable'] = 'MS'
