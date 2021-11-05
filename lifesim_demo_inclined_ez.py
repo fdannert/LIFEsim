@@ -24,7 +24,7 @@ bus = lifesim.Bus()
 bus.data.options.set_scenario('baseline')
 
 # set options manually
-#bus.data.options.set_manual(rotation_steps=15)
+bus.data.options.set_manual(rotation_steps=360)
 
 # ---------- Creating the Instrument ----------
 
@@ -116,8 +116,8 @@ flux_planet_spectrum = [wl_bins * u.meter, fgamma]
                                            flux_planet_spectrum=flux_planet_spectrum,
                                            integration_time=integration_time,
                                            safe_mode=False,
-                                           inclination_ez=45./180.*np.pi,
-                                           ascending_node_ez=45./180.*np.pi)
+                                           inclination_ez=0./180.*np.pi,
+                                           ascending_node_ez=0./180.*np.pi)
 
 snri = np.sqrt(np.sum(spectrum[1] ** 2))
 
@@ -126,15 +126,15 @@ bus.connect(('inst', 'exo'))
 
 (spectrum,
  flux_planet,
- noise) = instrument.get_spectrum_inclined(temp_s=temp_s,  # for description, view get_spectrum documentation
-                                           radius_s=radius_s,
-                                           distance_s=distance_s,
-                                           lat_s=lat_s,
-                                           z=z,
-                                           angsep=angsep,
-                                           flux_planet_spectrum=flux_planet_spectrum,
-                                           integration_time=integration_time,
-                                           safe_mode=False)
+ noise) = instrument.get_spectrum(temp_s=temp_s,  # for description, view get_spectrum documentation
+                                  radius_s=radius_s,
+                                  distance_s=distance_s,
+                                  lat_s=lat_s,
+                                  z=z,
+                                  angsep=angsep,
+                                  flux_planet_spectrum=flux_planet_spectrum,
+                                  integration_time=integration_time,
+                                  safe_mode=False)
 
 snr = np.sqrt(np.sum(spectrum[1] ** 2))
 

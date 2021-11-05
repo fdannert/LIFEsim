@@ -648,13 +648,13 @@ class Instrument(InstrumentModule):
         flux_planet = (flux_planet_spectrum[:, np.newaxis]
                        * transm_curve_chop
                        * integration_time
-                       / len(transm_curve_chop)
+                       / self.data.options.other['rotation_steps']
                        * self.data.inst['eff_tot']
                        * self.data.inst['telescope_area']
                        * self.data.inst['wl_bin_widths'][:, np.newaxis])
         noise_planet = (flux_planet_spectrum[:, np.newaxis]
                         * transm_curve_tm4
-                        / len(transm_curve_tm4)
+                        / self.data.options.other['rotation_steps']
                         * integration_time
                         * self.data.inst['eff_tot']
                         * self.data.inst['telescope_area']
@@ -676,9 +676,9 @@ class Instrument(InstrumentModule):
         else:
             noise_bg = noise_bg_list
 
-        noise_bg = noise_bg * integration_time * self.data.inst['eff_tot']
+        noise_bg = noise_bg * integration_time / self.data.options.other['rotation_steps'] * self.data.inst['eff_tot']
         noise_bg = np.repeat(noise_bg[:, np.newaxis], repeats=self.data.options.other['rotation_steps'], axis=1)
-        noise_rotation = noise_rotation * integration_time / len(transm_curve_chop)
+        noise_rotation = noise_rotation * integration_time / self.data.options.other['rotation_steps'] * self.data.inst['eff_tot']
 
         noise = (noise_bg + noise_rotation + noise_planet) * 2
 
