@@ -268,8 +268,8 @@ class PhotonNoiseExozodiInclined(PhotonNoiseRotationModule):
 
         for i in range(rotation_steps.shape[0]):
             print(i)
-            incl = -(np.pi/2 + inclination_ez)
-            asc = ascending_node_ez + rotation_steps[i]
+            incl = inclination_ez
+            asc = -(np.pi/2 + ascending_node_ez) + rotation_steps[i]
 
             # define rotation matrix with euler angles \omega = 0, \Omega and i
             R_incl = np.array([[1, 0, 0],

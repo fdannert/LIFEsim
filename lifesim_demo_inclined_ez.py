@@ -24,7 +24,7 @@ bus = lifesim.Bus()
 bus.data.options.set_scenario('baseline')
 
 # set options manually
-bus.data.options.set_manual(rotation_steps=360)
+bus.data.options.set_manual(rotation_steps=30)
 
 # ---------- Creating the Instrument ----------
 
@@ -38,7 +38,7 @@ bus.add_module(transm)
 exoi = lifesim.PhotonNoiseExozodiInclined(name='exoi')
 bus.add_module(exoi)
 
-exo = lifesim.PhotonNoiseExozodiInclined(name='exo')
+exo = lifesim.PhotonNoiseExozodi(name='exo')
 bus.add_module(exo)
 
 local = lifesim.PhotonNoiseLocalzodi(name='local')
@@ -48,7 +48,6 @@ bus.add_module(star)
 
 # connect all modules
 bus.connect(('inst', 'transm'))
-bus.connect(('inst', 'exoi'))
 bus.connect(('inst', 'local'))
 bus.connect(('inst', 'star'))
 
@@ -104,6 +103,8 @@ flux_planet_spectrum = [wl_bins * u.meter, fgamma]
 # run simulation. This function assigns every planet an SNR for 1 hour of integration time. Since
 # we are currently only simulating photon noise, the SNR will scale with the integration time as
 # sqrt(t)
+
+bus.connect(('inst', 'exoi'))
 
 (spectrum,
  flux_planet,
