@@ -472,7 +472,8 @@ class Instrument(InstrumentModule):
                      integration_time: float,  # in s
                      pbar = None,
                      baseline_to_planet: bool = False,
-                     baseline: float = None):
+                     baseline: float = None,
+                     safe_mode: bool = False):
         """
         Calculate the signal-to-noise ratio per spectral bin of a given spectrum of a single
         planet.
@@ -644,9 +645,14 @@ class Instrument(InstrumentModule):
         noise = (noise_bg + noise_planet) * 2
         snr_spec = np.sqrt((flux_planet ** 2 / noise))
 
-        return ([self.data.inst['wl_bins'], snr_spec],
-                flux_planet,
-                noise)
+        if not safe_mode:
+            return ([self.data.inst['wl_bins'], snr_spec],
+                    flux_planet,
+                    noise)
+        else:
+            return ([self.data.inst['wl_bins'], snr_spec],
+                    flux_planet,
+                    [noise, noise_bg_list])
 
     def get_transmission_curve(self, index, time_dependent=True):
         """
