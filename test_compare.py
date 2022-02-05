@@ -2,6 +2,7 @@
 import time
 from numpy import cos, sin, pi
 import numpy as np
+from numpy.lib.function_base import diff
 import pandas as pd
 from tqdm import tqdm
 from matplotlib.colors import Colormap, Normalize
@@ -70,6 +71,7 @@ def test_anomalies(n_angles):
 
 
 def plot_transmission_curve(index, inst, rotations=1, rotation_steps=360, label="", time_dependent=True):
+    plt.figure()
     tr_chop_one_wv = inst.get_transmission_curve(
         index, time_dependent=time_dependent)[0][0, 0]
     plt.plot(np.linspace(0, rotations * 2, rotations * rotation_steps),
@@ -132,7 +134,7 @@ def compare_verticalplot(rotation_period=12, rotations=1, rotation_steps=360):
                  tr_chop_one_wv, color="orange")
         plt.xticks([0, pi/2, pi, 3/2*pi, 2*pi],
                    ["0", r'$\pi/2$', r'$\pi$', r'$3/2\pi$', r'$2\pi$'])
-        plt.xlabel("Radiens")
+        plt.xlabel("Radians")
     plt.tight_layout()
     plt.show()
 
@@ -172,7 +174,7 @@ def transmission_and_path(index, rotation_period=12, rotations=1, rotation_steps
                         theta=thetas,
                         inc=inc,
                         rad=angsep)
-
+    v = np.array(v)*2000
     phi_lin = np.linspace(0, 2 * (rotations) * np.pi,
                           rotations * rotation_steps, endpoint=False)
     xs = v[0] * np.cos(phi_lin) + v[1] * (-np.sin(phi_lin))
@@ -180,13 +182,17 @@ def transmission_and_path(index, rotation_period=12, rotations=1, rotation_steps
     mas_pix = bus.data.inst["mas_pix"][0]
     xs = xs/mas_pix + image_size//2
     ys = ys/mas_pix + image_size//2
-    plt.imshow(tm_chop[0], vmin=-1, vmax=1)
+    plt.figure()
+    plt.imshow(tm_chop[0], vmin=-1, vmax=1, cmap="twilight")
     print(mas_pix)
-    plt.plot(xs, ys)
+    plt.plot(xs[0],ys[0],"x")
+    plt.plot(image_size//2,image_size//2,"*", color = "yellow")
+    plt.plot(xs, ys, color = "white")
     # plt.ylim(-1, 1)
     # plt.xlim(-1, 1)
     plt.show()
 
+#%%
 
 def artificial_t_a_p(angsep, p_orb, inc_p):
     index = 0
@@ -224,8 +230,10 @@ def artificial_t_a_p(angsep, p_orb, inc_p):
     mas_pix = bus.data.inst["mas_pix"][0]
     xs = xs/mas_pix + image_size//2
     ys = ys/mas_pix + image_size//2
+    plt.figure()
     plt.imshow(tm_chop[0], vmin=-1, vmax=1, cmap="twilight")
     print(mas_pix)
+
     plt.plot(xs, ys, "--", color="white")
     plt.plot(256, 256, color="yellow", marker="*")
     size = 100
@@ -346,7 +354,7 @@ def inper(n):
 
 def analysis(do, dt):
     # Periods histogram
-    if True:
+    if False:
 
         plt.figure()
         plt.title("Simulated Orbit Period Distribution")
@@ -365,7 +373,7 @@ def analysis(do, dt):
         plt.xlabel("Orbit Period in Days")
         plt.ylabel("Percent of planets")
         plt.axvline(x=4.17, label="1h Instrument: " +
-                    str(inper(len(dt[dt.p_orb < 5])/len(dt))) + "%", color="red")
+                    str(inper(len(dt[dt.p_orb < 4.17])/len(dt))) + "%", color="red")
         plt.axvline(x=50, label="12h Instrument:" +
                     str(inper(len(dt[dt.p_orb < 50])/len(dt))) + "%", color="orange")
         plt.axvline(x=100, label="24h Instrument:" +
@@ -375,7 +383,7 @@ def analysis(do, dt):
         plt.legend()
         plt.show()
     # Periods histogram of only detected
-    if True:
+    if False:
         plt.figure()
         plt.title("Simulated Orbit Period Distribution of only detected")
         detected = dt[dt["detected"]]
@@ -394,7 +402,7 @@ def analysis(do, dt):
         plt.xlabel("Orbit Period in Days")
         plt.ylabel("Percent of planets")
         plt.axvline(x=4.17, label="1h Instrument: " +
-                    str(inper(len(detected[detected.p_orb < 5])/len(detected))) + "%", color="red")
+                    str(inper(len(detected[detected.p_orb < 4.17])/len(detected))) + "%", color="red")
         plt.axvline(x=50, label="12h Instrument:" +
                     str(inper(len(detected[detected.p_orb < 50])/len(detected))) + "%", color="orange")
         plt.axvline(x=100, label="24h Instrument:" +
@@ -402,6 +410,37 @@ def analysis(do, dt):
         # plt.ylim(0, 5000)
         plt.xlim(-1, 150)
         plt.legend()
+        plt.show()
+    #Mstar
+    if True:
+        plt.figure(figsize=(9,3))
+        plt.title("Orbit period distribution with F-star host")
+        detected = dt[dt["detected"]]
+        detected = detected[detected["stype"]==1]
+        min_period = min(detected["p_orb"])
+        max_period = max(detected["p_orb"])
+        p_bins = np.arange(min_period, max_period, 1)
+        _, _, patches = plt.hist(detected["p_orb"], p_bins, alpha=0.5,
+                                 color="blue", density=True)
+        for i in range(len(patches)):
+            if i < 100:
+                patches[i].set_fc("yellow")
+            if i < 50:
+                patches[i].set_fc("orange")
+            if i < 4:
+                patches[i].set_fc("r")
+        plt.xlabel("Orbit Period in Days")
+        plt.ylabel("Percent of planets")
+        plt.axvline(x=4.17, label="1h Instrument: " +
+                    str(inper(len(detected[detected.p_orb < 4.17])/len(detected))) + "%", color="red")
+        plt.axvline(x=50, label="12h Instrument:" +
+                    str(inper(len(detected[detected.p_orb < 50])/len(detected))) + "%", color="orange")
+        plt.axvline(x=100, label="24h Instrument:" +
+                    str(inper(len(detected[detected.p_orb < 100])/len(detected))) + "%", color="yellow")
+        # plt.ylim(0, 5000)
+        plt.xlim(-1, 150)
+        plt.legend()
+        plt.tight_layout()
         plt.show()
     # Average SNR per period histogram
     if False:
@@ -479,4 +518,89 @@ def analysis(do, dt):
         plt.hist(dt.snr_1h, snr_bins, label="time", alpha=0.3)
         plt.legend()
         plt.show()
+    if False:
+        rng = 100
+        steps = 1
+        diff_snr = dt.snr_1h - do.snr_1h
+        max_diff = max(diff_snr)
+        max_diff = max_diff if max_diff <= 1000 else 1000
+        min_diff = min(diff_snr)
+        min_diff = min_diff if min_diff >= -1000 else -1000
+        rng = max([max_diff,-min_diff])
+        snr_bins = np.arange(-rng,rng, steps)
+        plt.figure()
+        _, _, patches = plt.hist(diff_snr,snr_bins,density=True)
+        for i in range(len(patches)):
+            pos = i*steps -rng
+            if  pos < 0:
+                patches[i].set_fc("red")
+            else:
+                patches[i].set_fc("green")
+    if False:
+        diff_snr = dt.snr_1h - do.snr_1h
+        bins = np.arange(0,180,1)
+        counts_p_1 = np.zeros((180)) 
+        counts_p_2 = np.zeros((180)) 
+        counts_p_10 = np.zeros((180))
+        counts_p_50 = np.zeros((180))  
+        counts_n_1 = np.zeros((180)) 
+        counts_n_2 = np.zeros((180)) 
+        counts_n_10 = np.zeros((180))
+        counts_n_50 = np.zeros((180))   
+        for i in range(len(dt)):
+            d_snr = diff_snr[i]
+            inc = dt.inc_p[i]/pi*180
+            if d_snr>=0:
+                if d_snr>=50:
+                    counts_p_50[int(inc)] += 1
+                elif d_snr>=10:
+                    counts_p_10[int(inc)] += 1
+                elif d_snr>=2:
+                    counts_p_2[int(inc)] += 1
+                else:
+                    counts_p_1[int(inc)] += 1
+                    
+            elif d_snr <= 0:
+                if d_snr<=-50:
+                    counts_n_50[int(inc)] += 1
+                elif d_snr<=-10:
+                    counts_n_10[int(inc)] += 1
+                elif d_snr<=-2:
+                    counts_n_2[int(inc)] += 1
+                else:
+                    counts_n_1[int(inc)] += 1
+        tot = counts_p_1+counts_p_2+counts_p_10+counts_p_50+counts_n_1+counts_n_2+counts_n_10+counts_n_50
+        plt.figure()
+        plt.suptitle("Changes in SNR depending on inclination")
+        plt.subplot(1,2,1)
+        plt.bar(bins,counts_p_1,1,label = "+ 0-2")
+        plt.bar(bins,counts_p_2,1,bottom=counts_p_1,label = "+ 2-10")
+        plt.bar(bins,counts_p_10,1,bottom=counts_p_1 + counts_p_2,label = "+ 10-50")
+        plt.bar(bins,counts_p_50,1,bottom=counts_p_1 + counts_p_2+counts_p_10,label = "+ 50+")
+        plt.bar(bins,-counts_n_1,1,label = "- 0-2")
+        plt.bar(bins,-counts_n_2,1,bottom=-counts_n_1,label = "- 2-10")
+        plt.bar(bins,-counts_n_10,1,bottom=-counts_n_1 - counts_n_2,label = "- 10-50")
+        plt.bar(bins,-counts_n_50,1,bottom=-counts_n_1 - counts_n_2 - counts_n_10,label = "- 50+")
+        plt.ylabel("Counts")
+        plt.xlabel("Degrees of inclination")
+        plt.subplot(1,2,2)
+        plt.bar(bins,counts_p_1/tot,1,label = "+ 0-2")
+        plt.bar(bins,counts_p_2/tot,1,bottom=counts_p_1/tot,label = "+ 2-10")
+        plt.bar(bins,counts_p_10/tot,1,bottom=(counts_p_1 + counts_p_2)/tot,label = "+ 10-50")
+        plt.bar(bins,counts_p_50/tot,1,bottom=(counts_p_1 + counts_p_2+counts_p_10)/tot,label = "+ 50+")
+        plt.bar(bins,-counts_n_1/tot,1,label = "- 0-2")
+        plt.bar(bins,-counts_n_2/tot,1,bottom=-counts_n_1/tot,label = "- 2-10")
+        plt.bar(bins,-counts_n_10/tot,1,bottom=-(counts_n_1 + counts_n_2)/tot,label = "- 10-50")
+        plt.bar(bins,-counts_n_50/tot,1,bottom=-(counts_n_1 + counts_n_2 + counts_n_10)/tot,label = "- 50+")
+        plt.legend(loc="center")
+        plt.ylabel("Percentage")
+        plt.xlabel("Degrees of inclination")
+        #plt.plot(bins, counts_p- counts_n,  "-", color = "gray")
+# %%
+def get_db(file):
+    bus = ls.Bus()
+    bus.data.options.set_scenario('baseline')
+    bus.data.import_catalog(
+        "./output/"+file+".hdf5")
+    return bus.data.catalog.copy()
 # %%

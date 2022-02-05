@@ -220,9 +220,10 @@ class TransmissionMap(TransmissionModule):
         """
         Calculating the star to planet vector and projecting it to the 2d image.
         The planet orbits in XZ axis and the inclination rotates this orbit around the X-axis
-        inc 0 > Face on Counterclockwise
-        inc pi/2 > Edge ON
-        inc pi > Face on clockwise
+        The observatory rotates the exoplanet counter-clockwise around the Y axis.
+        inc 0 => Face on counter-clockwise, co-rotating to the shift of the observatory
+        inc pi/2 => Edge ON
+        inc pi => Face on clockwise, counter-rotating to the shift of the observatory
         Returns
         X and Z value after rotation scaled with maxangsep in radiens
         """

@@ -18,7 +18,7 @@ print("load")
 bus = ls.Bus()
 bus.data.options.set_scenario('baseline')
 bus.data.import_catalog(
-    input_path='C:/Users/Stoephu/Projects/SemesterProject2021/LIFEsim/output/TestSet.hdf5')
+    input_path='./output/TestSet.hdf5')
 db = bus.data.catalog
 suitable = pd.DataFrame(data=None, columns=db.columns)
 detected_n = db[(db["snr_1h"] > 10) & db["detected"] == True]
@@ -88,7 +88,7 @@ def pop():
 
 
 def inc():
-    bins_inc = np.arange(0, 360, 5)
+    bins_inc = np.arange(0, 190, 5)
     plt.hist(db["inc_p"]/np.pi * 180, bins_inc)
     plt.xlabel("Degree")
     plt.ylabel("N")

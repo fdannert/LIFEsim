@@ -12,7 +12,7 @@ bus.data.options.set_scenario('baseline')
 # bus.data.options.set_manual(diameter=4.)
 
 # loading and preparing the catalog
-bus.data.catalog_from_ppop(input_path='C:/Users/Stoephu/Projects/SemesterProject2021/LIFEsim/data/baselineSample.fits')
+bus.data.catalog_from_ppop(input_path='./data/baselineSample.fits')
 bus.data.catalog_remove_distance(stype=0, mode='larger', dist=0.)  # remove all A stars
 bus.data.catalog_remove_distance(stype=4, mode='larger', dist=10.)  # remove M stars > 10pc to speed up calculation
 
@@ -63,7 +63,7 @@ bus.connect(('opt', 'ahgs'))
 opt.ahgs()
 
 # save the catalog to a file
-bus.data.export_catalog(output_path='C:/Users/Stoephu/Projects/SemesterProject2021/LIFEsim/output/Test_1.hdf5')
+bus.data.export_catalog(output_path='./output/Test_2.hdf5')
 
 
 
@@ -71,4 +71,4 @@ bus.data.export_catalog(output_path='C:/Users/Stoephu/Projects/SemesterProject20
 # import a previously saved catalog
 bus2 = ls.Bus()
 bus2.data.options.set_scenario('baseline')
-bus2.data.import_catalog(input_path='C:/Users/Stoephu/Projects/SemesterProject2021/LIFEsim/output/Test_1.hdf5')
+bus2.data.import_catalog(input_path='./output/Test_2.hdf5')
