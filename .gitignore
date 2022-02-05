@@ -9,3 +9,4 @@ data/baselineSample.fits
 *.hdf5
 /.vscode/
 *.png
+*.pdf
