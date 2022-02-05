@@ -5,18 +5,8 @@ from lifesim.core.modules import TransmissionModule
 
 
 class TransmissionMap(TransmissionModule):
-    """
-    Module for calculating nulling interferometer transmission maps.
-    """
     def __init__(self,
                  name: str):
-        """
-        Parameters
-        ----------
-        name : str
-            Name of the module.
-        """
-
         super().__init__(name)
 
     def transmission_map(self,
@@ -27,30 +17,36 @@ class TransmissionMap(TransmissionModule):
                          hfov: np.ndarray = None,
                          image_size: int = None):
         """
-        Return the transmission map of a double-Bracewell configuration for the LIFE array.
+        Return the transmission map the LIFE array
 
         Parameters
         ----------
+        image_size : int
+            Number of pixels on one axis of a square detector (dimensionless). I.e. for a 512x512
+            detector this value is 512
+        bl : float
+            Length of the shorter, nulling baseline in [m]
+        wl_bins : np.ndarray
+            Central values of the spectral bins in the wavelength regime in [m]
+        hfov : np.ndarray
+            Contains the half field of view of the observatory in [rad] for each of the spectral
+            bins
         map_selection : list
             A list of strings specifying the array transmission mode from which the transmission
-            map is generated. The possible options are 'tm1', 'tm2', 'tm3', 'tm4'.
+            map is generated. The possible options are 'tm1', 'tm2', 'tm3', 'tm4'
+        ratio : float
+            Ratio between the nulling and the imaging baseline. E.g. if the imaging baseline is
+            twice as long as the nulling baseline, the ratio will be 2
         direct_mode: bool
             If direct mode is set to True, the variables wl_bins, d_alpha and d_beta are injected
             into the transmission calculation directly. The output is not necessarily in the the
-            form of a map. The inputs hfov and image size will be ignored in this mode.
+            form of a map. The inputs hfov and image size will be ignored in this mode
         d_alpha: np.ndarray
             The x-positions of the points to be evaluated measured from the central viewing axis in
-            [rad].
+            [rad]
         d_beta: np.ndarray
             The y-positions of the points to be evaluated measured from the central viewing axis in
-            [rad].
-        hfov : np.ndarray
-            Contains the half field of view of the observatory in [rad] for each of the spectral
-            bins. If no value is given, `data.inst['hfov']` is used.
-        image_size : int
-            Number of pixels on one axis of a square detector (dimensionless). I.e. for a 512x512
-            detector this value is 512. If no value is given, `data.options.other['image_size']` is
-            used.
+            [rad]
 
         Returns
         -------
@@ -64,19 +60,6 @@ class TransmissionMap(TransmissionModule):
             Transmission map from fourth mode
         tm_chop
             The chopped transmission map calculated by subtracting tm4 from tm3
-
-        Notes
-        -----
-        The following additional parameters are required for the calculation of the transmission
-        maps and should be specified either in `data.catalog` or in `data.single`.
-
-        data.inst['wl_bins'] : np.ndarray
-            Central values of the spectral bins in the wavelength regime in [m].
-        data.inst['bl'] : float
-            Length of the shorter, nulling baseline in [m].
-        data.options.array['ratio'] : float
-            Ratio between the nulling and the imaging baseline. E.g. if the imaging baseline is
-            twice as long as the nulling baseline, the ratio will be 2.
         """
 
         if hfov is None:
@@ -144,158 +127,14 @@ class TransmissionMap(TransmissionModule):
 
             # if they don't exist, calculate the chopped transmission from formula
             else:
-                # chopped transm. map
                 tm_chop = np.sin(2 * np.pi * L * alpha / wl_bins) ** 2 * np.sin(
+                    # chopped transm. map
                     4 * self.data.options.array['ratio'] * np.pi * L * beta / wl_bins)
 
         return tm1, tm2, tm3, tm4, tm_chop
 
     def transmission_efficiency(self,
-                                index: Union[int, type(None)]):
-        """
-        Integrates over transmission curves to get the transmission efficiency for signal and
-        noise.
-
-        Parameters
-        ----------
-        index: Union[int, type(None)]
-            Specifies the planet for which to calculate the transmission efficiency. If an integer
-            n is given, the noise will be calculated for the n-th row in the `data.catalog`. If
-            `None` is given, the noise is caluculated for the parameters located in `data.single`.
-
-        Returns
-        -------
-        transm_eff
-            Transmission efficiency per spectral bin for the exoplanet signal
-        transm_noise
-            Transmission efficiency per spectral bin for the photon noise received from the
-            exoplanet signal
-
-        Notes
-        -----
-        The following additional parameters are required for the calculation of the transmission
-        efficiency and should be specified either in `data.catalog` or in `data.single`.
-
-        data.single['angsep']
-            Angular separation between the observed star and the observed exoplanet in [arcsec].
-        data.inst['wl_bins'] : np.ndarray
-            Central values of the spectral bins in the wavelength regime in [m].
-        data.inst['bl'] : float
-            Length of the shorter, nulling baseline in [m].
-        data.options.array['ratio'] : float
-            Ratio between the nulling and the imaging baseline. E.g. if the imaging baseline is
-            twice as long as the nulling baseline, the ratio will be 2.
-        """
-
-        if index is None:
-            angsep = self.data.single['angsep']
-        else:
-            angsep = self.data.catalog.angsep.iloc[index]
-
-        tc_chop, tc_tm4 = self.transmission_curve(angsep=angsep)
-
-        # integrate over angles to get transmission efficiency
-        transm_eff = np.sqrt((tc_chop ** 2).mean(axis=(-2, -1)))
-        transm_noise = np.sqrt((tc_tm4 ** 2).mean(axis=(-2, -1)))
-        return transm_eff, transm_noise
-
-    def transmission_curve(self,
-                           angsep: float,
-                           phi_n: int = 360):
-        """
-        Calculates the radial transmission curve of the LIFE array
-
-        Parameters
-        ----------
-        angsep : float
-            Angular separation between the observed star and the observed exoplanet in [arcsec].
-        phi_n : int
-            Number of rotation steps used in integration.
-
-        Returns
-        -------
-        transm_curve_chop
-            Radial transmission curve corresponding to the chopped transmission map.
-        transm_curve_tm4
-            Radial transmission curve corresponding to the transmission map of the 4th mode 'tm4'.
-        """
-
-        # convert angular separation to radians
-        angsep_rad = angsep / (3600 * 180) * np.pi
-
-        # create 1D array with azimuthal coordinates
-        phi_lin = np.linspace(0, 2 * np.pi, phi_n, endpoint=False)
-
-        # retrieve the transmission curves
-        (_, _, _,
-         transm_curve_tm4,
-         transm_curve_chop) = self.transmission_map(map_selection=['tm4', 'tm_chop'],
-                                                    direct_mode=True,
-                                                    d_alpha=angsep_rad *
-                                                    np.cos(phi_lin),
-                                                    d_beta=angsep_rad * np.sin(phi_lin))
-
-        return transm_curve_chop, transm_curve_tm4
-
-    def projected_vector(self, theta, inc, rad):
-        """
-        Calculating the star to planet vector and projecting it to the 2d image.
-        The planet orbits in XZ axis and the inclination rotates this orbit around the X-axis
-        The observatory rotates the exoplanet counter-clockwise around the Y axis.
-        inc 0 => Face on counter-clockwise, co-rotating to the shift of the observatory
-        inc pi/2 => Edge ON
-        inc pi => Face on clockwise, counter-rotating to the shift of the observatory
-        Returns
-        X and Z value after rotation scaled with maxangsep in radiens
-        """
-        start = np.array([np.cos(theta), 0*theta, np.sin(theta)])
-        Ri = np.array([[1, 0, 0],
-                       [0, np.cos(inc), -np.sin(inc)],
-                       [0, np.sin(inc), np.cos(inc)]])
-        vs = rad*Ri.dot(start)
-        return vs[0], vs[2]
-
-    def get_transmission_curve(self, index, time_dependent=True):
-        angsep = self.data.catalog["maxangsep"].iloc[index]
-        theta = self.data.catalog["theta_p"].iloc[index]
-        inclination = self.data.catalog["inc_p"].iloc[index]
-        n_rotations = self.data.inst["rotations"]
-        rotation_steps = self.data.inst["rotation_steps"]
-        angsep_rad = angsep / (3600 * 180) * np.pi
-        if time_dependent:
-            true_anom = self.data.catalog.iloc[index]["theta_p"]
-
-            # period of planet orbit in days
-            p_orb = self.data.catalog.iloc[index]["p_orb"]
-
-            # Instrument rotation period 1h/ 5h / 20h / (12h) in seconds
-            rotation_period = self.data.inst["rotation_period"]
-
-            # calculates the time length of one integration step in seconds
-            rotation_step_time = rotation_period / rotation_steps
-
-            percentage_orbit_step = rotation_step_time / (p_orb * 24 * 60 * 60)
-
-            # delta_theta: change per time_step in true_anomaly
-            delta_theta = percentage_orbit_step * 2 * np.pi
-
-            # movement of planet inside the observation period
-            thetas = np.linspace(true_anom, true_anom + delta_theta * (rotation_steps * n_rotations),
-                                 n_rotations * rotation_steps, endpoint=False, dtype="float")
-
-            # calculating positions of planet and using numpy broadcasting get transmission map values 
-            xs, zs = self.projected_vector(thetas, inclination, angsep_rad)
-            return self.transmission_curve_t(xs, zs, n_rotations, rotation_steps)
-
-        else:
-            x, z = self.projected_vector(theta, inclination, angsep_rad)
-            return self.transmission_curve_t(x, z, n_rotations, rotation_steps)
-
-
-
-    def transmission_efficiency_t(self,
-                                  index: Union[int, type(None)],
-                                  time_dependent=True):
+                                index: Union[int, None]):
         """
         Integrates over transmission curves to get the transmission efficiency for signal and noise
 
@@ -318,40 +157,36 @@ class TransmissionMap(TransmissionModule):
         transm_noise
             Transmission efficiency per spectral bin for the photon noise received from the exoplanet
             signal
-
         """
 
-        tc_chop, tc_tm4 = self.get_transmission_curve(index, time_dependent)
+        if index is None:
+            angsep = self.data.single['angsep']
+        else:
+            angsep = self.data.catalog.angsep.iloc[index]
+
+        tc_chop, tc_tm4 = self.transmission_curve(angsep=angsep)
 
         # integrate over angles to get transmission efficiency
         transm_eff = np.sqrt((tc_chop ** 2).mean(axis=(-2, -1)))
         transm_noise = np.sqrt((tc_tm4 ** 2).mean(axis=(-2, -1)))
         return transm_eff, transm_noise
 
-    def transmission_curve_t(self,
-                             xs: [float],
-                             zs: [float],
-                             n_rotations: int = 1,
-                             phi_n: int = 360):
+    def transmission_curve(self,
+                           angsep: float,
+                           phi_n: int = 360):
         """
         Calculates the radial transmission curve of the LIFE array
 
         Parameters
         ----------
-        n_rotations : int
-            Number of instrument rotations during the observation time
-        xs : [float]
-            x coordinates of the exoplanet during the observation
-        zs : [float]
-            z coordinates of the exoplanet during the observation
-        phi_n : int
-            Number of rotation steps used in integration for 2*pi rotation
-        angsep : float
-            Angular separation between the observed star and the observed exoplanet in arcsec
         bl : float
             Length of the shorter, nulling baseline in [m]
         wl_bins : np.ndarray
             Central values of the spectral bins in the wavelength regime in [m]
+        angsep : float
+            Angular separation between the observed star and the observed exoplanet in [arcsec]
+        phi_n : int
+            Number of rotation steps used in integration
         ratio : float
             Ratio between the nulling and the imaging baseline. E.g. if the imaging baseline is twice
             as long as the nulling baseline, the ratio will be 2
@@ -362,25 +197,20 @@ class TransmissionMap(TransmissionModule):
             Radial transmission curve corresponding to the chopped transmission map
         transm_curve_tm4
             Radial transmission curve corresponding to the transmission map of the 4th mode 'tm4'
-
-        TODO:   Implement the missing variables
         """
 
-        # convert angular separation (arcsec) to radians
-        # angsep_rad = angsep / (3600 * 180) * np.pi
+        # convert angular separation to radians
+        angsep_rad = angsep / (3600 * 180) * np.pi
 
         # create 1D array with azimuthal coordinates
-        phi_lin = np.linspace(0, 2 * (n_rotations) * np.pi,
-                              n_rotations * phi_n, endpoint=False)
+        phi_lin = np.linspace(0, 2 * np.pi, phi_n, endpoint=False)
 
         # retrieve the transmission curves
         (_, _, _,
          transm_curve_tm4,
          transm_curve_chop) = self.transmission_map(map_selection=['tm4', 'tm_chop'],
                                                     direct_mode=True,
-                                                    d_alpha=xs *
-                                                    np.cos(phi_lin) + zs *
-                                                    (-np.sin(phi_lin)),
-                                                    d_beta=xs * np.sin(phi_lin) + zs * np.cos(phi_lin))
+                                                    d_alpha=angsep_rad * np.cos(phi_lin),
+                                                    d_beta=angsep_rad * np.sin(phi_lin))
 
         return transm_curve_chop, transm_curve_tm4

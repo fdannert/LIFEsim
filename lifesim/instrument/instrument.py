@@ -175,7 +175,7 @@ class Instrument(InstrumentModule):
         # put first transmission peak of optimal wl on center of HZ
         # for the origin of the value 0.5.. see Ottiger+2021
         baseline = (0.589645 / hz_center_rad
-                                * self.data.options.other['wl_optimal'] * 10 ** (-6))
+                    * self.data.options.other['wl_optimal'] * 10 ** (-6))
 
         self.apply_baseline(baseline=baseline)
 
@@ -235,8 +235,10 @@ class Instrument(InstrumentModule):
         # time
         integration_time = 60 * 60
 
-        self.data.catalog['snr_1h'] = np.zeros_like(self.data.catalog.nstar, dtype=float)
-        self.data.catalog['baseline'] = np.zeros_like(self.data.catalog.nstar, dtype=float)
+        self.data.catalog['snr_1h'] = np.zeros_like(
+            self.data.catalog.nstar, dtype=float)
+        self.data.catalog['baseline'] = np.zeros_like(
+            self.data.catalog.nstar, dtype=float)
         if safe_mode:
             self.data.catalog['noise_astro'] = None
             self.data.catalog['planet_flux_use'] = None
@@ -330,13 +332,13 @@ class Instrument(InstrumentModule):
                                                                         / integration_time
                                                                         / self.data.inst['eff_tot']).sum()
                     self.data.catalog['photon_rate_noise'].iat[n_p] = (noise
-                                                                        / integration_time
-                                                                        / self.data.inst['eff_tot']).sum()
+                                                                       / integration_time
+                                                                       / self.data.inst['eff_tot']).sum()
 
     def get_snr_t(self,
                   safe_mode: bool = False,
                   time_dependent: bool = True):
-        #copied most of get_snr
+        # copied most of get_snr
         """
         Calculates the signal-to-noise ration for all planets within the catalog if the are
         observed by the LIFE array for the given observing time
@@ -345,19 +347,19 @@ class Instrument(InstrumentModule):
         ----------
         time_dependent:
             true => simulates the positional changes of the exoplanet starting from true_anomaly of P_pop generation
-            false => should create the same modulated signal as the original get_snr, by fixing the position of the exoplanet
+            false => creates the same modulated signal as the original get_snr, by fixing the position of the exoplanet
         """
 
         self.apply_options()
         # problem is it doesn't calculate the snr of 1 hour, but calucaltes the snr
         # of one rotation period(default:12h)
         # set rotation options if nothing is set beforehand
-        
-        if not "rotation_period" in self.data.inst:
+
+        if "rotation_period" not in self.data.inst:
             # set rotation defaults are: 12h rotation period, 1 rotation and 360 rotation steps per rotation
             self.set_rotation()
-        integration_time = self.data.inst["integration_time"] # is calculatet from rotations * rotation_period
-        
+        # is calculatet from rotations * rotation_period
+        integration_time = self.data.inst["integration_time"]
 
         self.data.catalog['snr_1h'] = np.zeros_like(
             self.data.catalog.nstar, dtype=float)
@@ -470,7 +472,7 @@ class Instrument(InstrumentModule):
                      angsep: float,  # in arcsec
                      flux_planet_spectrum: list,  # in ph m-3 s-1 over m
                      integration_time: float,  # in s
-                     pbar = None,
+                     pbar=None,
                      baseline_to_planet: bool = False,
                      baseline: float = None,
                      safe_mode: bool = False):
@@ -657,8 +659,8 @@ class Instrument(InstrumentModule):
     def get_transmission_curve(self, index, time_dependent=True):
         """
         Help function to simulate and extract the modulation signal.
-        index: int 
-            index of the planet in the currently loaded catalog 
+        index: int
+            index of the planet in the currently loaded catalog.
         """
         self.apply_options()
         if time_dependent:
