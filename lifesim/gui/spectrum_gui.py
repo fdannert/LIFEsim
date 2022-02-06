@@ -7,8 +7,7 @@ import os
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import (QApplication, QDialog, QGroupBox, QGridLayout, QLabel,
                              QVBoxLayout, QWidget, QHBoxLayout, QProgressBar,
-                             QDoubleSpinBox, QPushButton, QTabWidget, QCheckBox,
-                             QProgressBar, QComboBox, QSizePolicy)
+                             QDoubleSpinBox, QPushButton, QTabWidget, QCheckBox, QComboBox, QSizePolicy)
 from PyQt5.QtGui import QPixmap, QGuiApplication
 import numpy as np
 from astropy import units as u
@@ -18,18 +17,6 @@ import lifesim as ls
 from lifesim.util.radiation import black_body
 from lifesim.gui.custom_widgets import (DoubleBoxLabel, BoxLabel, StringBoxLabel, DoubleBoxRange,
                                         FileBrowser, FileSaver, PlotCanvas, RadioButtonWidget)
-
-# change the directory to the path of the spectrum_gui.py file to ensure that the logo is imported
-# correctly
-os.chdir(os.path.dirname(__file__))
-
-quantity_support()
-
-try:
-    urllib.request.urlretrieve("https://github.com/fdannert/LIFEsim/raw/master/"
-                               "lifesim/gui/logo_blue.png", "logo_blue.png")
-except (HTTPError, URLError) as e:
-    pass
 
 
 class Frame(QDialog):
@@ -100,7 +87,7 @@ class Frame(QDialog):
         tabs.addTab(preview, 'Preview')
         tabs.addTab(self.s_result, 'Results')
 
-        #structure the sidebar in one widget
+        # structure the sidebar in one widget
         sidebar = QWidget()
         sb_layout = QVBoxLayout(sidebar)
         sb_layout.addWidget(self.simulation, alignment=Qt.AlignTop)
@@ -132,14 +119,16 @@ class Frame(QDialog):
                                        'collecting area is spanned by four collector spacecraft')
 
         self.wl_range = DoubleBoxRange(label='Wavelength Range')
-        self.wl_range.label.setToolTip('Lower and upper wavelength bound of the spectrograph')
+        self.wl_range.label.setToolTip(
+            'Lower and upper wavelength bound of the spectrograph')
 
         self.spec_res = BoxLabel(label='Spectral Resolution',
                                  mini=1,
                                  maxi=100,
                                  value=20,
                                  suffix='')
-        self.spec_res.label.setToolTip('Spectral resolution of the spectrograph')
+        self.spec_res.label.setToolTip(
+            'Spectral resolution of the spectrograph')
 
         self.baseline_mode = RadioButtonWidget()
         self.baseline_mode.label.setToolTip('The distance between the collector spacecraft (i.e. the baseline) <br> '
@@ -191,7 +180,8 @@ class Frame(QDialog):
                                          step=1.,
                                          value=10.,
                                          suffix='pc')
-        self.distance_s.label.setToolTip('Distance between the solar system and the host star of the target')
+        self.distance_s.label.setToolTip(
+            'Distance between the solar system and the host star of the target')
 
         self.lat = DoubleBoxLabel(label='Ecliptic Latitude',
                                   mini=0.,
@@ -241,8 +231,8 @@ class Frame(QDialog):
                                      value=0.1,
                                      step=0.1,
                                      suffix='arcsec')
-        self.angsep.label.setToolTip('Angular separation between target exoplanet and its host star')
-
+        self.angsep.label.setToolTip(
+            'Angular separation between target exoplanet and its host star')
 
         self.radius_p = DoubleBoxLabel(label='Radius',
                                        mini=0.,
@@ -276,7 +266,6 @@ class Frame(QDialog):
         self.error_field = QLabel()
         self.error_field.setStyleSheet("QLabel { color : red; }")
         self.error_field.setWordWrap(True)
-
 
         self.p_plot.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
 
@@ -504,7 +493,8 @@ class Frame(QDialog):
                                            radius_p_target=self.radius_p.value(),
                                            integration_time=self.time_spec.value())
 
-                self.flux_planet_spectrum = [self.spec_import.x_data, self.spec_import.y_data]
+                self.flux_planet_spectrum = [
+                    self.spec_import.x_data, self.spec_import.y_data]
                 if self.spec_kind.currentText() == 'additive':
                     widths = (self.spec_import.x_data.value[1:]
                               - self.spec_import.x_data.value[:-1])
@@ -516,8 +506,8 @@ class Frame(QDialog):
                                         temp=self.temp_p.value(),
                                         radius=self.radius_p.value(),
                                         distance=self.distance_s.value()) \
-                             / widths \
-                             * u.photon/u.second/(u.meter**3)
+                        / widths \
+                        * u.photon/u.second/(u.meter**3)
                     self.flux_planet_spectrum[1] += fgamma
                 if self.prev_kind.currentIndex() == 0:
                     p_spec = [self.spec_import.x_raw, self.spec_import.y_raw]
@@ -537,7 +527,7 @@ class Frame(QDialog):
 
                     # set the wavelength bin width according to the spectral resolution
                     wl_bin_width = wl_edge / R / \
-                                   (1 - 1 / R / 2)
+                        (1 - 1 / R / 2)
 
                     # make the last bin shorter when it hits the wavelength limit
                     if wl_edge + wl_bin_width > wl_max:
@@ -561,8 +551,8 @@ class Frame(QDialog):
                                     temp=self.temp_p.value(),
                                     radius=self.radius_p.value(),
                                     distance=self.distance_s.value()) \
-                         / wl_bin_widths \
-                         * u.photon / u.second / (u.meter ** 3)
+                    / wl_bin_widths \
+                    * u.photon / u.second / (u.meter ** 3)
 
                 self.flux_planet_spectrum = [wl_bins * u.meter, fgamma]
                 p_spec = [self.flux_planet_spectrum[0].to(u.micron),
@@ -578,7 +568,8 @@ class Frame(QDialog):
                                            radius_p_target=0,
                                            integration_time=0)
 
-                self.flux_planet_spectrum = [self.spec_import.x_data, self.spec_import.y_data]
+                self.flux_planet_spectrum = [
+                    self.spec_import.x_data, self.spec_import.y_data]
 
                 widths = (self.spec_import.x_data.value[1:]
                           - self.spec_import.x_data.value[:-1])
@@ -590,8 +581,8 @@ class Frame(QDialog):
                                     temp=self.temp_s.value(),
                                     radius=self.radius_s.value(),
                                     distance=self.distance_s.value()) \
-                         / widths \
-                         * u.photon / u.second / (u.meter ** 3)
+                    / widths \
+                    * u.photon / u.second / (u.meter ** 3)
                 self.flux_planet_spectrum[1] *= fgamma
                 if self.prev_kind.currentIndex() == 0:
                     p_spec = [self.spec_import.x_raw, self.spec_import.y_raw]
@@ -602,9 +593,9 @@ class Frame(QDialog):
             else:
                 raise ValueError('Given file cannot be imported')
 
-
             self.p_plot.axes.cla()
-            self.p_plot.axes.plot(p_spec[0], p_spec[1], color="darkblue", linestyle="-")
+            self.p_plot.axes.plot(
+                p_spec[0], p_spec[1], color="darkblue", linestyle="-")
             if self.prev_kind.currentIndex() == 1:
                 self.p_plot.axes.set_xlim(self.bus.data.options.array['wl_min'],
                                           self.bus.data.options.array['wl_max'])
@@ -618,10 +609,9 @@ class Frame(QDialog):
                 (0.5e1 * np.max(p_spec[1]
                                 [int(np.argwhere(p_spec[0] <
                                                  (self.bus.data.options.array['wl_min']
-                                                  *u.micron))[-1])
-                                 :int(np.argwhere(p_spec[0] >
-                                                  (self.bus.data.options.array['wl_max']
-                                                   *u.micron))[0])])).value)
+                                                  * u.micron))[-1]):int(np.argwhere(p_spec[0] >
+                                                                                    (self.bus.data.options.array['wl_max']
+                                                                                     * u.micron))[0])])).value)
 
             self.p_plot.axes.set_yscale('log')
             self.p_plot.axes.grid()
@@ -640,7 +630,8 @@ class Frame(QDialog):
         self.r_plot.axes.step(spectrum[0] * 1e6, noise / (self.time_b.value()*60*60),
                               where="mid", color="black", label=f"Noise sources")
         self.r_plot.axes.set_xlabel(r"$\lambda$ [$\mu$m]")
-        self.r_plot.axes.set_ylabel(r"Detected signal per bin [e$^-$ s$^{-1}$ bin$^{-1}$]")
+        self.r_plot.axes.set_ylabel(
+            r"Detected signal per bin [e$^-$ s$^{-1}$ bin$^{-1}$]")
 
         self.r_plot.axes.set_xlim(self.bus.data.options.array['wl_min']-0.5,
                                   self.bus.data.options.array['wl_max']+0.5)
@@ -744,7 +735,8 @@ class Frame(QDialog):
     def save_spectrum(self):
         if self.r_spec is not None:
             np.savetxt(fname=self.save.filepath.text(),
-                       X=np.array([self.r_spec[0], self.r_spec[1], self.flux_p]).T,
+                       X=np.array(
+                           [self.r_spec[0], self.r_spec[1], self.flux_p]).T,
                        header='Wavelength [m]   SNR per bin for 1h  Input flux')
 
     def change_visibility(self):
@@ -806,5 +798,16 @@ if __name__ == '__main__':
     gallery = Frame()
     gallery.show()
     app.exec_()
+    # change the directory to the path of the spectrum_gui.py file to ensure that the logo is imported
+    # correctly
+    os.chdir(os.path.dirname(__file__))
+
+    quantity_support()
+
+    try:
+        urllib.request.urlretrieve("https://github.com/fdannert/LIFEsim/raw/master/"
+                                "lifesim/gui/logo_blue.png", "logo_blue.png")
+    except (HTTPError, URLError) as e:
+        pass
 
     # <div style="color:darkred;"> <\div>
