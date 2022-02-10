@@ -129,7 +129,10 @@ class PhotonNoiseLocalzodi(PhotonNoiseModule):
         lz_flux = lz_flux_sr * (np.pi * self.data.inst['hfov'] ** 2)
 
         # calculate the leakage contribution to the measurement
-        lz_leak = (ap * self.data.inst['t_map']).sum(axis=(-2, -1)) / ap.sum() * lz_flux \
-                  * self.data.inst['telescope_area']
+        # TODO: is the lz_leakage attenuated by the interferometer? Prob. not because it is diffuse radiation
+        # lz_leak = (ap * self.data.inst['t_map']).sum(axis=(-2, -1)) / ap.sum() * lz_flux \
+        #           * self.data.inst['telescope_area']
+
+        lz_leak = lz_flux * self.data.inst['telescope_area']
 
         return lz_leak

@@ -150,6 +150,10 @@ class Instrument(InstrumentModule):
         wl_bin_widths = np.array(wl_bin_widths) * 1e-6  # in m
         wl_bin_edges = np.array(wl_bin_edges) * 1e-6  # in m
 
+        wl_bins = np.arange(4e-6, 18.5e-6, 1e-6)
+        wl_bin_widths = np.ones_like(wl_bins) * 1e-6
+        wl_bin_edges = np.append(wl_bins - 0.5e-6, wl_bins[-1] + 0.5e-6)
+
         return wl_bins, wl_bin_widths, wl_bin_edges
 
     # TODO does not take the inclination into account!

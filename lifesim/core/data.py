@@ -35,6 +35,7 @@ class Data(object):
     def __init__(self):
         self.inst = {}
         self.catalog = None
+        self.noise_catalog = None
         self.single = {}
         self.other = {}
         self.options = Options()
@@ -464,3 +465,35 @@ class Data(object):
         self.catalog = pd.read_hdf(path_or_buf=input_path,
                                    key='catalog')
 
+    def noise_catalog_from_catalog(self):
+        self.noise_catalog = pd.DataFrame(columns=['signal',  # planet signal
+                                                   'noise',  # overall noise contribution
+                                                   'wl',  # wavelength bin
+                                                   'pn_sgl',  # stellar geometric leakage
+                                                   'pn_ez',  # exozodi leakage
+                                                   'pn_lz',  # localzodi leakage
+                                                   'pn_dc',  # dark current
+                                                   'pn_tbd',  # thermal background detector
+                                                   'pn_tbpm',  # thermal background primary mirror
+                                                   'pn_pa',  # polarization angle
+                                                   'pn_snfl',  # stellar null floor leakage
+                                                   'pn_ag_cld',  # agnostic cold instrumental photon noise
+                                                   'pn_ag_ht',  # agnostic hot instrumental photon noise
+                                                   'pn_ag_wht',  # agnostic white instrumental photon noise
+                                                   'pn',  # photon noise
+                                                   'sn_fo_a',  # first order amplitude
+                                                   'sn_fo_phi',  # first order phase
+                                                   'sn_fo_x',  # first order x position
+                                                   'sn_fo_y',  # first order y position
+                                                   'sn_fo',  # systematic noise first order
+                                                   'sn_so_aa',  # second order amplitude-amplitude term
+                                                   'sn_so_phiphi',  # second order phase-phase term
+                                                   'sn_so_aphi',  # amplitude phase cross term
+                                                   'sn_so_polpol',  # second order polarization-polarization term
+                                                   'sn_so',  # systematic noise second order
+                                                   'sn',  # systematic noise
+                                                   'fundamental',  # fundamental noise (astrophysical)
+                                                   'instrumental',  # instrumental noise
+                                                   'snr'  # signal to noise ratio
+                                                   ],
+                                          index=self.catalog.id)

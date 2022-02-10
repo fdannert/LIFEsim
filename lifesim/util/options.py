@@ -105,10 +105,18 @@ class Options(object):
         self.array['ratio'] = 6.
         self.array['t_slew'] = 10. * 60. * 60.
         self.array['t_efficiency'] = 0.8
+        self.array['flux_division'] = np.array((0.25, 0.25, 0.25, 0.25))
+        self.array['phase_response'] = np.array((0, np.pi / 2, np.pi, 3 * np.pi / 2))
+        self.array['phase_response_chop'] = -np.array((0, np.pi / 2, np.pi, 3 * np.pi / 2))
+        self.array['t_rot'] = 50000
+        self.array['chopping'] = 'chop'
+        self.array['pix_per_wl'] = 2.2
+        self.array['n_sampling_rot'] = 360  # TODO: use this option in the transmission module
 
         self.other['image_size'] = 256  # TODO: or 512?
         self.other['wl_optimal'] = 15
         self.other['n_plugins'] = 5
+        self.other['n_sampling_max'] = 100000  # Number of Fourier components in calculation of instrumental noise
 
         self.models['localzodi'] = 'darwinsim'
         self.models['habitable'] = 'MS'
