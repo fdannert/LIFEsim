@@ -1,6 +1,9 @@
+from warnings import warn
+
 import numpy as np
 from tqdm import tqdm
 from spectres import spectres
+from PyQt5.QtGui import QGuiApplication
 
 from lifesim.core.modules import InstrumentModule
 from lifesim.util.habitable import single_habitable_zone
@@ -10,53 +13,49 @@ from lifesim.util.radiation import black_body
 class Instrument(InstrumentModule):
     """
     The Instrument class represents the central module for simulating the LIFE array. It connects
-    to 'plugin' modules which calculate signal and noise terms and distributes tasks and data
+    to other modules which calculate signal and noise terms and distributes tasks and data
     between them. The instrument class features two socket types:
         a)  For calculation of the instrument transmission map a single socket of f_type
-            'transmission'
+            'transmission'.
         b)  For simulation of the photon noise sources a number (set in the options class) of
-            sockets of f_type 'photon_noise'
+            sockets of f_type 'photon_noise'.
+
+    Notes
+    -----
+    Note, that all attributes are saved in the data class.
 
     Attributes
     ----------
-    options : lifesim.Options
-        The options class containing all setting for the array and computations
-    bl : float
-        Length of the shorter, nulling baseline in [m]
-    telescope_area : float
-        Area of all array apertures combined in [m^2]
-    eff_tot : float
+    data.options : lifesim.Options
+        The options class containing all setting for the array and computations.
+    data.inst['bl'] : float
+        Length of the shorter, nulling baseline in [m].
+    data.inst['telescope_area'] : float
+        Area of all array apertures combined in [m^2].
+    data.inst['eff_tot'] : float
         Total efficiency of the telescope as ratio of generated counts over incoming photons
-        (dimensionless)
-    wl_bins : np.ndarray
-        Central values of the spectral bins in the wavelength regime in [m]
-    wl_bin_widths : np.ndarray
-        Widths of the spectral wavelength bins in [m]
-    wl_bin_edges : np.ndarray
-        Edges of the spectral wavelength bins in [m]. For N bins, this array will contain N+1 edges
-    hfov : np.ndarray
-        Contains the half field of view of the observatory in [rad] for each of the spectral bins
-    hfov_mas : np.ndarray
+        (dimensionless).
+    data.inst['wl_bins'] : np.ndarray
+        Central values of the spectral bins in the wavelength regime in [m].
+    data.inst['wl_bin_widths'] : np.ndarray
+        Widths of the spectral wavelength bins in [m].
+    data.inst['wl_bin_edges'] : np.ndarray
+        Edges of the spectral wavelength bins in [m]. For N bins, this array will contain N+1
+        edges.
+    data.inst['hfov'] : np.ndarray
+        Contains the half field of view of the observatory in [rad] for each of the spectral bins.
+    data.inst['hfov_mas'] : np.ndarray
         Contains the half field of view of the observatory in [milliarcseconds] for each of the
-        spectral bins
-    rad_pix : np.ndarray
-        Contains the size of each pixel projected to the sky in [rad]
-    mas_pix : np.ndarray
-        Contains the size of each pixel projected to the sky in [milliarcseconds]
-    apertures : np.ndarray
-        Positions of the collector spacecraft relative to the beam combiner in [m]
-    x_map : np.ndarray
-        A map used for speeding up calculations. Contains the indices of the pixels on the detector
-        in x-direction (dimensionless)
-    y_map : np.ndarray
-        A map used for speeding up calculations. Contains the indices of the pixels on the detector
-        in x-direction (dimensionless)
-    r_square_map : np.ndarray
-        A map used for speeding up calculations. Contains the square of the distance of a pixel
-        from the center of the detector in [pix]
-    r_map : np.ndarray
+        spectral bins.
+    data.inst['rad_pix'] : np.ndarray
+        Contains the size of each pixel projected to the sky in [rad].
+    data.inst['mas_pix'] : np.ndarray
+        Contains the size of each pixel projected to the sky in [milliarcseconds].
+    data.inst['apertures'] : np.ndarray
+        Positions of the collector spacecraft relative to the beam combiner in [m].
+    data.inst['radius_map'] : np.ndarray
         A map used for speeding up calculations. Contains the distance of a pixel
-        from the center of the detector in [pix]
+        from the center of the detector in [pix].
     """
 
     def __init__(self,
@@ -65,21 +64,14 @@ class Instrument(InstrumentModule):
         Parameters
         ----------
         name : str
-            Name of the instrument module
-        options : lifesim.Options
-            The options class containing all setting for the array and computations
+            Name of the instrument module.
         """
 
         super().__init__(name=name)
 
     def apply_options(self):
         """
-        Applies the options given to the instrument module and recalculates all necessary values
-
-        Parameters
-        ----------
-        options : lifesim.Options
-            The options class containing all setting for the array and computations
+        Applies the options given to the instrument module and recalculates all necessary values.
         """
 
         # Get array parameters from options for faster calculation
@@ -90,6 +82,7 @@ class Instrument(InstrumentModule):
         self.data.inst['eff_tot'] = self.data.options.array['quantum_eff'] \
             * self.data.options.array['throughput']
 
+        # Calculate the spectral channels with a constant spectral resolution
         self.data.inst['wl_bins'], \
             self.data.inst['wl_bin_widths'], \
             self.data.inst['wl_bin_edges'] = self.get_wl_bins_const_spec_res()
@@ -128,7 +121,7 @@ class Instrument(InstrumentModule):
 
     def get_wl_bins_const_spec_res(self):
         """
-        Create the wavelength bins for the given spectral resolution and wavelength limits
+        Create the wavelength bins for the given spectral resolution and wavelength limits.
         """
         wl_edge = self.data.options.array['wl_min']
         wl_bins = []
@@ -166,28 +159,48 @@ class Instrument(InstrumentModule):
                         distance_s: float):
         """
         Adjusts the baseline of the array to be optimal for observations in the habitable zone of
-        the target star for the selected optimal wavelength
+        the target star for the selected optimal wavelength.
 
         Parameters
         ----------
         hz_center : float
-            Separation of the center of the habitable zone in [AU]
+            Separation of the center of the habitable zone in [AU].
         distance_s : float
-            Distance between the observed star and the LIFE array in [pc]
+            Distance between the observed star and the LIFE array in [pc].
         """
 
         # convert the habitable zone to radians
         hz_center_rad = hz_center / distance_s / (3600 * 180) * np.pi  # in rad
 
         # put first transmission peak of optimal wl on center of HZ
-        self.data.inst['bl'] = 0.589645 / hz_center_rad * \
-            self.data.options.other['wl_optimal']*10**(-6)
+        # for the origin of the value 0.5.. see Ottiger+2021
+        baseline = (0.589645 / hz_center_rad
+                    * self.data.options.other['wl_optimal'] * 10 ** (-6))
 
+        self.apply_baseline(baseline=baseline)
+
+    def apply_baseline(self,
+                       baseline: float,
+                       print_warning: bool = False):
+        """
+        Adjusts the nulling baseline of the array to the specified value.
+
+        Parameters
+        ----------
+        baseline : float
+            Length of the nulling baseline in [m].
+        print_warning : bool
+            If set to true, function will print a warning if the specified baseline lies outside
+            the allow baseline range.
+        """
         # make sure that the baseline does not exeed the set baseline limits
-        self.data.inst['bl'] = np.maximum(
-            self.data.inst['bl'], self.data.options.array['bl_min'])
-        self.data.inst['bl'] = np.minimum(
-            self.data.inst['bl'], self.data.options.array['bl_max'])
+        self.data.inst['bl'] = np.maximum(baseline,
+                                          self.data.options.array['bl_min'])
+        self.data.inst['bl'] = np.minimum(baseline,
+                                          self.data.options.array['bl_max'])
+        if (self.data.inst['bl'] != baseline) and print_warning:
+            warn('Specified baseline exceeded baseline limits. Baseline fixed to '
+                 'respective limit')
 
         # update the position of the apertures
         self.data.inst['apertures'] = np.array([
@@ -201,29 +214,36 @@ class Instrument(InstrumentModule):
              self.data.options.array['ratio'] * self.data.inst['bl'] / 2., 1.]
         ])
 
-    # TODO Re-add functionality for calculating the SNR without certain noise term
     def get_snr(self,
                 safe_mode: bool = False):
         """
-        Calculates the signal-to-noise ration for all planets within the catalog if the are
-        observed by the LIFE array for the given observing time
+        Calculates the one-hour signal-to-noise ration for all planets in the catalog.
 
         Parameters
         ----------
-        c : lifesim.Catalog
-            The catalog for which the SNRs will be calculated and added to
-        time : float
-            The observation time per planet in [s]
+        safe_mode : bool
+            If safe mode is enables, the individual photon counts of the planet and noise sources
+            are written to the catalog.
         """
 
+        # options are applied before the simulation run
         self.apply_options()
-        integration_time = 60 * 60
+
+        # currently, the choice of integration time here is arbitrary. Since the background limited
+        # case is assumed, the SNR scales with sqrt(integration time) and through this, the SNR
+        # for any integration time can be calculated by knowing the SNR of a specific integration
+        # time
+        integration_time = 60 * 60 * self.data.options.array['rotation_period']
 
         self.data.catalog['snr_1h'] = np.zeros_like(
+            self.data.catalog.nstar, dtype=float)
+        self.data.catalog['baseline'] = np.zeros_like(
             self.data.catalog.nstar, dtype=float)
         if safe_mode:
             self.data.catalog['noise_astro'] = None
             self.data.catalog['planet_flux_use'] = None
+            self.data.catalog['photon_rate_planet'] = None
+            self.data.catalog['photon_rate_noise'] = None
 
         # create mask returning only unique stars
         _, temp = np.unique(self.data.catalog.nstar, return_index=True)
@@ -250,6 +270,8 @@ class Instrument(InstrumentModule):
                                             method='noise',
                                             index=n)
 
+            # TODO: Reinstate the method in which the noise list is keyed by the name of the
+            #  producing noise module
             if type(noise_bg_list) == list:
                 noise_bg = np.zeros_like(noise_bg_list[0])
                 for _, noise in enumerate(noise_bg_list):
@@ -273,161 +295,45 @@ class Instrument(InstrumentModule):
                                                  distance=self.data.catalog['distance_s'].iloc[n_p]
                                                  )
 
+                # calculate the transmission efficiency of the planets separation
                 transm_eff, transm_noise = self.run_socket(s_name='transmission',
                                                            method='transmission_efficiency',
                                                            index=n_p)
 
                 # calculate the signal and photon noise flux received from the planet
-                flux_planet = flux_planet_thermal \
-                    * transm_eff \
-                    * integration_time \
-                    * self.data.inst['eff_tot'] \
-                    * self.data.inst['telescope_area']
-                noise_planet = flux_planet_thermal \
-                    * transm_noise \
-                    * integration_time \
-                    * self.data.inst['eff_tot'] \
-                    * self.data.inst['telescope_area'] \
-                    * 2
+                flux_planet = (flux_planet_thermal
+                               * transm_eff
+                               * integration_time
+                               * self.data.inst['eff_tot']
+                               * self.data.inst['telescope_area'])
+                noise_planet = (flux_planet_thermal
+                                * transm_noise
+                                * integration_time
+                                * self.data.inst['eff_tot']
+                                * self.data.inst['telescope_area']
+                                * 2)
 
                 # Add up the noise and caluclate the SNR
                 noise = noise_bg + noise_planet
                 self.data.catalog.snr_1h.iat[n_p] = np.sqrt(
                     (flux_planet ** 2 / noise).sum())
 
-                if safe_mode:
-                    self.data.catalog.noise_astro.iat[n_p] = [noise_bg]
-                    self.data.catalog.planet_flux_use.iat[n_p] = [flux_planet_thermal
-                                                                  * integration_time
-                                                                  * self.data.inst['eff_tot']
-                                                                  * self.data.inst['telescope_area']]
-
-    def get_snr_t(self,
-                  safe_mode: bool = False,
-                  time_dependent: bool = True):
-        #copied most of get_snr
-        """
-        Calculates the signal-to-noise ration for all planets within the catalog if the are
-        observed by the LIFE array for the given observing time
-
-        Parameters
-        ----------
-        time_dependent:
-            true => simulates the positional changes of the exoplanet starting from true_anomaly of P_pop generation
-            false => should create the same modulated signal as the original get_snr, by fixing the position of the exoplanet
-        """
-
-        self.apply_options()
-        # problem is it doesn't calculate the snr of 1 hour, but calucaltes the snr
-        # of one rotation period(default:12h)
-        # set rotation options if nothing is set beforehand
-        
-        if not "rotation_period" in self.data.inst:
-            # set rotation defaults are: 12h rotation period, 1 rotation and 360 rotation steps per rotation
-            self.set_rotation()
-        integration_time = self.data.inst["integration_time"] # is calculatet from rotations * rotation_period
-        
-
-        self.data.catalog['snr_1h'] = np.zeros_like(
-            self.data.catalog.nstar, dtype=float)
-        if safe_mode:
-            self.data.catalog['noise_astro'] = None
-            self.data.catalog['planet_flux_use'] = None
-
-        # create mask returning only unique stars
-        _, temp = np.unique(self.data.catalog.nstar, return_index=True)
-        star_mask = np.zeros_like(self.data.catalog.nstar, dtype=bool)
-        star_mask[temp] = True
-
-        # iterate over all stars
-        for i, n in enumerate(tqdm(np.where(star_mask)[0])):
-            # if i == 10:
-            #     break
-            nstar = self.data.catalog.nstar.iloc[n]
-
-            # adjust baseline of array and give new baseline to transmission generator plugin
-            self.adjust_bl_to_hz(hz_center=float(self.data.catalog.hz_center.iloc[n]),
-                                 distance_s=float(self.data.catalog.distance_s.iloc[n]))
-
-            # get transmission map
-            _, _, self.data.inst['t_map'], _, _ = self.run_socket(s_name='transmission',
-                                                                  method='transmission_map',
-                                                                  map_selection='tm3')
-
-            # calculate the noise from the background sources
-            noise_bg_list = self.run_socket(s_name='photon_noise',
-                                            method='noise',
-                                            index=n)
-
-            if type(noise_bg_list) == list:
-                noise_bg = np.zeros_like(noise_bg_list[0])
-                for _, noise in enumerate(noise_bg_list):
-                    noise_bg += noise
-            else:
-                noise_bg = noise_bg_list
-
-            noise_bg = noise_bg * integration_time * \
-                self.data.inst['eff_tot'] * 2
-
-            # go through all planets for the chosen star
-            for _, n_p in enumerate(np.argwhere(
-                    self.data.catalog.nstar.to_numpy() == nstar)[:, 0]):
-
-                # calculate the photon flux originating from the planet
-                flux_planet_thermal = black_body(mode='planet',
-                                                 bins=self.data.inst['wl_bins'],
-                                                 width=self.data.inst['wl_bin_widths'],
-                                                 temp=self.data.catalog['temp_p'].iloc[n_p],
-                                                 radius=self.data.catalog['radius_p'].iloc[n_p],
-                                                 distance=self.data.catalog['distance_s'].iloc[n_p]
-                                                 )
-
-                # using the time variant of transmission efficiency
-                transm_eff, transm_noise = self.run_socket(s_name='transmission',
-                                                           method='transmission_efficiency_t',
-                                                           index=n_p,
-                                                           time_dependent=time_dependent)
-
-                # calculate the signal and photon noise flux received from the planet
-                flux_planet = flux_planet_thermal \
-                    * transm_eff \
-                    * integration_time \
-                    * self.data.inst['eff_tot'] \
-                    * self.data.inst['telescope_area']
-                noise_planet = flux_planet_thermal \
-                    * transm_noise \
-                    * integration_time \
-                    * self.data.inst['eff_tot'] \
-                    * self.data.inst['telescope_area'] \
-                    * 2
-
-                # Add up the noise and caluclate the SNR
-                noise = noise_bg + noise_planet
-                self.data.catalog.snr_1h.iat[n_p] = np.sqrt(
-                    (flux_planet ** 2 / noise).sum())
+                # save baseline
+                self.data.catalog['baseline'].iat[n_p] = self.data.inst['bl']
 
                 if safe_mode:
                     self.data.catalog.noise_astro.iat[n_p] = [noise_bg]
-                    self.data.catalog.planet_flux_use.iat[n_p] = [flux_planet_thermal
-                                                                  * integration_time
-                                                                  * self.data.inst['eff_tot']
-                                                                  * self.data.inst['telescope_area']]
-
-    def set_rotation(self, rotation_period: float = 1, rotations: int = 1, rotation_steps: int = 360):
-        """
-        rotation period: int
-            time passing for 1 rotation of the instrument in hours
-            then save in bus.data.inst in seconds
-        rotations: int
-            number of rotations the instrument does for its integration
-        rotations_steps: int
-            how many integration steps it calculates in one rotation
-        """
-        self.data.inst["rotation_period"] = 60 * 60 * rotation_period
-        self.data.inst["rotations"] = rotations
-        self.data.inst["integration_time"] = self.data.inst["rotations"] * \
-            self.data.inst["rotation_period"]
-        self.data.inst["rotation_steps"] = rotation_steps
+                    self.data.catalog.planet_flux_use.iat[n_p] = (
+                        [flux_planet_thermal
+                         * integration_time
+                         * self.data.inst['eff_tot']
+                         * self.data.inst['telescope_area']])
+                    self.data.catalog['photon_rate_planet'].iat[n_p] = (flux_planet
+                                                                        / integration_time
+                                                                        / self.data.inst['eff_tot']).sum()
+                    self.data.catalog['photon_rate_noise'].iat[n_p] = (noise
+                                                                       / integration_time
+                                                                       / self.data.inst['eff_tot']).sum()
 
     # TODO: fix units in documentation
     def get_spectrum(self,
@@ -438,51 +344,64 @@ class Instrument(InstrumentModule):
                      z: float,  # in zodis
                      angsep: float,  # in arcsec
                      flux_planet_spectrum: list,  # in ph m-3 s-1 over m
-                     integration_time: float):
+                     integration_time: float,  # in s
+                     pbar=None,
+                     baseline_to_planet: bool = False,
+                     baseline: float = None,
+                     safe_mode: bool = False):
         """
-        Simulates the spectrum of an exoplanet as seen by LIFE array, i.e. with the respective
-        noise terms
+        Calculate the signal-to-noise ratio per spectral bin of a given spectrum of a single
+        planet.
 
         Parameters
         ----------
-        pathtofile : str
-            Path to the .txt file holding the input spectrum. The input spectrum need to be in the
-            units of a photon flux density per micron, i.e. [s^-1 m^-2 microns^-1]
         temp_s : float
-            Temperature of the observed star in [K]
+            Temperature of the observed star in [K].
         radius_s : float
-            Radius of the observed star in [sun radii]
+            Radius of the observed star in [sun radii].
         distance_s : float
-            Distance between the observed star and the LIFE array in [pc]
+            Distance between the observed star and the LIFE array in [pc].
         lat_s : float
-            Ecliptic latitude of the observed star in [rad]
+            Ecliptic latitude of the observed star in [rad].
         z : float
-            Zodi level in the observed system in [zodis]
+            Zodi level in the observed system in [zodis], i.e. the dust surface density of the
+            observed system is z-times as high as in the solar system.
         angsep : float
-            Angular separation between the observed star and the observed exoplanet in [arcsec]
-        radius_p : float
-            Radius of the observed exoplanet in [earth radii]
-        radius_spec : float
-            Radius of the observed exoplanet that was assumed in the creation of the input spectrum
-            in [earth radii]
-        distance_spec : float
-            Distance between the observed star and the observer that was assumed in the creation of
-            the input spectrum in [pc]
+            Angular separation between the observed star and the observed exoplanet in [arcsec].
+        flux_planet_spectrum : list
+            Spectrum of the planet. In the first element of the list `flux_planet_spectrum[0]`, the
+            wavelength bins of the spectrum must be given in [m]. In the second element
+            `flux_planet_spectrum[1]`, the photon count within the spectral bin must be given in
+            [photons m-3 s-1].
         integration_time : float
-            Time that the LIFE array spends for observing the observed planet in [s]
+            Time that the LIFE array spends for integrating on the observed planet in [s].
+        pbar
+            Takes a PyQt5 QProgressBar to display the progress of the baseline optimization.
+        baseline_to_planet : bool
+            If set to True, the baseline will be optimized to the position of the planet. If set
+            to False, the baseline will be optimized to the center of the habitable zone of the
+            host star.
+        baseline : float
+            Specifies a custom baseline. To have an effect, baseline_to_planet must be set to
+            False.
 
         Returns
         -------
         Tuple[wl_bins, snr_spec]
-            Some text
+            Returns the wavelength bins in [m] in the first element and the SNR per wavelength bin
+            in the second element.
         flux_planet
-            Some text
+            Returns the flux of the planet as used in the simulation in [photons]
         noise
-            Some text
+            Returns the noise contribution in [photons]
         """
 
+        # options are applied before the simulation run
         self.apply_options()
 
+        # write the given parameters to the single planet data in the bus. If the connected modules
+        # are given an empty index to specify the star, they will use the data saved in this single
+        # planet location
         self.data.single['temp_s'] = temp_s
         self.data.single['radius_s'] = radius_s
         self.data.single['distance_s'] = distance_s
@@ -499,19 +418,70 @@ class Instrument(InstrumentModule):
 
         self.data.single['l_sun'] = l_sun
 
-        # adjust the baseline of the array to the habitable zone
-        self.adjust_bl_to_hz(hz_center=hz_center,
-                             distance_s=distance_s)
-
-        _, _, self.data.inst['t_map'], _, _ = self.run_socket(s_name='transmission',
-                                                              method='transmission_map',
-                                                              map_selection='tm3')
-
-        # update and run the photon noise plugins
+        # use spectres to rescale the spectrum onto the correct wl bins
+        flux_planet_spectrum_input = flux_planet_spectrum
         flux_planet_spectrum = spectres(new_wavs=self.data.inst['wl_bin_edges'],
                                         spec_wavs=flux_planet_spectrum[0].value,
                                         spec_fluxes=flux_planet_spectrum[1].value,
                                         edge_mode=True)
+
+        # adjust the baseline
+        if baseline_to_planet:
+            # adjust baseline to planet
+            bl = np.linspace(self.data.options.array['bl_min'],
+                             self.data.options.array['bl_max'],
+                             20)
+            snr_analog = np.zeros_like(bl)
+            for i in range(len(bl)):
+                spec_snr, _, _ = self.get_spectrum(temp_s=temp_s,
+                                                   radius_s=radius_s,
+                                                   distance_s=distance_s,
+                                                   lat_s=lat_s,
+                                                   z=z,
+                                                   angsep=angsep,
+                                                   flux_planet_spectrum=flux_planet_spectrum_input,
+                                                   integration_time=integration_time,
+                                                   baseline=bl[i])
+                snr_analog[i] = np.sqrt((spec_snr[1]**2).sum())
+                if pbar is not None:
+                    pbar.setValue(30+i/20*30)
+                    QGuiApplication.processEvents()
+            max_int = np.argmax(snr_analog)
+
+            bl = np.linspace(bl[np.amax((max_int-1, 0))],
+                             bl[np.amin((max_int+1, len(bl)-1))],
+                             20)
+            snr_analog = np.zeros_like(bl)
+            for i in range(len(bl)):
+                spec_snr, _, _ = self.get_spectrum(temp_s=temp_s,
+                                                   radius_s=radius_s,
+                                                   distance_s=distance_s,
+                                                   lat_s=lat_s,
+                                                   z=z,
+                                                   angsep=angsep,
+                                                   flux_planet_spectrum=flux_planet_spectrum_input,
+                                                   integration_time=integration_time,
+                                                   baseline=bl[i])
+                snr_analog[i] = np.sqrt((spec_snr[1] ** 2).sum())
+                if pbar is not None:
+                    pbar.setValue(60+i/20*30)
+                    QGuiApplication.processEvents()
+            self.apply_baseline(baseline=bl[np.argmax(snr_analog)])
+
+        else:
+            if baseline is not None:
+                # set baseline manually
+                self.apply_baseline(baseline=baseline,
+                                    print_warning=True)
+            else:
+                # adjust baseline to HZ
+                self.adjust_bl_to_hz(hz_center=hz_center,
+                                     distance_s=distance_s)
+
+        # calculate the transmission map
+        _, _, self.data.inst['t_map'], _, _ = self.run_socket(s_name='transmission',
+                                                              method='transmission_map',
+                                                              map_selection='tm3')
 
         transm_eff, transm_noise = self.run_socket(s_name='transmission',
                                                    method='transmission_efficiency',
@@ -550,24 +520,11 @@ class Instrument(InstrumentModule):
         noise = (noise_bg + noise_planet) * 2
         snr_spec = np.sqrt((flux_planet ** 2 / noise))
 
-        return ([self.data.inst['wl_bins'], snr_spec],
-                flux_planet,
-                noise)
-
-    def get_transmission_curve(self, index, time_dependent=True):
-        """
-        Help function to simulate and extract the modulation signal.
-        index: int 
-            index of the planet in the currently loaded catalog 
-        """
-        self.apply_options()
-        if time_dependent:
-            if "rotation_period" in self.data.inst is False:
-                self.set_rotation()
-                print("no rotation set")
-        self.adjust_bl_to_hz(hz_center=float(self.data.catalog.hz_center.iloc[index]),
-                             distance_s=float(self.data.catalog.distance_s.iloc[index]))
-        return self.run_socket(s_name='transmission',
-                               method='get_transmission_curve',
-                               index=index,
-                               time_dependent=time_dependent)
+        if not safe_mode:
+            return ([self.data.inst['wl_bins'], snr_spec],
+                    flux_planet,
+                    noise)
+        else:
+            return ([self.data.inst['wl_bins'], snr_spec],
+                    flux_planet,
+                    [noise, noise_bg_list])

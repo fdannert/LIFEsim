@@ -10,25 +10,21 @@ spectral measurement potential of LIFE.
 Documentation
 -------------
 
-The LIFEsim documentation can be found on TODO
+The LIFEsim documentation can be found here:
+`https://lifesim.readthedocs.io/ <https://lifesim.readthedocs.io/>`_
 
 
 Web Site
 --------
 
-Please visit the |Life| to learn more about the LIFE mission.
+Please visit the `LIFE website <https://www.life-space-mission.com/>`_  to learn more about the
+LIFE mission.
 
 
 Attribution
 -----------
 
-If you use LIFEsim in your work, please cite ... TODO
-
-
-Contributing
-------------
-
-TODO
+If you use LIFEsim in your work, please cite Ottiger et al., 2021.
 
 
 License
@@ -36,9 +32,5 @@ License
 
 Copyright 2019-2020 Felix Dannert, Maurice Ottiger, Sascha Quanz and contributors.
 
-LIFEsim is distributed under the GNU General Public License v3. See the LICENSE file for the terms and conditions.
-
-
-.. |Life| raw:: html
-
-   <a href="https://www.life-space-mission.com/" target="_blank">LIFE website</a>
+LIFEsim is distributed under the GNU General Public License v3. See the LICENSE file for the terms
+and conditions.

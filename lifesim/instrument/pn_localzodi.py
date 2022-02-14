@@ -7,53 +7,75 @@ from lifesim.util.radiation import black_body
 
 
 class PhotonNoiseLocalzodi(PhotonNoiseModule):
+    """
+    This class simulates the noise contribution of the thermal localzodical dust to the
+    interferometric measurement of LIFE.
+    """
+
     def __init__(self,
                  name: str):
+        """
+        Parameters
+        ----------
+        name : str
+            Name of the module.
+        """
+
         super().__init__(name=name)
 
     def noise(self,
               index: Union[int, type(None)]):
         """
-        Simulates the amount of photon noise originating from the exozodi of the observed system
-        leaking into the LIFE array measurement
+        Simulates the amount of photon noise originating from the localzodi leaking into the LIFE
+        array measurement.
 
         Parameters
         ----------
-        image_size : int
-            Number of pixels on one axis of a square detector (dimensionless). I.e. for a 512x512
-            detector this value is 512
-        telescope_area : float
-            Area of all array apertures combined in [m^2]
-        radius_map : np.ndarray
-            Contains the distance of a pixel from the center of the detector in [pix]
-        wl_bins : np.ndarray
-            Central values of the spectral bins in the wavelength regime in [m]
-        wl_bin_widths : np.ndarray
-            Widths of the spectral wavelength bins in [m]
-        t_map : np.ndarray
-            Transmission map of the TM3 mode of the array created by the
-            lifesim.TransmissionMap module
-        lz_model : str
-            Specifies which localzodi model will be used
-        lat_s : str
-            Ecliptic latitude of the observed star in [rad]
-        hfov : np.ndarray
-            Contains the half field of view of the observatory in [rad] for each of the spectral bins
+        index: Union[int, type(None)]
+            Specifies the planet for which to calculate the noise contribution. If an integer n is
+            given, the noise will be calculated for the n-th row in the `data.catalog`. If `None`
+            is given, the noise is caluculated for the parameters located in `data.single`.
 
         Returns
         -------
         lz_leak
-            Localzodi leakage in [s^-1] per wavelength bin
+            Localzodi leakage in [photon s-1] per wavelength bin.
+
+        Notes
+        -----
+        All of the following parameters are needed for the calculation of the localzodi noise
+        contribution and should be specified either in `data.catalog` or in `data.single`.
+
+        lat_s : str
+            Ecliptic latitude of the observed star in [rad].
+        data.options.models['localzodi'] : str
+            Specifies which localzodi model will be used.
+        data.inst['radius_map'] : np.ndarray
+            Contains the distance of a pixel from the center of the detector in [pix].
+        data.options.other['image_size']
+            Number of pixels on one axis of a square detector (dimensionless). I.e. for a 512x512
+            detector this value is 512.
+        data.inst['wl_bins'] : np.ndarray
+            Central values of the spectral bins in the wavelength regime in [m].
+        data.inst['wl_widths'] : np.ndarray
+            Widths of the spectral wavelength bins in [m].
+        data.inst['hfov'] : np.ndarray
+            Contains the half field of view of the observatory in [rad] for each of the spectral
+            bins.
+        data.inst['t_map'] : np.ndarray
+            Transmission map of the TM3 mode of the array created by the
+            lifesim.TransmissionMap module.
+        data.inst['telescope_area'] : float
+            Area of all array apertures combined in [m^2].
 
         Raises
-        ______
-
+        ------
         ValueError
-            If the specified localzodi model does not exits
+            If the specified localzodi model does not exits.
         """
+
         # TODO Implement longitude dependence of localzodi
         # TODO Find model after which this is calculated and reference
-        # TODO complete comments
 
         if index is None:
             lat_s = self.data.single['lat']
@@ -65,12 +87,15 @@ class PhotonNoiseLocalzodi(PhotonNoiseModule):
                 or (self.data.options.models['localzodi'] == 'darwinsim')):
             raise ValueError('Specified model does not exist')
 
+        # fix the longitude of the observation. Since the simulation is static in time (planets not
+        # moving), the longitude is fixed
         long = 3 / 4 * np.pi
         lat = lat_s
 
         ap = np.where(self.data.inst['radius_map']
                       <= self.data.options.other['image_size'] / 2, 1, 0)
 
+        # calculate the localzodi flux depending on the correct model
         if self.data.options.models['localzodi'] == 'glasse':
             temp = 270
             epsilon = 4.30e-8
@@ -79,7 +104,7 @@ class PhotonNoiseLocalzodi(PhotonNoiseModule):
                                               width=self.data.inst['wl_bin_widths'],
                                               temp=temp)
 
-        elif self.data.options.models['localzodi'] == 'darwinsim':
+        else:
             radius_sun_au = 0.00465047  # in AU
             tau = 4e-8
             temp_eff = 265
@@ -103,6 +128,7 @@ class PhotonNoiseLocalzodi(PhotonNoiseModule):
 
         lz_flux = lz_flux_sr * (np.pi * self.data.inst['hfov'] ** 2)
 
+        # calculate the leakage contribution to the measurement
         lz_leak = (ap * self.data.inst['t_map']).sum(axis=(-2, -1)) / ap.sum() * lz_flux \
                   * self.data.inst['telescope_area']
 

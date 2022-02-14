@@ -4,14 +4,34 @@ import warnings
 import numpy as np
 import pandas as pd
 from astropy.io import fits
-from astropy.table import Table
 from astropy.coordinates import SkyCoord, BarycentricMeanEcliptic
 
 from lifesim.util.options import Options
 from lifesim.util.habitable import single_habitable_zone
 
 
+# TODO: automatically add data storage for all
 class Data(object):
+    """
+    The data class is the central storage class for catalogs, options, parameters and data. Any
+    data used in simulations should be stored in this class. Via the bus, access to the data class
+    is given to all modules.
+
+    Attributes
+    ----------
+    inst : dict
+        Data used for simulation of the instrument.
+    catalog : pd.DataFrame
+        Catalog containing all exoplanets in the sample.
+    single : dict
+        Data used for the spectral simulation of single exoplanets.
+    other : dict
+        Data storage for any other pertinent data.
+    options : Options
+        Location of the Options class. All options and free parameters used in a LIFEsim simulation
+        must be stored here.
+    """
+
     def __init__(self):
         self.inst = {}
         self.catalog = None
@@ -25,17 +45,25 @@ class Data(object):
 
     def catalog_from_ppop(self,
                           input_path: str,
-                          override: bool = False):
-        """Read the contents of the P-Pop output file (in .txt or .fits format) to a catalog
+                          overwrite: bool = False):
+        """
+        Read the contents of the P-Pop output file (in .txt or .fits format) to a catalog.
 
         Parameters
         ----------
         input_path : str
-            path to the P-Pop output file in a .txt or .fits format
+            Path to the P-Pop output file in a .txt or .fits format.
+        overwrite : bool
+            If set to true, existing catalogs can overwritten.
+
+        Raises
+        ------
+        ValueError
+            If the data class already has an initialized catalog and overwrite is set to False.
         """
 
         # make sure that no catalog exists
-        if (self.catalog is not None) and (not override):
+        if (self.catalog is not None) and (not overwrite):
             raise ValueError('A catalog has already been imported. Delete the old catalog or set '
                              'overwrite=True')
 
@@ -128,8 +156,10 @@ class Data(object):
             col_small_omega_p = np.where(np.array(tempLine) == 'omegap')[0][0]
             col_theta_p = np.where(np.array(tempLine) == 'thetap')[0][0]
             col_albedo_bond = np.where(np.array(tempLine) == 'Abond')[0][0]
-            col_albedo_geom_vis = np.where(np.array(tempLine) == 'AgeomVIS')[0][0]
-            col_albedo_geom_mir = np.where(np.array(tempLine) == 'AgeomMIR')[0][0]
+            col_albedo_geom_vis = np.where(
+                np.array(tempLine) == 'AgeomVIS')[0][0]
+            col_albedo_geom_mir = np.where(
+                np.array(tempLine) == 'AgeomMIR')[0][0]
             col_z = np.where(np.array(tempLine) == 'z')[0][0]
             col_semimajor_p = np.where(np.array(tempLine) == 'ap')[0][0]
             col_sep_p = np.where(np.array(tempLine) == 'rp')[0][0]
@@ -150,7 +180,8 @@ class Data(object):
             for i, line in enumerate(table_lines[2:]):
 
                 if (i % 10000) == 0:
-                    sys.stdout.write('\rProcessed line %.0f of %.0f' % (i, nlines))
+                    sys.stdout.write(
+                        '\rProcessed line %.0f of %.0f' % (i, nlines))
                     sys.stdout.flush()
 
                 tempLine = line.split('\t')
@@ -183,9 +214,17 @@ class Data(object):
                 ra += [float(tempLine[col_ra])]  # deg
                 dec += [float(tempLine[col_dec])]  # deg
 
-            sys.stdout.write('\rProcessed line %.0f of %.0f' % (nlines, nlines))
+            sys.stdout.write('\rProcessed line %.0f of %.0f' %
+                             (nlines, nlines))
             sys.stdout.flush()
             print('')
+
+            # TODO: Move the stype to char
+            # convert stellar type to int
+            stype = np.array(stype)
+            stype_int = np.zeros_like(stype, dtype=int)
+            for _, k in enumerate(self.other['stype_key'].keys()):
+                stype_int[stype == k] = self.other['stype_key'][k]
 
             # save the data to the pandas DataFrame
             self.catalog['nuniverse'] = np.array(nuniverse).astype(int)
@@ -213,7 +252,7 @@ class Data(object):
             self.catalog['mass_s'] = np.array(mass_s)
             self.catalog['temp_s'] = np.array(temp_s)
             self.catalog['distance_s'] = np.array(distance_s)
-            self.catalog['stype'] = np.array(stype)
+            self.catalog['stype'] = stype_int
             self.catalog['ra'] = np.array(ra)
             self.catalog['dec'] = np.array(dec)
             self.catalog['id'] = np.arange(0, len(dec), 1)
@@ -223,7 +262,8 @@ class Data(object):
             hdu = fits.open(input_path)
             stype_int = np.zeros_like(hdu[1].data.Nstar.astype(int), dtype=int)
             for _, k in enumerate(self.other['stype_key'].keys()):
-                stype_int[hdu[1].data.Stype.astype(str) == k] = self.other['stype_key'][k]
+                stype_int[hdu[1].data.Stype.astype(str)
+                          == k] = self.other['stype_key'][k]
 
             # save the data to the pandas DataFrame, make sure it is saved in the correct type
             # some errors were produced here by not respecting the endianess of the data (numpy
@@ -264,18 +304,21 @@ class Data(object):
         # create array saving the stellar types in character format
         self.other['stype'] = np.zeros_like(self.catalog.nstar, dtype=str)
         for _, k in enumerate(self.other['stype_key']):
-            self.other['stype'][self.catalog.stype == self.other['stype_key'][k]] = k
+            self.other['stype'][self.catalog.stype ==
+                                self.other['stype_key'][k]] = k
 
         # create mask returning only unique stars
         _, temp = np.unique(self.catalog.nstar, return_index=True)
         star_mask = np.zeros_like(self.catalog.nstar, dtype=bool)
         star_mask[temp] = True
 
-        # transform from equitorial to ecliptic coordinated
-        # coord = SkyCoord(self.catalog.ra, self.catalog.dec, frame='icrs', unit='deg')
-        # coord_ec = coord.transform_to(BarycentricMeanEcliptic())
-        # self.catalog['lon'] = np.array(coord_ec.lon.radian)
-        # self.catalog['lat'] = np.array(coord_ec.lat.radian)
+        # TODO: why is this commented out? AFAIK P-Pop uses equitorial coordinates
+        # transform from equitorial to ecliptic coordinates
+        coord = SkyCoord(self.catalog.ra, self.catalog.dec,
+                         frame='icrs', unit='deg')
+        coord_ec = coord.transform_to(BarycentricMeanEcliptic())
+        self.catalog['lon'] = np.array(coord_ec.lon.radian)
+        self.catalog['lat'] = np.array(coord_ec.lat.radian)
 
         # add the inner/ outer edges and centers of the habitable zone
         s_in = np.zeros_like(self.catalog.nstar, dtype=float)
@@ -288,11 +331,11 @@ class Data(object):
 
         for _, n in enumerate(np.where(star_mask)[0]):
             s_in[self.catalog.nstar == self.catalog.nstar[n]], \
-            s_out[self.catalog.nstar == self.catalog.nstar[n]], \
-            l_sun[self.catalog.nstar == self.catalog.nstar[n]], \
-            hz_in[self.catalog.nstar == self.catalog.nstar[n]], \
-            hz_out[self.catalog.nstar == self.catalog.nstar[n]], \
-            hz_center[self.catalog.nstar == self.catalog.nstar[n]] \
+                s_out[self.catalog.nstar == self.catalog.nstar[n]], \
+                l_sun[self.catalog.nstar == self.catalog.nstar[n]], \
+                hz_in[self.catalog.nstar == self.catalog.nstar[n]], \
+                hz_out[self.catalog.nstar == self.catalog.nstar[n]], \
+                hz_center[self.catalog.nstar == self.catalog.nstar[n]] \
                 = single_habitable_zone(model=self.options.models['habitable'],
                                         temp_s=self.catalog.temp_s[n],
                                         radius_s=self.catalog.radius_s[n])
@@ -309,35 +352,32 @@ class Data(object):
             (self.catalog['radius_p'].ge(0.5)).to_numpy(),
             (self.catalog['radius_p'].le(1.5)).to_numpy()))
 
-    # TODO: Definition of stype here is wrong. It should be an int not a string. But this is stupid
-    #   change it back!
+    # TODO: Definition of stype here is wrong. It should be an int not a string.
+    #   Think about this a bit more. It is important to keep the ints in the DataFrame, but that
+    #   decreases usability. Maybe an option is to use intermediate masks for the stellar types.
     def catalog_remove_distance(self,
-                                stype: str,
+                                stype: int,
                                 dist: float,
                                 mode: str):
         """
         Removes planets around stellar type above or below a certain distance from the sample. A
-        warning is raise if the mode is not recognized
+        warning is raise if the mode is not recognized.
 
         Parameters
         ----------
-        stype : str
+        stype : int
             Planets around stars of the specified stellar type are removed. Possible options are
-            'A', 'F', 'G', 'K', 'M'
+            `0` for A-stars, `1` for F-stars, `2` for G-stars, `3` for K-stars and `4` for M-stars.
         dist : float
-            Specifies the distance over or under which the planets are removed in pc
+            Specifies the distance over or under which the planets are removed in pc.
         mode : str
             'larger':   planets around stars with distances larger than the specified distance are
-                        removed
+                        removed.
             'smaller':  planets around stars with distances smaller than the specified distance are
-                        removed
-        Raises
-        ------
-        ValueError
-            If the given stellar type is not valid (i.e. is not equal to 'A, F, G, K or M')
+                        removed.
         """
 
-        # TODO: Reinstate, hat to be remove because of the stype string/int thing
+        # TODO: Reinstate this check once the int/sting problem is resolved.
         # check if stellar type is valid
         # if not np.isin(stype, np.array(('A', 'F', 'G', 'K', 'M'))):
         #     raise ValueError('Stellar type not recognised')
@@ -350,7 +390,8 @@ class Data(object):
             mask = np.logical_and(self.catalog.stype == stype,
                                   self.catalog.distance_s <= dist)
         else:
-            warnings.warn('Mode ' + mode + ' not available. Using mode larger.')
+            warnings.warn('Mode ' + mode +
+                          ' not available. Using mode larger.')
             mask = np.logical_and(self.catalog.stype == stype,
                                   self.catalog.distance_s >= dist)
 
@@ -363,14 +404,14 @@ class Data(object):
                          data: np.ndarray):
         """
         Add data to the catalog while making sure that none of the catalogs vital properties are
-        disrespected and that no data is deleted
+        disrespected and that no data is deleted.
 
         Parameters
         ----------
         name : str
-            Name key of the data in the pandas DataFrame
+            Name key of the data in the pandas DataFrame.
         data : np.ndarray
-            The data added to the catalog
+            The data added to the catalog.
 
         Raises
         ------
@@ -390,6 +431,19 @@ class Data(object):
 
     def export_catalog(self,
                        output_path: str):
+        """
+        Save the catalog to an file in the hdf-format.
+
+        Parameters
+        ----------
+        output_path : str
+            path to the new file.
+
+        Raises
+        ------
+        ValueError
+            If not catalog exists in this data class.
+        """
         if self.catalog is None:
             raise ValueError('No catalog found')
         self.catalog.to_hdf(path_or_buf=output_path, key='catalog', mode='w')
@@ -397,9 +451,23 @@ class Data(object):
     def import_catalog(self,
                        input_path: str,
                        overwrite: bool = False):
+        """
+        Import catalog from external file of hdf-format.
+
+        Parameters
+        ----------
+        input_path : str
+            path to the P-Pop output file in a .txt or .fits format.
+        overwrite : bool
+            if set to true, existing catalogs can overwritten.
+
+        Raises
+        ------
+        ValueError
+            If the data class already has an initialized catalog and overwrite is set to False.
+        """
         if (self.catalog is not None) and (not overwrite):
             raise ValueError('Can not overwrite existing catalog')
 
         self.catalog = pd.read_hdf(path_or_buf=input_path,
                                    key='catalog')
-
