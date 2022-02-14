@@ -210,7 +210,8 @@ class TransmissionMap(TransmissionModule):
          transm_curve_tm4,
          transm_curve_chop) = self.transmission_map(map_selection=['tm4', 'tm_chop'],
                                                     direct_mode=True,
-                                                    d_alpha=angsep_rad * np.cos(phi_lin),
+                                                    d_alpha=angsep_rad *
+                                                    np.cos(phi_lin),
                                                     d_beta=angsep_rad * np.sin(phi_lin))
 
         return transm_curve_chop, transm_curve_tm4

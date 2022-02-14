@@ -4,7 +4,6 @@ import warnings
 import numpy as np
 import pandas as pd
 from astropy.io import fits
-from astropy.table import Table
 from astropy.coordinates import SkyCoord, BarycentricMeanEcliptic
 
 from lifesim.util.options import Options
@@ -32,6 +31,7 @@ class Data(object):
         Location of the Options class. All options and free parameters used in a LIFEsim simulation
         must be stored here.
     """
+
     def __init__(self):
         self.inst = {}
         self.catalog = None
@@ -156,8 +156,10 @@ class Data(object):
             col_small_omega_p = np.where(np.array(tempLine) == 'omegap')[0][0]
             col_theta_p = np.where(np.array(tempLine) == 'thetap')[0][0]
             col_albedo_bond = np.where(np.array(tempLine) == 'Abond')[0][0]
-            col_albedo_geom_vis = np.where(np.array(tempLine) == 'AgeomVIS')[0][0]
-            col_albedo_geom_mir = np.where(np.array(tempLine) == 'AgeomMIR')[0][0]
+            col_albedo_geom_vis = np.where(
+                np.array(tempLine) == 'AgeomVIS')[0][0]
+            col_albedo_geom_mir = np.where(
+                np.array(tempLine) == 'AgeomMIR')[0][0]
             col_z = np.where(np.array(tempLine) == 'z')[0][0]
             col_semimajor_p = np.where(np.array(tempLine) == 'ap')[0][0]
             col_sep_p = np.where(np.array(tempLine) == 'rp')[0][0]
@@ -178,7 +180,8 @@ class Data(object):
             for i, line in enumerate(table_lines[2:]):
 
                 if (i % 10000) == 0:
-                    sys.stdout.write('\rProcessed line %.0f of %.0f' % (i, nlines))
+                    sys.stdout.write(
+                        '\rProcessed line %.0f of %.0f' % (i, nlines))
                     sys.stdout.flush()
 
                 tempLine = line.split('\t')
@@ -211,7 +214,8 @@ class Data(object):
                 ra += [float(tempLine[col_ra])]  # deg
                 dec += [float(tempLine[col_dec])]  # deg
 
-            sys.stdout.write('\rProcessed line %.0f of %.0f' % (nlines, nlines))
+            sys.stdout.write('\rProcessed line %.0f of %.0f' %
+                             (nlines, nlines))
             sys.stdout.flush()
             print('')
 
@@ -258,7 +262,8 @@ class Data(object):
             hdu = fits.open(input_path)
             stype_int = np.zeros_like(hdu[1].data.Nstar.astype(int), dtype=int)
             for _, k in enumerate(self.other['stype_key'].keys()):
-                stype_int[hdu[1].data.Stype.astype(str) == k] = self.other['stype_key'][k]
+                stype_int[hdu[1].data.Stype.astype(str)
+                          == k] = self.other['stype_key'][k]
 
             # save the data to the pandas DataFrame, make sure it is saved in the correct type
             # some errors were produced here by not respecting the endianess of the data (numpy
@@ -299,7 +304,8 @@ class Data(object):
         # create array saving the stellar types in character format
         self.other['stype'] = np.zeros_like(self.catalog.nstar, dtype=str)
         for _, k in enumerate(self.other['stype_key']):
-            self.other['stype'][self.catalog.stype == self.other['stype_key'][k]] = k
+            self.other['stype'][self.catalog.stype ==
+                                self.other['stype_key'][k]] = k
 
         # create mask returning only unique stars
         _, temp = np.unique(self.catalog.nstar, return_index=True)
@@ -308,7 +314,8 @@ class Data(object):
 
         # TODO: why is this commented out? AFAIK P-Pop uses equitorial coordinates
         # transform from equitorial to ecliptic coordinates
-        coord = SkyCoord(self.catalog.ra, self.catalog.dec, frame='icrs', unit='deg')
+        coord = SkyCoord(self.catalog.ra, self.catalog.dec,
+                         frame='icrs', unit='deg')
         coord_ec = coord.transform_to(BarycentricMeanEcliptic())
         self.catalog['lon'] = np.array(coord_ec.lon.radian)
         self.catalog['lat'] = np.array(coord_ec.lat.radian)
@@ -324,11 +331,11 @@ class Data(object):
 
         for _, n in enumerate(np.where(star_mask)[0]):
             s_in[self.catalog.nstar == self.catalog.nstar[n]], \
-            s_out[self.catalog.nstar == self.catalog.nstar[n]], \
-            l_sun[self.catalog.nstar == self.catalog.nstar[n]], \
-            hz_in[self.catalog.nstar == self.catalog.nstar[n]], \
-            hz_out[self.catalog.nstar == self.catalog.nstar[n]], \
-            hz_center[self.catalog.nstar == self.catalog.nstar[n]] \
+                s_out[self.catalog.nstar == self.catalog.nstar[n]], \
+                l_sun[self.catalog.nstar == self.catalog.nstar[n]], \
+                hz_in[self.catalog.nstar == self.catalog.nstar[n]], \
+                hz_out[self.catalog.nstar == self.catalog.nstar[n]], \
+                hz_center[self.catalog.nstar == self.catalog.nstar[n]] \
                 = single_habitable_zone(model=self.options.models['habitable'],
                                         temp_s=self.catalog.temp_s[n],
                                         radius_s=self.catalog.radius_s[n])
@@ -383,7 +390,8 @@ class Data(object):
             mask = np.logical_and(self.catalog.stype == stype,
                                   self.catalog.distance_s <= dist)
         else:
-            warnings.warn('Mode ' + mode + ' not available. Using mode larger.')
+            warnings.warn('Mode ' + mode +
+                          ' not available. Using mode larger.')
             mask = np.logical_and(self.catalog.stype == stype,
                                   self.catalog.distance_s >= dist)
 
@@ -463,4 +471,3 @@ class Data(object):
 
         self.catalog = pd.read_hdf(path_or_buf=input_path,
                                    key='catalog')
-
