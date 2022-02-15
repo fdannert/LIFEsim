@@ -23,8 +23,8 @@ class PhotonNoiseLocalzodi(PhotonNoiseModule):
 
         super().__init__(name=name)
 
-    def noise(self,
-              index: Union[int, type(None)]):
+    def noise_star(self,
+                   index: Union[int, type(None)]):
         """
         Simulates the amount of photon noise originating from the localzodi leaking into the LIFE
         array measurement.
@@ -130,9 +130,17 @@ class PhotonNoiseLocalzodi(PhotonNoiseModule):
 
         # calculate the leakage contribution to the measurement
         # TODO: is the lz_leakage attenuated by the interferometer? Prob. not because it is diffuse radiation
-        # lz_leak = (ap * self.data.inst['t_map']).sum(axis=(-2, -1)) / ap.sum() * lz_flux \
-        #           * self.data.inst['telescope_area']
+        lz_leak = (ap * self.data.inst['t_map']).sum(axis=(-2, -1)) / ap.sum() * lz_flux \
+                  * self.data.inst['telescope_area']
 
-        lz_leak = lz_flux * self.data.inst['telescope_area']
+        # lz_leak = lz_flux * self.data.inst['telescope_area']
 
         return lz_leak
+
+    def noise_universe(self,
+                       index: Union[int, type(None)]):
+        return np.zeros_like(self.data.inst['wl_bins'])
+
+    def noise(self,
+              index: Union[int, type(None)]):
+        return self.noise_star(index=index)

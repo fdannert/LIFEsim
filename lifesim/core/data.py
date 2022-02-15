@@ -441,9 +441,13 @@ class Data(object):
             raise ValueError('No catalog found')
         self.catalog.to_hdf(path_or_buf=output_path, key='catalog', mode='w')
 
+        if self.noise_catalog is not None:
+            self.noise_catalog.to_hdf(path_or_buf=output_path[-5] + '_noise.hdf5', key='noise_catalog', mode='w')
+
     def import_catalog(self,
                        input_path: str,
-                       overwrite: bool = False):
+                       overwrite: bool = False,
+                       noise_catalog: bool = False):
         """
         Import catalog from external file of hdf-format.
 
@@ -464,6 +468,10 @@ class Data(object):
 
         self.catalog = pd.read_hdf(path_or_buf=input_path,
                                    key='catalog')
+
+        if noise_catalog:
+            self.noise_catalog = pd.read_hdf(path_or_buf=input_path[-5] + '_noise.hdf5',
+                                             key='noise_catalog')
 
     def noise_catalog_from_catalog(self):
         self.noise_catalog = pd.DataFrame(columns=['signal',  # planet signal

@@ -25,8 +25,8 @@ class PhotonNoiseStar(PhotonNoiseModule):
         self.add_socket(s_name='transmission_star',
                         s_type=TransmissionModule)
 
-    def noise(self,
-              index: Union[int, type(None)]):
+    def noise_star(self,
+                   index: Union[int, type(None)]):
         """
         Simulates the amount of photon noise originating from the star of the observed system
         leaking into the LIFE array measurement.
@@ -114,3 +114,11 @@ class PhotonNoiseStar(PhotonNoiseModule):
                        mode='star') * self.data.inst['telescope_area']
 
         return sl_leak
+
+    def noise_universe(self,
+                       index: Union[int, type(None)]):
+        return np.zeros_like(self.data.inst['wl_bins'])
+
+    def noise(self,
+              index: Union[int, type(None)]):
+        return self.noise_star(index=index)

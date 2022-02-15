@@ -54,6 +54,7 @@ class InstrumentPrt(InstrumentModule):
         integration_time = 60 * 60
 
         self.data.catalog['snr_1h'] = np.zeros_like(self.data.catalog.nstar, dtype=float)
+        self.data.catalog['snr_1h_fundamental'] = np.zeros_like(self.data.catalog.nstar, dtype=float)
         self.data.catalog['baseline'] = np.zeros_like(self.data.catalog.nstar, dtype=float)
         if safe_mode:
             self.data.noise_catalog_from_catalog()
@@ -81,6 +82,7 @@ class InstrumentPrt(InstrumentModule):
                 # ----- static parameters -----
                 wl_bins=self.data.inst['wl_bins'],  # wavelength bins center position in m
                 wl_bin_widths=self.data.inst['wl_bin_widths'],  # wavelength bin widhts in m
+                integration_time=integration_time,
                 image_size=self.data.options.other['image_size'],  # size of image used to simulate exozodi in pix
                 diameter_ap=self.data.options.array['diameter'],  # diameter of the primary mirrors in m
                 flux_division=self.data.options.array['flux_division'],
@@ -125,12 +127,12 @@ class InstrumentPrt(InstrumentModule):
                 flux_planet=None,  # substitute flux input in ph m-2 s-1
                 simultaneous_chopping=True,
                 # ----- parameters change with star -----
-                dist_star=self.data.catalog.distance_s.iloc[nstar],  # distance to the target system in pc
-                radius_star=self.data.catalog.radius_s.iloc[nstar],  # radius of the star in stellar radii
-                temp_star=self.data.catalog.temp_s.iloc[nstar],  # temperature of the host star in Kelvin
-                lat_star=self.data.catalog.lat.iloc[nstar],  # ecliptic latitude of the target star
-                l_sun=self.data.catalog.l_sun.iloc[nstar],  # stellar luminosity in solar luminosities
-                z=self.data.catalog.z.iloc[nstar],
+                dist_star=self.data.catalog.distance_s.iloc[n],  # distance to the target system in pc
+                radius_star=self.data.catalog.radius_s.iloc[n],  # radius of the star in stellar radii
+                temp_star=self.data.catalog.temp_s.iloc[n],  # temperature of the host star in Kelvin
+                lat_star=self.data.catalog.lat.iloc[n],  # ecliptic latitude of the target star
+                l_sun=self.data.catalog.l_sun.iloc[n],  # stellar luminosity in solar luminosities
+                z=self.data.catalog.z.iloc[n],
                 # zodi level: the exozodi dust is z-times denser than the localzodi dust
                 col_pos=col_pos,  # collector position in m
                 # ----- parameters change with planet -----
@@ -172,10 +174,11 @@ class InstrumentPrt(InstrumentModule):
                                        self.data.catalog.nuniverse.to_numpy() == nuniverse))[:, 0]):
                     inst.temp_planet = self.data.catalog['temp_p'].iloc[n_p]
                     inst.radius_planet = self.data.catalog['radius_p'].iloc[n_p]
-                    inst.separation_planet = self.data.catalog['sep_p'].iloc[n_p]
+                    inst.separation_planet = (self.data.catalog['angsep'].iloc[n_p]
+                                              * self.data.catalog['distance_s'].iloc[n_p])
 
                     # ----- must be repeated for every planet -----
-                    inst.create_planet()
+                    inst.create_planet(force=True)
                     inst.planet_signal()
 
                     if (inst.chopping == 'nchop'):
@@ -188,14 +191,22 @@ class InstrumentPrt(InstrumentModule):
 
                     # save snr results
                     if (inst.chopping == 'nchop'):
-                        self.data.catalog.snr_1h.iat[n_p] = (np.sqrt((inst.photon_rates.loc['snr', 'nchop'] ** 2).sum())
-                                                             * np.sqrt(integration_time))
+                        self.data.catalog.snr_1h.iat[n_p] = (np.sqrt(
+                            (inst.photon_rates.loc['snr', 'nchop'] ** 2).sum()))
+                        self.data.catalog.snr_1h_fundamental.iat[n_p] = (
+                                np.sqrt(((inst.photon_rates.loc['signal', 'nchop']
+                                          / inst.photon_rates.loc['fundamental', 'nchop']) ** 2).sum()))
                     else:
-                        self.data.catalog.snr_1h.iat[n_p] = (np.sqrt((inst.photon_rates.loc['snr', 'chop'] ** 2).sum())
-                                                             * np.sqrt(integration_time))
+                        self.data.catalog.snr_1h.iat[n_p] = (np.sqrt((inst.photon_rates.loc['snr', 'chop'] ** 2).sum()))
+                        self.data.catalog.snr_1h_fundamental.iat[n_p] = (
+                                np.sqrt(((inst.photon_rates.loc['signal', 'chop']
+                                          / inst.photon_rates.loc['fundamental', 'chop']) ** 2).sum()))
 
                     if safe_mode:
-                        self.data.noise_catalog.loc[self.data.catalog['id'].iloc[n_p]] = inst.photon_rates.loc['nchop']
+                        if (inst.chopping == 'nchop'):
+                            self.data.noise_catalog.loc[self.data.catalog['id'].iloc[n_p]] = inst.photon_rates.nchop
+                        else:
+                            self.data.noise_catalog.loc[self.data.catalog['id'].iloc[n_p]] = inst.photon_rates.chop
 
     def get_spectrum(self,
                      temp_s: float,  # in K
@@ -206,7 +217,7 @@ class InstrumentPrt(InstrumentModule):
                      angsep: float,  # in arcsec
                      flux_planet_spectrum: list,  # in ph m-3 s-1 over m
                      integration_time: float,  # in s
-                     pbar=None,
+                     pbar: bool = None,
                      baseline_to_planet: bool = False,
                      baseline: float = None,
                      safe_mode: bool = False):
@@ -253,6 +264,7 @@ class InstrumentPrt(InstrumentModule):
             # ----- static parameters -----
             wl_bins=self.data.inst['wl_bins'],  # wavelength bins center position in m
             wl_bin_widths=self.data.inst['wl_bin_widths'],  # wavelength bin widhts in m
+            integration_time=integration_time,
             image_size=self.data.options.other['image_size'],  # size of image used to simulate exozodi in pix
             diameter_ap=self.data.options.array['diameter'],  # diameter of the primary mirrors in m
             flux_division=self.data.options.array['flux_division'],
@@ -270,9 +282,9 @@ class InstrumentPrt(InstrumentModule):
             # number of sampling points per array rotation
             detector_dark_current='manual',
             # detector type, 'MIRI' or 'manual'. Specify dark_current_pix in 'manual'
-            dark_current_pix=0.,  # detector dark current in electrons s-1 px-1
+            dark_current_pix=1e-4,  # detector dark current in electrons s-1 px-1
             detector_thermal='MIRI',  # detector type, 'MIRI'
-            det_temp=0.,  # temperature of the detector environment in K
+            det_temp=11.,  # temperature of the detector environment in K
             magnification=15.73,  # telescope magnification
             f_number=20.21,  # telescope f-number, i.e. ratio of focal length to aperture size
             secondary_primary_ratio=0.114,  # ratio of secondary to primary mirror sizes
@@ -281,7 +293,7 @@ class InstrumentPrt(InstrumentModule):
             pink_noise_co=10000,  # cutoff frequency for the pink noise spectra
             n_cpu=1,  # number of cores used in the simulation
             rms_mode='lay',  # mode for rms values, 'lay', 'static', 'wavelength'
-            agnostic_mode=True,  # derive instrumental photon noise from agnostic mode
+            agnostic_mode=False,  # derive instrumental photon noise from agnostic mode
             eps_cold=0.,  # scaling constant for cold agnostic photon noise spectrum
             eps_hot=0.,  # scaling constant for hot agnostic photon noise spectrum
             eps_white=0.,  # scaling constant white agnostic photon noise spectrum
