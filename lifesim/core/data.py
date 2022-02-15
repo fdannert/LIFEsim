@@ -331,14 +331,14 @@ class Data(object):
 
         for _, n in enumerate(np.where(star_mask)[0]):
             s_in[self.catalog.nstar == self.catalog.nstar[n]], \
-                s_out[self.catalog.nstar == self.catalog.nstar[n]], \
-                l_sun[self.catalog.nstar == self.catalog.nstar[n]], \
-                hz_in[self.catalog.nstar == self.catalog.nstar[n]], \
-                hz_out[self.catalog.nstar == self.catalog.nstar[n]], \
-                hz_center[self.catalog.nstar == self.catalog.nstar[n]] \
-                = single_habitable_zone(model=self.options.models['habitable'],
-                                        temp_s=self.catalog.temp_s[n],
-                                        radius_s=self.catalog.radius_s[n])
+            s_out[self.catalog.nstar == self.catalog.nstar[n]], \
+            l_sun[self.catalog.nstar == self.catalog.nstar[n]], \
+            hz_in[self.catalog.nstar == self.catalog.nstar[n]], \
+            hz_out[self.catalog.nstar == self.catalog.nstar[n]], \
+            hz_center[self.catalog.nstar == self.catalog.nstar[n]] \
+            = single_habitable_zone(model=self.options.models['habitable'],
+                                    temp_s=self.catalog.temp_s[n],
+                                    radius_s=self.catalog.radius_s[n])
 
         self.catalog['s_in'] = s_in
         self.catalog['s_out'] = s_out
