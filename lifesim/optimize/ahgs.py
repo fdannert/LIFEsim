@@ -21,10 +21,18 @@ class AhgsModule(SlopeModule):
                                               np.invert(self.data.catalog.detected)))
             else:
                 mask = np.logical_and(mask, np.invert(self.data.catalog.detected))
-            obs = (60 * 60 *
-                   (self.data.options.optimization['snr_target'] ** 2
-                    - self.data.catalog['snr_current'].loc[mask] ** 2)
-                   / self.data.catalog.snr_1h.loc[mask] ** 2)
+
+            if self.data.options.optimization['instrumental_opt']:
+                obs = (self.data.catalog['photon_noise'].loc[mask] ** 2 * self.data.catalog['t_rot'].loc[mask]
+                       / ((self.data.catalog['signal'].loc[mask]
+                           / self.data.options.optimization['snr_target']) ** 2
+                          - self.data.catalog['systematic_noise'].loc[mask] ** 2))
+                obs[obs <= 0] = np.inf
+            else:
+                obs = (60 * 60 *
+                       (self.data.options.optimization['snr_target'] ** 2
+                        - self.data.catalog['snr_current'].loc[mask] ** 2)
+                       / self.data.catalog.snr_1h.loc[mask] ** 2)
             obs -= self.data.catalog.t_slew.loc[mask]
             obs = np.sort(obs) / np.arange(1, np.count_nonzero(mask) + 1, 1)
             return obs
@@ -51,11 +59,21 @@ class AhgsModule(SlopeModule):
                 self.data.catalog.loc[mask, 'int_time'] += int_time
                 int_actual = int_time
 
-            self.data.catalog.loc[mask, 'snr_current'] = np.sqrt(
-                self.data.catalog.loc[mask, 'snr_current'] ** 2
-                + (self.data.catalog.loc[mask, 'snr_1h']
-                   * np.sqrt(int_actual
-                             / (60 * 60)))**2)
+            self.data.catalog.loc[mask, 'int_time_actual'] += int_actual
+
+            if self.data.options.optimization['instrumental_opt']:
+                self.data.catalog.loc[mask, 'snr_current'] = (
+                        self.data.catalog.loc[mask, 'signal']
+                        / np.sqrt(self.data.catalog.loc[mask, 'photon_noise'] ** 2
+                                  * self.data.catalog.loc[mask, 't_rot']
+                                  / self.data.catalog.loc[mask, 'int_time_actual']
+                                  + self.data.catalog.loc[mask, 'systematic_noise'] ** 2))
+            else:
+                self.data.catalog.loc[mask, 'snr_current'] = np.sqrt(
+                    self.data.catalog.loc[mask, 'snr_current'] ** 2
+                    + (self.data.catalog.loc[mask, 'snr_1h']
+                       * np.sqrt(int_actual
+                                 / (60 * 60)))**2)
 
             for _, i in enumerate(np.where(mask)[0]):
                 if (not self.data.catalog.detected.iloc[i]) and \

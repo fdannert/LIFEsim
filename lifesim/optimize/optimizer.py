@@ -75,6 +75,7 @@ class Optimizer(OptimizationModule):
         self.data.catalog['detected'] = False
         self.data.catalog['snr_current'] = 0.
         self.data.catalog['int_time'] = 0.
+        self.data.catalog['int_time_actual'] = 0.
         self.data.catalog['t_slew'] = -self.data.options.array['t_slew']
         self.run_socket(s_name='slope',
                         method='distribute_time')

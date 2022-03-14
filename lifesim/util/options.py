@@ -82,7 +82,8 @@ class Options(object):
                              'snr_target': 0.,
                              'limit': None,
                              'habitable': False,
-                             't_search': 0.}
+                             't_search': 0.,
+                             'instrumental_opt': False}
 
     def set_scenario(self,
                      case: str):

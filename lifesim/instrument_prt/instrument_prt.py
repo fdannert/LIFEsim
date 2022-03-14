@@ -51,10 +51,12 @@ class InstrumentPrt(InstrumentModule):
         # case is assumed, the SNR scales with sqrt(integration time) and through this, the SNR
         # for any integration time can be calculated by knowing the SNR of a specific integration
         # time
-        integration_time = 60 * 60
+        integration_time = self.data.options.array['t_rot']
 
-        self.data.catalog['snr_1h'] = np.zeros_like(self.data.catalog.nstar, dtype=float)
-        self.data.catalog['snr_1h_fundamental'] = np.zeros_like(self.data.catalog.nstar, dtype=float)
+        self.data.catalog['t_rot'] = np.zeros_like(self.data.catalog.nstar, dtype=float)
+        self.data.catalog['signal'] = np.zeros_like(self.data.catalog.nstar, dtype=float)
+        self.data.catalog['photon_noise'] = np.zeros_like(self.data.catalog.nstar, dtype=float)
+        self.data.catalog['systematic_noise'] = np.zeros_like(self.data.catalog.nstar, dtype=float)
         self.data.catalog['baseline'] = np.zeros_like(self.data.catalog.nstar, dtype=float)
         if safe_mode:
             self.data.noise_catalog_from_catalog()
@@ -191,16 +193,19 @@ class InstrumentPrt(InstrumentModule):
 
                     # save snr results
                     if (inst.chopping == 'nchop'):
-                        self.data.catalog.snr_1h.iat[n_p] = (np.sqrt(
-                            (inst.photon_rates.loc['snr', 'nchop'] ** 2).sum()))
-                        self.data.catalog.snr_1h_fundamental.iat[n_p] = (
-                                np.sqrt(((inst.photon_rates.loc['signal', 'nchop']
-                                          / inst.photon_rates.loc['fundamental', 'nchop']) ** 2).sum()))
+                        self.data.catalog.t_rot.iat[n_p] = integration_time
+                        self.data.catalog.signal.iat[n_p] = inst.photon_rates.loc['signal', 'nchop'].sum()
+                        self.data.catalog.photon_noise.iat[n_p] = (
+                            np.sqrt((inst.photon_rates.loc['pn', 'nchop'] ** 2).sum()))
+                        self.data.catalog.systematic_noise.iat[n_p] = (
+                            np.sqrt((inst.photon_rates.loc['sn', 'nchop'] ** 2).sum()))
                     else:
-                        self.data.catalog.snr_1h.iat[n_p] = (np.sqrt((inst.photon_rates.loc['snr', 'chop'] ** 2).sum()))
-                        self.data.catalog.snr_1h_fundamental.iat[n_p] = (
-                                np.sqrt(((inst.photon_rates.loc['signal', 'chop']
-                                          / inst.photon_rates.loc['fundamental', 'chop']) ** 2).sum()))
+                        self.data.catalog.t_rot.iat[n_p] = integration_time
+                        self.data.catalog.signal.iat[n_p] = inst.photon_rates.loc['signal', 'chop'].sum()
+                        self.data.catalog.photon_noise.iat[n_p] = (
+                            np.sqrt((inst.photon_rates.loc['pn', 'chop'] ** 2).sum()))
+                        self.data.catalog.systematic_noise.iat[n_p] = (
+                            np.sqrt((inst.photon_rates.loc['sn', 'chop'] ** 2).sum()))
 
                     if safe_mode:
                         if (inst.chopping == 'nchop'):
