@@ -68,6 +68,8 @@ class Data(object):
             raise ValueError('A catalog has already been imported. Delete the old catalog or set '
                              'overwrite=True')
 
+        self.options.other['database_path'] = input_path
+
         # set keys for the stellar types to avoid type mismatched DataFrames
         self.other['stype_key'] = {'A': 0,
                                    'F': 1,
@@ -465,6 +467,8 @@ class Data(object):
         """
         if (self.catalog is not None) and (not overwrite):
             raise ValueError('Can not overwrite existing catalog')
+
+        self.options.other['database_path'] = input_path
 
         self.catalog = pd.read_hdf(path_or_buf=input_path,
                                    key='catalog')

@@ -1,6 +1,7 @@
 import warnings
 
 import numpy as np
+import yaml
 
 
 # TODO: Rename habitable variable
@@ -119,6 +120,7 @@ class Options(object):
         self.other['wl_optimal'] = 15
         self.other['n_plugins'] = 5
         self.other['n_sampling_max'] = 100000  # Number of Fourier components in calculation of instrumental noise
+        self.other['database_path'] = None
 
         self.models['localzodi'] = 'darwinsim'
         self.models['habitable'] = 'MS'
@@ -180,4 +182,6 @@ class Options(object):
             # raise error if no option was set
             if not option_set:
                 raise ValueError(str(key) + ' is an unknown option')
+
+
 
