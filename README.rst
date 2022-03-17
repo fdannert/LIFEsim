@@ -24,13 +24,14 @@ LIFE mission.
 Attribution
 -----------
 
-If you use LIFEsim in your work, please cite Ottiger et al., 2021.
+If you use LIFEsim in your work, please cite
+`Dannert & Ottiger et al. 2022 <https://doi.org/10.48550/arXiv.2203.00471>`_.
 
 
 License
 -------
 
-Copyright 2019-2020 Felix Dannert, Maurice Ottiger, Sascha Quanz and contributors.
+Copyright 2019-2022 Felix Dannert, Maurice Ottiger, Sascha Quanz and contributors.
 
 LIFEsim is distributed under the GNU General Public License v3. See the LICENSE file for the terms
 and conditions.

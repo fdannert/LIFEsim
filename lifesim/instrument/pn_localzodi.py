@@ -2,11 +2,11 @@ from typing import Union
 
 import numpy as np
 
-from lifesim.core.modules import PhotonNoiseModule
+from lifesim.core.modules import PhotonNoiseStarModule
 from lifesim.util.radiation import black_body
 
 
-class PhotonNoiseLocalzodi(PhotonNoiseModule):
+class PhotonNoiseLocalzodi(PhotonNoiseStarModule):
     """
     This class simulates the noise contribution of the thermal localzodical dust to the
     interferometric measurement of LIFE.

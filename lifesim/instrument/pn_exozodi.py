@@ -1,12 +1,12 @@
 import numpy as np
 from typing import Union
 
-from lifesim.core.modules import PhotonNoiseModule
+from lifesim.core.modules import PhotonNoiseUniverseModule
 from lifesim.util import constants
 from lifesim.util.radiation import black_body
 
 
-class PhotonNoiseExozodi(PhotonNoiseModule):
+class PhotonNoiseExozodi(PhotonNoiseUniverseModule):
     """
     This class simulates the noise contribution of an exozodi disk to the interferometric
     measurement of LIFE.
@@ -79,7 +79,7 @@ class PhotonNoiseExozodi(PhotonNoiseModule):
         else:
             l_sun = self.data.catalog.l_sun.iloc[index]
             distance_s = self.data.catalog.distance_s.iloc[index]
-            z = self.data.catalog.z.iloc[index]
+            z = 1
 
         # calculate the parameters required by Kennedy2015
         alpha = 0.34

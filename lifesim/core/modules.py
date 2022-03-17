@@ -25,8 +25,11 @@ class InstrumentModule(Module):
         # instrument module needs access to their data and control over when they execute
         # TODO: not optimal to hardcode the s_number like this. Maybe find a way to draw it from
         #   options
-        self.add_socket(s_name='photon_noise',
-                        s_type=PhotonNoiseModule,
+        self.add_socket(s_name='photon_noise_star',
+                        s_type=PhotonNoiseStarModule,
+                        s_number=5)
+        self.add_socket(s_name='photon_noise_universe',
+                        s_type=PhotonNoiseUniverseModule,
                         s_number=5)
 
     @abc.abstractmethod
@@ -77,10 +80,31 @@ class InstrumentModule(Module):
         pass
 
 
-class PhotonNoiseModule(Module):
+class PhotonNoiseStarModule(Module):
     """
-    Module for simulating astrophysical sources and their photon shot noise contribution to the
-    interferometric measurement.
+    Module for simulating astrophysical sources and their photon shot noise contribution specific
+    to a single star to the interferometric measurement.
+    """
+    @abc.abstractmethod
+    def noise(self,
+              index: Union[int, type(None)]):
+        """
+        Calculates the photon shot noise contribution.
+
+        Parameters
+        ----------
+        index : Union[int, type(None)]
+            If an integer is given, the photon noise of the planet corresponding to the respective
+            interger row position in the catalog is given. If `None` is given, the photon noise is
+            calculated for the parameters found in `bus.data.single`.
+        """
+        pass
+
+
+class PhotonNoiseUniverseModule(Module):
+    """
+    Module for simulating astrophysical sources and their photon shot noise contribution specific
+    to a single universe to the interferometric measurement.
     """
     @abc.abstractmethod
     def noise(self,

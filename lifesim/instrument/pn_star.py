@@ -2,11 +2,11 @@ from typing import Union
 
 import numpy as np
 
-from lifesim.core.modules import PhotonNoiseModule, TransmissionModule
+from lifesim.core.modules import PhotonNoiseStarModule, TransmissionModule
 from lifesim.util.radiation import black_body
 
 
-class PhotonNoiseStar(PhotonNoiseModule):
+class PhotonNoiseStar(PhotonNoiseStarModule):
     """
     This class simulates the noise contribution of central star to the interferometric measurement
     of LIFE due to leakage through the null.
