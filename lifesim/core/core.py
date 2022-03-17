@@ -468,9 +468,11 @@ class Bus(object):
     def save(self,
              path: str,
              filename: str):
+        print('Saving database and config files...')
         if self.data.catalog is not None:
             self.data.export_catalog(output_path=path+filename+'.hdf5')
         self.write_config(filename=path+filename+'.yaml')
+        print('[Done]')
 
 
 def convert_to_list(inp: Union[dict, list]):

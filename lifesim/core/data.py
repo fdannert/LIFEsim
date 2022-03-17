@@ -68,6 +68,8 @@ class Data(object):
             raise ValueError('A catalog has already been imported. Delete the old catalog or set '
                              'overwrite=True')
 
+        print('Loading catalog from P-Pop...')
+
         self.options.other['database_path'] = input_path
 
         # set keys for the stellar types to avoid type mismatched DataFrames
@@ -348,6 +350,8 @@ class Data(object):
             (self.catalog['radius_p'].ge(0.5)).to_numpy(),
             (self.catalog['radius_p'].le(1.5)).to_numpy()))
 
+        print('[Done]')
+
     # TODO: Definition of stype here is wrong. It should be an int not a string.
     #   Think about this a bit more. It is important to keep the ints in the DataFrame, but that
     #   decreases usability. Maybe an option is to use intermediate masks for the stellar types.
@@ -465,6 +469,8 @@ class Data(object):
         ValueError
             If the data class already has an initialized catalog and overwrite is set to False.
         """
+
+        print('Importing Catalog...')
         if (self.catalog is not None) and (not overwrite):
             raise ValueError('Can not overwrite existing catalog')
 
@@ -476,6 +482,8 @@ class Data(object):
         if noise_catalog:
             self.noise_catalog = pd.read_hdf(path_or_buf=input_path[-5] + '_noise.hdf5',
                                              key='noise_catalog')
+
+        print('[Done]')
 
     def noise_catalog_from_catalog(self):
         self.noise_catalog = pd.DataFrame(columns=['signal',  # planet signal

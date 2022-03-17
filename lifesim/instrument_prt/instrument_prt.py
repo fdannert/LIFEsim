@@ -344,7 +344,7 @@ def multiprocessing_runner(input_dict: dict):
     universes = np.unique(
         input_dict['catalog'].nuniverse[input_dict['catalog'].nstar == input_dict['nstar']], return_index=False)
 
-    for nuniverse in tqdm(universes):
+    for nuniverse in universes:
         inst.z = input_dict['catalog'][np.logical_and(input_dict['catalog'].nstar == input_dict['nstar'],
                                                   input_dict['catalog'].nuniverse == nuniverse)].z.iloc[0]
 
