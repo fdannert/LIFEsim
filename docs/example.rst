@@ -113,7 +113,7 @@ Set-Up
 To run such a simulation, create a new python file. First, LIFEsim needs to imported
 
 .. code-block:: python
-    :lineno-start: 1
+    :lineno-start: 3
 
     import lifesim
 
@@ -121,7 +121,7 @@ LIFEsim is programmed such that all data and parameters are saved in a single lo
 distributes those to the relevant modules. Create an instance of this so-called ``bus``
 
 .. code-block:: python
-    :lineno-start: 6
+    :lineno-start: 8
 
     bus = lifesim.Bus()
 
@@ -132,7 +132,7 @@ is as expected, as well as the 'optimistic' and 'pessimistic' case, where the ar
 more or less capable way. Set the parameters to the baseline case by running
 
 .. code-block:: python
-    :lineno-start: 9
+    :lineno-start: 11
 
     bus.data.options.set_scenario('baseline')
 
@@ -140,12 +140,27 @@ Note, that options can also be set manually. For example, the collector aperture
 manually increased to four meters by
 
 .. code-block:: python
-    :lineno-start: 12
+    :lineno-start: 14
 
     bus.data.options.set_manual(diameter=4.)
 
 A list of all available options and parameters can be found in the API Documentation for
 `lifesim.util.options`.
+
+Downloading the Catalog
+~~~~~~~~~~~~~~~~~~~~~~~
+
+A example synthetic planet population based on statistics from the Kepler mission can be downloaded
+from the P-Pop github page with the following code. Make sure to replace the path with your local
+project folder.
+
+.. code-block:: python
+    :lineno-start: 18
+
+    data = requests.get('https://raw.githubusercontent.com/kammerje/P-pop/main/TestPlanetPopulation.txt')
+
+    with open('path/ppop_catalog.txt', 'wb') as file:
+        file.write(data.content)
 
 Loading the Catalog
 ~~~~~~~~~~~~~~~~~~~
@@ -154,9 +169,9 @@ Now, the P-Pop catalog can be loaded in. An example catalog can be found in
 ``LIFEsim/docs/_static``. Run
 
 .. code-block:: python
-    :lineno-start: 16
+    :lineno-start: 25
 
-    bus.data.catalog_from_ppop(input_path='path_to_LIFEsim/LIFEsim/docs/_static/baselineSample.fits')
+    bus.data.catalog_from_ppop(input_path='path/ppop_catalog.txt')
 
 .. Important::
 
@@ -169,7 +184,7 @@ With the catalog loaded into LIFEsim, some selections of stars can be removed. T
 remove all A-type stars and every M-type at a distance larger than 10 pc away from earth.
 
 .. code-block:: python
-    :lineno-start: 17
+    :lineno-start: 26
 
     bus.data.catalog_remove_distance(stype=0, mode='larger', dist=0.)
     bus.data.catalog_remove_distance(stype=4, mode='larger', dist=10.)
@@ -188,7 +203,7 @@ Creating the Instrument
 Now, an instance of the LIFEsim instrument module needs to be created.
 
 .. code-block:: python
-    :lineno-start: 24
+    :lineno-start: 33
 
     instrument = lifesim.Instrument(name='inst')
 
@@ -196,7 +211,7 @@ To give any module access to the data and parameters used in a simulation, it ne
 to the bus.
 
 .. code-block:: python
-    :lineno-start: 25
+    :lineno-start: 34
 
     bus.add_module(instrument)
 
@@ -206,7 +221,7 @@ create the module responsible for simulating transmission maps of a four-arm nul
 interferometer and add it to the bus.
 
 .. code-block:: python
-    :lineno-start: 27
+    :lineno-start: 36
 
     transm = lifesim.TransmissionMap(name='transm')
     bus.add_module(transm)
@@ -215,7 +230,7 @@ Next, create the modules for the simulation of the astrophysical noise sources a
 bus.
 
 .. code-block:: python
-    :lineno-start: 30
+    :lineno-start: 39
 
     exozodi = lifesim.PhotonNoiseExozodi(name='exo')
     bus.add_module(exozodi)
@@ -227,7 +242,7 @@ bus.
 Now, the instrument needs to be told to which modules it should connect to. Do so by running
 
 .. code-block:: python
-    :lineno-start: 38
+    :lineno-start: 47
 
     bus.connect(('inst', 'transm'))
     bus.connect(('inst', 'exo'))
@@ -251,7 +266,7 @@ The optimizer is responsible for distributing the available observing time onto 
 stars. Analogously to above, run
 
 .. code-block:: python
-    :lineno-start: 50
+    :lineno-start: 59
 
     opt = lifesim.Optimizer(name='opt')
     bus.add_module(opt)
@@ -270,7 +285,7 @@ First, the signal-to-noise ratio needs to be calculated for every planet in the 
 run
 
 .. code-block:: python
-    :lineno-start: 64
+    :lineno-start: 73
 
     instrument.get_snr()
 
@@ -286,7 +301,7 @@ specific integration time.
 Knowing the SNR for each planet, the integration time can be optimally distributed by
 
 .. code-block:: python
-    :lineno-start: 66
+    :lineno-start: 75
 
     opt.ahgs()
 
@@ -308,7 +323,7 @@ Saving the Results
 After a simulation run, the results can be saved as a hdf5 file for later analysis by using
 
 .. code-block:: python
-    :lineno-start: 70
+    :lineno-start: 79
 
     bus.data.export_catalog(output_path='path/filename.hdf5')
 
@@ -319,7 +334,7 @@ Reading the Results
 A previously saved simulation can be read into LIFEsim by running
 
 .. code-block:: python
-    :lineno-start: 75
+    :lineno-start: 84
 
     bus_read = lifesim.Bus()
     bus_read.data.options.set_scenario('baseline')
