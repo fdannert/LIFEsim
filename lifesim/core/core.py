@@ -439,8 +439,7 @@ class Bus(object):
         # point module to the data storage class
         module.data = self.data
 
-    def write_config(self,
-                     filename: str):
+    def write_config(self):
         module_dict = {key: str(type(module)) for (key, module) in self.modules.items()}
 
         config_dict = {'array': convert_to_list(self.data.options.array),
@@ -450,7 +449,8 @@ class Bus(object):
                        'modules': module_dict,
                        'connections': convert_to_list(self.connections)}
 
-        with open(filename, 'w') as file:
+        with open(self.data.options.other['output_path']
+                  + self.data.options.other['output_filename'] + '.yaml', 'w') as file:
             documents = yaml.dump(config_dict, file)
 
     def build_from_config(self,
@@ -465,13 +465,11 @@ class Bus(object):
 
         # TODO: Implement methods for rebuilding modules and connections from config file
 
-    def save(self,
-             path: str,
-             filename: str):
+    def save(self):
         print('Saving database and config files...')
+        self.write_config()
         if self.data.catalog is not None:
-            self.data.export_catalog(output_path=path+filename+'.hdf5')
-        self.write_config(filename=path+filename+'.yaml')
+            self.data.export_catalog()
         print('[Done]')
 
 

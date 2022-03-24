@@ -62,7 +62,7 @@ class InstrumentPrt(InstrumentModule):
         self.data.catalog['systematic_noise'] = np.zeros_like(self.data.catalog.nstar, dtype=float)
         self.data.catalog['baseline'] = np.zeros_like(self.data.catalog.nstar, dtype=float)
         if safe_mode:
-            self.data.noise_catalog_from_catalog()
+            self.data.noise_catalog = {}
 
         # create mask returning only unique stars
         _, temp = np.unique(self.data.catalog.nstar, return_index=True)
@@ -108,26 +108,24 @@ class InstrumentPrt(InstrumentModule):
                           'safe_mode': safe_mode,
                           }
 
-            if safe_mode:
-                input_dict['noise_catalog'] = self.data.noise_catalog.loc[
-                    self.data.catalog.id[self.data.catalog.nstar == nstar]]
+            # if safe_mode:
+            #     input_dict['noise_catalog'] = self.data.noise_catalog.loc[
+            #         self.data.catalog.id[self.data.catalog.nstar == nstar]]
 
             input_dict_list.append(input_dict)
 
         self.data.catalog = None
 
+        # if safe_mode:
+        #     store = pd.HDFStore(self.data.options.other['output_path']
+        #                         + self.data.options.other['output_filename'] + '.hdf5')
+
+        output_dict_list = []
+
         if self.data.options.other['n_cpu'] == 1:
             print('Running in single processing...')
             for input_dict in tqdm(input_dict_list):
-                output_dict = multiprocessing_runner(input_dict=input_dict)
-                if self.data.catalog is None:
-                    self.data.catalog = output_dict['catalog']
-                    if safe_mode:
-                        self.data.noise_catalog = output_dict['noise_catalog']
-                else:
-                    self.data.catalog = pd.concat((self.data.catalog, output_dict['catalog']))
-                    if safe_mode:
-                        self.data.noise_catalog = pd.concat((self.data.noise_catalog, output_dict['noise_catalog']))
+                output_dict_list.append(multiprocessing_runner(input_dict=input_dict))
 
         else:
             print('Running in multiprocessing...')
@@ -137,9 +135,18 @@ class InstrumentPrt(InstrumentModule):
                                total=len(input_dict_list)):
                 output_dict_list.append(result)
 
-            self.data.catalog = pd.concat([output_dict['catalog'] for output_dict in output_dict_list])
-            if safe_mode:
-                self.data.noise_catalog = pd.concat([output_dict['noise_catalog'] for output_dict in output_dict_list])
+        self.data.catalog = pd.concat([output_dict['catalog'] for output_dict in output_dict_list])
+        # if safe_mode:
+        #     self.data.noise_catalog = pd.concat([output_dict['noise_catalog'] for output_dict in output_dict_list])
+        if safe_mode:
+            for output_dict in output_dict_list:
+                self.data.noise_catalog.update(output_dict['noise_catalog'])
+
+        a=1
+
+        # if safe_mode:
+        #     store.close()
+
 
     def get_spectrum(self,
                      temp_s: float,  # in K
@@ -258,7 +265,10 @@ class InstrumentPrt(InstrumentModule):
 
         inst.run()
 
-        return inst.photon_rates
+        if self.data.options.array['chopping'] == 'nchop':
+            return inst.photon_rates_nchop
+        else:
+            return inst.photon_rates_chop
 
 def multiprocessing_runner(input_dict: dict):
     # TODO: Correct treatment of quantum efficiency
@@ -340,6 +350,8 @@ def multiprocessing_runner(input_dict: dict):
         inst.pn_thermal_background_detector()
         inst.pn_thermal_primary_mirror()
 
+    return_dict = {'noise_catalog': {}}
+
     # create mask returning only unique stars
     universes = np.unique(
         input_dict['catalog'].nuniverse[input_dict['catalog'].nstar == input_dict['nstar']], return_index=False)
@@ -377,30 +389,27 @@ def multiprocessing_runner(input_dict: dict):
             # save snr results
             if (inst.chopping == 'nchop'):
                 input_dict['catalog'].t_rot.iat[n_p] = input_dict['integration_time']
-                input_dict['catalog'].signal.iat[n_p] = inst.photon_rates.loc['signal', 'nchop'].sum()
+                input_dict['catalog'].signal.iat[n_p] = inst.photon_rates_nchop['signal'].sum()
                 input_dict['catalog'].photon_noise.iat[n_p] = (
-                    np.sqrt((inst.photon_rates.loc['pn', 'nchop'] ** 2).sum()))
+                    np.sqrt((inst.photon_rates_nchop['pn'] ** 2).sum()))
                 input_dict['catalog'].systematic_noise.iat[n_p] = (
-                    np.sqrt((inst.photon_rates.loc['sn', 'nchop'] ** 2).sum()))
+                    np.sqrt((inst.photon_rates_nchop['sn'] ** 2).sum()))
             else:
                 input_dict['catalog'].t_rot.iat[n_p] = input_dict['integration_time']
-                input_dict['catalog'].signal.iat[n_p] = inst.photon_rates.loc['signal', 'chop'].sum()
+                input_dict['catalog'].signal.iat[n_p] = inst.photon_rates_chop['signal'].sum()
                 input_dict['catalog'].photon_noise.iat[n_p] = (
-                    np.sqrt((inst.photon_rates.loc['pn', 'chop'] ** 2).sum()))
+                    np.sqrt((inst.photon_rates_chop['pn'] ** 2).sum()))
                 input_dict['catalog'].systematic_noise.iat[n_p] = (
-                    np.sqrt((inst.photon_rates.loc['sn', 'chop'] ** 2).sum()))
+                    np.sqrt((inst.photon_rates_chop['sn'] ** 2).sum()))
 
             if input_dict['safe_mode']:
                 if (inst.chopping == 'nchop'):
-                    input_dict['noise_catalog'].loc[input_dict['catalog']['id'].iloc[n_p]] = (
-                        inst.photon_rates.nchop)
+                    return_dict['noise_catalog'][str(input_dict['catalog'].id.iat[n_p])] = inst.photon_rates_nchop
                 else:
-                    input_dict['noise_catalog'].loc[input_dict['catalog']['id'].iloc[n_p]] = (
-                        inst.photon_rates.chop)
+                    return_dict['noise_catalog'][str(input_dict['catalog'].id.iat[n_p])] = inst.photon_rates_chop
 
-    return_dict = {'catalog': input_dict['catalog']}
-    if input_dict['safe_mode']:
-        return_dict['noise_catalog'] = input_dict['noise_catalog']
+    return_dict['catalog'] = input_dict['catalog']
+    return_dict['nstar'] = input_dict['nstar']
 
     return return_dict
 

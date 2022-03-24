@@ -1,7 +1,6 @@
 import warnings
 
 import numpy as np
-import yaml
 
 
 # TODO: Rename habitable variable
@@ -75,7 +74,11 @@ class Options(object):
         self.other = {'image_size': 0,
                       'wl_optimal': 0.,
                       'n_plugins': 0,
-                      'n_cpu': 1}
+                      'n_cpu': 1,
+                      'n_sampling_max': 0,
+                      'database_path': None,
+                      'output_path': None,
+                      'output_filename': None}
 
         self.models = {'localzodi': '',
                        'habitable': ''}
@@ -99,6 +102,7 @@ class Options(object):
             ``'baseline'`` and ``'pessimistic'``
         """
 
+        # TODO: Fix definition in __init__
         self.array['quantum_eff'] = 0.7
         self.array['throughput'] = 0.05
         self.array['spec_res'] = 20.
@@ -120,7 +124,6 @@ class Options(object):
         self.other['wl_optimal'] = 15
         self.other['n_plugins'] = 5
         self.other['n_sampling_max'] = 100000  # Number of Fourier components in calculation of instrumental noise
-        self.other['database_path'] = None
 
         self.models['localzodi'] = 'darwinsim'
         self.models['habitable'] = 'MS'
