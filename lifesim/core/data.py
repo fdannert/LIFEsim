@@ -4,7 +4,7 @@ import warnings
 import numpy as np
 import pandas as pd
 from astropy.io import fits
-from astropy.table import Table
+from tqdm import tqdm
 from astropy.coordinates import SkyCoord, BarycentricMeanEcliptic
 
 from lifesim.util.options import Options
@@ -487,14 +487,17 @@ class Data(object):
         self.catalog = pd.read_hdf(path_or_buf=input_path,
                                    key='catalog')
 
+        print('[Done]')
+
         if noise_catalog:
+            print('Importing Noise Catalog...')
             store = pd.HDFStore(input_path[:-5] + '_noise.hdf5')
             self.noise_catalog = {}
-            for k in store.keys():
+            for k in tqdm(store.keys()):
                 self.noise_catalog[k[4:]] = store.get(k)
             store.close()
+            print('[Done]')
 
-        print('[Done]')
 
     def noise_catalog_from_catalog(self):
         pass
