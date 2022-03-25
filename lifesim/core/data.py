@@ -493,8 +493,8 @@ class Data(object):
             print('Importing Noise Catalog...')
             store = pd.HDFStore(input_path[:-5] + '_noise.hdf5')
             self.noise_catalog = {}
-            for k in tqdm(store.keys()):
-                self.noise_catalog[k[4:]] = store.get(k)
+            for id in tqdm(self.catalog.id):
+                self.noise_catalog[str(id)] = store.get('id_' + str(id))
             store.close()
             print('[Done]')
 
