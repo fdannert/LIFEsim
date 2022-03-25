@@ -204,3 +204,10 @@ class SlopeModule(Module):
         Run the aHGS algorithm.
         """
         pass
+
+
+class AnalysisModule(Module):
+    # TODO: Documentation
+    @abc.abstractmethod
+    def planet_count(self):
+        pass

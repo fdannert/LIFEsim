@@ -488,8 +488,11 @@ class Data(object):
                                    key='catalog')
 
         if noise_catalog:
-            self.noise_catalog = pd.read_hdf(path_or_buf=input_path[-5] + '_noise.hdf5',
-                                             key='noise_catalog')
+            store = pd.HDFStore(input_path[:-5] + '_noise.hdf5')
+            self.noise_catalog = {}
+            for k in store.keys():
+                self.noise_catalog[k[4:]] = store.get(k)
+            store.close()
 
         print('[Done]')
 
