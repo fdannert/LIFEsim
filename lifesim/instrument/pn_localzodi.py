@@ -84,7 +84,8 @@ class PhotonNoiseLocalzodi(PhotonNoiseStarModule):
 
         # check if the model exists
         if not ((self.data.options.models['localzodi'] == 'glasse')
-                or (self.data.options.models['localzodi'] == 'darwinsim')):
+                or (self.data.options.models['localzodi'] == 'darwinsim')
+                or (self.data.options.models['localzodi'] == 'jwst')):
             raise ValueError('Specified model does not exist')
 
         # fix the longitude of the observation. Since the simulation is static in time (planets not
@@ -103,6 +104,29 @@ class PhotonNoiseLocalzodi(PhotonNoiseStarModule):
                                               bins=self.data.inst['wl_bins'],
                                               width=self.data.inst['wl_bin_widths'],
                                               temp=temp)
+        
+        elif self.data.options.models['localzodi'] == 'jwst':
+            
+            # longitude dependence available for this model:
+            if index is None:
+                long = self.data.single['lon']
+            else:
+                long = self.data.catalog.lon.iloc[index]
+            
+            # index math to get correct datapoint from JWST_localzodi.npy
+            lat_ind = round(150. - 299.*lat/np.pi)
+            long_ind = round(299.*long/(2*np.pi))
+            wl_up = np.ceil(self.data.inst['wl_bins']*1e6).astype(int)
+            
+            # linear interpolation, as values are only avalilable for int wavelengths, 3-20microns
+            lz_flux_sr = (self.data.inst['wl_bins']*1e6 - wl_up + 1) \
+                        * self.data.inst['jwst_localzodi'][wl_up-4, long_ind, lat_ind] \
+                        + (wl_up - self.data.inst['wl_bins']*1e6) \
+                        * self.data.inst['jwst_localzodi'][wl_up-3, long_ind, lat_ind]
+            
+            # integrate over bin width
+            lz_flux_sr *= self.data.inst['wl_bin_widths']
+
 
         else:
             radius_sun_au = 0.00465047  # in AU
