@@ -79,7 +79,8 @@ class Options(object):
                       'database_path': None,
                       'output_path': None,
                       'output_filename': None,
-                      'large_file': False}
+                      'large_file': False,
+                      'pickle_mode': False}
 
         self.models = {'localzodi': '',
                        'habitable': ''}
@@ -126,6 +127,7 @@ class Options(object):
         self.other['n_plugins'] = 5
         self.other['n_sampling_max'] = 100000  # Number of Fourier components in calculation of instrumental noise
         self.other['large_file'] = True
+        self.other['pickle_mode'] = True
 
         self.models['localzodi'] = 'darwinsim'
         self.models['habitable'] = 'MS'

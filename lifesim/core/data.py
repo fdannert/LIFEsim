@@ -5,6 +5,7 @@ import numpy as np
 import pandas as pd
 from astropy.io import fits
 from tqdm import tqdm
+import pickle
 from astropy.coordinates import SkyCoord, BarycentricMeanEcliptic
 
 from lifesim.util.options import Options
@@ -451,7 +452,12 @@ class Data(object):
         print('Main Catalog Stored')
 
         print('Exporting Noise Catalog...')
-        if self.options.other['large_file']:
+        if (self.options.other['pickle_mode'] == True) and (self.noise_catalog is not None):
+            file = open(self.options.other['output_path']
+                        + self.options.other['output_filename'] + '_noise_pickle.pickle', 'wb')
+            pickle.dump(self.noise_catalog, file)
+            file.close()
+        elif self.options.other['large_file']:
             if self.noise_catalog_pivot is not None:
                 self.store_pivot_noise_catalog()
                 print('Pivoted Noise Catalog Stored')
@@ -547,7 +553,11 @@ class Data(object):
 
         if noise_catalog:
             print('Importing Noise Catalog...')
-            if self.options.other['large_file']:
+            if self.options.other['pickle_mode']:
+                file = open(input_path[:-5] + '_noise_pickle.pickle', 'rb')
+                self.noise_catalog = pickle.load(file)
+                file.close()
+            elif self.options.other['large_file']:
                 store = pd.HDFStore(input_path[:-5] + '_noise_large.hdf5')
                 self.noise_catalog_pivot = {}
                 wl_keys = store.get('wl_keys')
