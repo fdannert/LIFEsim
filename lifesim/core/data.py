@@ -448,29 +448,71 @@ class Data(object):
         self.catalog.to_hdf(path_or_buf=self.options.other['output_path']
                                         + self.options.other['output_filename']
                                         + '.hdf5', key='catalog', mode='w')
+        print('Main Catalog Stored')
 
-        if self.noise_catalog is not None:
-            print('Exporting Noise Catalog...')
-            if self.options.other['large_file']:
+        print('Exporting Noise Catalog...')
+        if self.options.other['large_file']:
+            if self.noise_catalog_pivot is not None:
+                self.store_pivot_noise_catalog()
+                print('Pivoted Noise Catalog Stored')
+            elif self.noise_catalog is not None:
                 self.pivot_noise_catalog(to_wavelength=True)
-                store = pd.HDFStore(self.options.other['output_path']
-                                    + self.options.other['output_filename'] + '_noise_large.hdf5')
-                for k in self.noise_catalog_pivot.keys():
-                    store.put(key='id_' + k.replace('.', ''), value=self.noise_catalog_pivot[k].astype(float))
-                store.put(key='wl_keys', value=pd.Series(
-                    ['id_' + k.replace('.', '') for k in self.noise_catalog_pivot.keys()]
-                ))
-                store.close()
+                self.store_pivot_noise_catalog()
+                print('Pivoted Noise Catalog Stored')
             else:
-                store = pd.HDFStore(self.options.other['output_path']
-                                    + self.options.other['output_filename'] + '_noise.hdf5')
-                for k in self.noise_catalog.keys():
-                    store.put(key='id_' + k, value=self.noise_catalog[k].astype(float))
-                store.close()
-            print('[Done]')
+                print('No Noise Catalog Stored')
+        else:
+            if self.noise_catalog is not None:
+                self.store_noise_catalog()
+                print('Standard Noise Catalog Stored')
+            elif self.noise_catalog_pivot is not None:
+                self.pivot_noise_catalog(to_wavelength=False)
+                self.store_noise_catalog()
+                print('Standard Noise Catalog Stored')
+            else:
+                print('No Noise Catalog Stored')
+        print('[Done]')
+
+
+        # if self.noise_catalog is not None:
+        #     print('Exporting Noise Catalog...')
+        #     if self.options.other['large_file']:
+        #         self.pivot_noise_catalog(to_wavelength=True)
+        #         store = pd.HDFStore(self.options.other['output_path']
+        #                             + self.options.other['output_filename'] + '_noise_large.hdf5')
+        #         for k in self.noise_catalog_pivot.keys():
+        #             store.put(key='id_' + k.replace('.', ''), value=self.noise_catalog_pivot[k].astype(float))
+        #         store.put(key='wl_keys', value=pd.Series(
+        #             ['id_' + k.replace('.', '') for k in self.noise_catalog_pivot.keys()]
+        #         ))
+        #         store.close()
+        #     else:
+        #         store = pd.HDFStore(self.options.other['output_path']
+        #                             + self.options.other['output_filename'] + '_noise.hdf5')
+        #         for k in self.noise_catalog.keys():
+        #             store.put(key='id_' + k, value=self.noise_catalog[k].astype(float))
+        #         store.close()
+        #     print('[Done]')
         #     self.noise_catalog.to_hdf(path_or_buf=self.options.other['output_path']
         #                                           + self.options.other['output_filename']
         #                                           + '_noise.hdf5', key='noise_catalog', mode='w')
+
+    def store_pivot_noise_catalog(self):
+        store = pd.HDFStore(self.options.other['output_path']
+                            + self.options.other['output_filename'] + '_noise_large.hdf5')
+        for k in self.noise_catalog_pivot.keys():
+            store.put(key='id_' + k.replace('.', ''), value=self.noise_catalog_pivot[k].astype(float))
+        store.put(key='wl_keys', value=pd.Series(
+            ['id_' + k.replace('.', '') for k in self.noise_catalog_pivot.keys()]
+        ))
+        store.close()
+
+    def store_noise_catalog(self):
+        store = pd.HDFStore(self.options.other['output_path']
+                            + self.options.other['output_filename'] + '_noise.hdf5')
+        for k in self.noise_catalog.keys():
+            store.put(key='id_' + k, value=self.noise_catalog[k].astype(float))
+        store.close()
 
     def import_catalog(self,
                        input_path: str,
@@ -512,7 +554,6 @@ class Data(object):
                 for wl_key in tqdm(wl_keys):
                     self.noise_catalog_pivot[wl_key[3:-1] + '.' + wl_key[-1]] = store.get(wl_key)
                 store.close()
-                self.pivot_noise_catalog(to_wavelength=False)
             else:
                 store = pd.HDFStore(input_path[:-5] + '_noise.hdf5')
                 self.noise_catalog = {}

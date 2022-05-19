@@ -39,14 +39,16 @@ class InstrumentPrt(InstrumentModule):
                         s_number=1)
 
     def apply_options(self,
-                      hz_center,
-                      distance_s):
+                      hz_center: float = 0.,
+                      distance_s: float = 0.,
+                      run_baseline: bool = True):
         self.run_socket(s_name='instrument',
                         method='apply_options')
-        self.run_socket(s_name='instrument',
-                        method='adjust_bl_to_hz',
-                        hz_center=hz_center,
-                        distance_s=distance_s)
+        if run_baseline:
+            self.run_socket(s_name='instrument',
+                            method='adjust_bl_to_hz',
+                            hz_center=hz_center,
+                            distance_s=distance_s)
 
     def get_snr(self,
                 safe_mode=True):
@@ -63,6 +65,40 @@ class InstrumentPrt(InstrumentModule):
         self.data.catalog['baseline'] = np.zeros_like(self.data.catalog.nstar, dtype=float)
         if safe_mode:
             self.data.noise_catalog = {}
+            # self.apply_options(run_baseline=False)
+            # ids_wl = [str(np.round(wl * 1e6, 1)) for wl in self.data.inst['wl_bins']]
+            # ids = self.data.catalog.id.values.astype(str)
+            # columns = ['signal',  # planet signal
+            #            'noise',  # overall noise contribution
+            #            'wl',  # wavelength bin
+            #            'pn_sgl',  # stellar geometric leakage
+            #            'pn_ez',  # exozodi leakage
+            #            'pn_lz',  # localzodi leakage
+            #            'pn_dc',  # dark current
+            #            'pn_tbd',  # thermal background detector
+            #            'pn_tbpm',  # thermal background primary mirror
+            #            'pn_pa',  # polarization angle
+            #            'pn_snfl',  # stellar null floor leakage
+            #            'pn_ag_cld',  # agnostic cold instrumental photon noise
+            #            'pn_ag_ht',  # agnostic hot instrumental photon noise
+            #            'pn_ag_wht',  # agnostic white instrumental photon noise
+            #            'pn',  # photon noise
+            #            'sn_fo_a',  # first order amplitude
+            #            'sn_fo_phi',  # first order phase
+            #            'sn_fo_x',  # first order x position
+            #            'sn_fo_y',  # first order y position
+            #            'sn_fo',  # systematic noise first order
+            #            'sn_so_aa',  # second order amplitude-amplitude term
+            #            'sn_so_phiphi',  # second order phase-phase term
+            #            'sn_so_aphi',  # amplitude phase cross term
+            #            'sn_so_polpol',  # second order polarization-polarization term
+            #            'sn_so',  # systematic noise second order
+            #            'sn',  # systematic noise
+            #            'fundamental',  # fundamental noise (astrophysical)
+            #            'instrumental',  # instrumental noise
+            #            'snr'  # signal to noise ratio
+            #            ]
+            # self.data.noise_catalog_pivot = {id_wl: pd.DataFrame(columns=columns, index=ids) for id_wl in ids_wl}
 
         # create mask returning only unique stars
         _, temp = np.unique(self.data.catalog.nstar, return_index=True)
@@ -73,7 +109,7 @@ class InstrumentPrt(InstrumentModule):
         input_dict_list = []
 
         # iterate over all stars
-        print('Preparing multiprocessing...')
+        print('Preparing sample...')
         for i, n in enumerate(tqdm(np.where(star_mask)[0])):
             nstar = self.data.catalog.nstar.iloc[n]
 
@@ -141,8 +177,7 @@ class InstrumentPrt(InstrumentModule):
         if safe_mode:
             for output_dict in output_dict_list:
                 self.data.noise_catalog.update(output_dict['noise_catalog'])
-
-        a=1
+            self.data.pivot_noise_catalog(to_wavelength=True)
 
         # if safe_mode:
         #     store.close()
