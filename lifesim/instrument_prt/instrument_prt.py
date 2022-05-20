@@ -1,4 +1,5 @@
 import multiprocessing as mp
+from copy import deepcopy
 
 import numpy as np
 from tqdm import tqdm
@@ -430,18 +431,18 @@ def multiprocessing_runner(input_dict: dict):
                 inst.sn_chop()
 
             # save baseline
-            input_dict['catalog']['baseline'].iat[n_p] = input_dict['baseline']
+            input_dict['catalog']['baseline'].iat[n_p] = deepcopy(input_dict['baseline'])
 
             # save snr results
             if (inst.chopping == 'nchop'):
-                input_dict['catalog'].t_rot.iat[n_p] = input_dict['integration_time']
+                input_dict['catalog'].t_rot.iat[n_p] = deepcopy(input_dict['integration_time'])
                 input_dict['catalog'].signal.iat[n_p] = inst.photon_rates_nchop['signal'].sum()
                 input_dict['catalog'].photon_noise.iat[n_p] = (
                     np.sqrt((inst.photon_rates_nchop['pn'] ** 2).sum()))
                 input_dict['catalog'].systematic_noise.iat[n_p] = (
                     np.sqrt((inst.photon_rates_nchop['sn'] ** 2).sum()))
             else:
-                input_dict['catalog'].t_rot.iat[n_p] = input_dict['integration_time']
+                input_dict['catalog'].t_rot.iat[n_p] = deepcopy(input_dict['integration_time'])
                 input_dict['catalog'].signal.iat[n_p] = inst.photon_rates_chop['signal'].sum()
                 input_dict['catalog'].photon_noise.iat[n_p] = (
                     np.sqrt((inst.photon_rates_chop['pn'] ** 2).sum()))
@@ -450,9 +451,9 @@ def multiprocessing_runner(input_dict: dict):
 
             if input_dict['safe_mode']:
                 if (inst.chopping == 'nchop'):
-                    return_dict['noise_catalog'][str(input_dict['catalog'].id.iat[n_p])] = inst.photon_rates_nchop
+                    return_dict['noise_catalog'][str(input_dict['catalog'].id.iat[n_p])] = deepcopy(inst.photon_rates_nchop)
                 else:
-                    return_dict['noise_catalog'][str(input_dict['catalog'].id.iat[n_p])] = inst.photon_rates_chop
+                    return_dict['noise_catalog'][str(input_dict['catalog'].id.iat[n_p])] = deepcopy(inst.photon_rates_chop)
 
     return_dict['catalog'] = input_dict['catalog']
     return_dict['nstar'] = input_dict['nstar']
