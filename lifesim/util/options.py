@@ -126,8 +126,6 @@ class Options(object):
         self.other['wl_optimal'] = 15
         self.other['n_plugins'] = 5
         self.other['n_sampling_max'] = 100000  # Number of Fourier components in calculation of instrumental noise
-        self.other['large_file'] = True
-        self.other['pickle_mode'] = True
 
         self.models['localzodi'] = 'darwinsim'
         self.models['habitable'] = 'MS'

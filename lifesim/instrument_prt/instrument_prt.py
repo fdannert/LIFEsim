@@ -4,6 +4,7 @@ import numpy as np
 from tqdm import tqdm
 from spectres import spectres
 import pandas as pd
+import xarray as xr
 
 from lifesim.core.modules import InstrumentModule
 import inlifesim as ils
@@ -177,7 +178,17 @@ class InstrumentPrt(InstrumentModule):
         if safe_mode:
             for output_dict in output_dict_list:
                 self.data.noise_catalog.update(output_dict['noise_catalog'])
-            self.data.pivot_noise_catalog(to_wavelength=True)
+
+            self.data.noise_catalog = xr.Dataset(self.data.noise_catalog).to_array()
+            self.data.noise_catalog = self.data.noise_catalog.rename({'dim_0': 'wl_bins',
+                                                                      'dim_1': 'params',
+                                                                      'variable': 'ids'})
+            self.data.noise_catalog = self.data.noise_catalog.assign_coords(
+                wl_bins=self.data.inst['wl_bins'],
+                params=self.data.noise_catalog.coords['params'].values.astype(str),
+                ids=self.data.noise_catalog.coords['ids'].values.astype(int)
+            )
+            # self.data.pivot_noise_catalog(to_wavelength=True)
 
         # if safe_mode:
         #     store.close()

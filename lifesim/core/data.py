@@ -2,6 +2,7 @@ import sys
 import warnings
 
 import numpy as np
+import xarray as xr
 import pandas as pd
 from astropy.io import fits
 from tqdm import tqdm
@@ -452,32 +453,37 @@ class Data(object):
         print('Main Catalog Stored')
 
         print('Exporting Noise Catalog...')
-        if (self.options.other['pickle_mode'] == True) and (self.noise_catalog is not None):
-            file = open(self.options.other['output_path']
-                        + self.options.other['output_filename'] + '_noise_pickle.pickle', 'wb')
-            pickle.dump(self.noise_catalog, file)
-            file.close()
-        elif self.options.other['large_file']:
-            if self.noise_catalog_pivot is not None:
-                self.store_pivot_noise_catalog()
-                print('Pivoted Noise Catalog Stored')
-            elif self.noise_catalog is not None:
-                self.pivot_noise_catalog(to_wavelength=True)
-                self.store_pivot_noise_catalog()
-                print('Pivoted Noise Catalog Stored')
-            else:
-                print('No Noise Catalog Stored')
-        else:
-            if self.noise_catalog is not None:
-                self.store_noise_catalog()
-                print('Standard Noise Catalog Stored')
-            elif self.noise_catalog_pivot is not None:
-                self.pivot_noise_catalog(to_wavelength=False)
-                self.store_noise_catalog()
-                print('Standard Noise Catalog Stored')
-            else:
-                print('No Noise Catalog Stored')
+        if self.noise_catalog is not None:
+            self.noise_catalog.to_netcdf(path=self.options.other['output_path']
+                                              + self.options.other['output_filename'] + '_noise.nc',
+                                         mode='w',
+                                         engine='h5netcdf')
         print('[Done]')
+        # if (self.options.other['pickle_mode'] == True) and (self.noise_catalog is not None):
+        #     file = open(self.options.other['output_path']
+        #                 + self.options.other['output_filename'] + '_noise_pickle.pickle', 'wb')
+        #     pickle.dump(self.noise_catalog, file)
+        #     file.close()
+        # elif self.options.other['large_file']:
+        #     if self.noise_catalog_pivot is not None:
+        #         self.store_pivot_noise_catalog()
+        #         print('Pivoted Noise Catalog Stored')
+        #     elif self.noise_catalog is not None:
+        #         self.pivot_noise_catalog(to_wavelength=True)
+        #         self.store_pivot_noise_catalog()
+        #         print('Pivoted Noise Catalog Stored')
+        #     else:
+        #         print('No Noise Catalog Stored')
+        # else:
+        #     if self.noise_catalog is not None:
+        #         self.store_noise_catalog()
+        #         print('Standard Noise Catalog Stored')
+        #     elif self.noise_catalog_pivot is not None:
+        #         self.pivot_noise_catalog(to_wavelength=False)
+        #         self.store_noise_catalog()
+        #         print('Standard Noise Catalog Stored')
+        #     else:
+        #         print('No Noise Catalog Stored')
 
 
         # if self.noise_catalog is not None:
@@ -503,22 +509,22 @@ class Data(object):
         #                                           + self.options.other['output_filename']
         #                                           + '_noise.hdf5', key='noise_catalog', mode='w')
 
-    def store_pivot_noise_catalog(self):
-        store = pd.HDFStore(self.options.other['output_path']
-                            + self.options.other['output_filename'] + '_noise_large.hdf5')
-        for k in self.noise_catalog_pivot.keys():
-            store.put(key='id_' + k.replace('.', ''), value=self.noise_catalog_pivot[k].astype(float))
-        store.put(key='wl_keys', value=pd.Series(
-            ['id_' + k.replace('.', '') for k in self.noise_catalog_pivot.keys()]
-        ))
-        store.close()
-
-    def store_noise_catalog(self):
-        store = pd.HDFStore(self.options.other['output_path']
-                            + self.options.other['output_filename'] + '_noise.hdf5')
-        for k in self.noise_catalog.keys():
-            store.put(key='id_' + k, value=self.noise_catalog[k].astype(float))
-        store.close()
+    # def store_pivot_noise_catalog(self):
+    #     store = pd.HDFStore(self.options.other['output_path']
+    #                         + self.options.other['output_filename'] + '_noise_large.hdf5')
+    #     for k in self.noise_catalog_pivot.keys():
+    #         store.put(key='id_' + k.replace('.', ''), value=self.noise_catalog_pivot[k].astype(float))
+    #     store.put(key='wl_keys', value=pd.Series(
+    #         ['id_' + k.replace('.', '') for k in self.noise_catalog_pivot.keys()]
+    #     ))
+    #     store.close()
+    #
+    # def store_noise_catalog(self):
+    #     store = pd.HDFStore(self.options.other['output_path']
+    #                         + self.options.other['output_filename'] + '_noise.hdf5')
+    #     for k in self.noise_catalog.keys():
+    #         store.put(key='id_' + k, value=self.noise_catalog[k].astype(float))
+    #     store.close()
 
     def import_catalog(self,
                        input_path: str,
@@ -553,53 +559,56 @@ class Data(object):
 
         if noise_catalog:
             print('Importing Noise Catalog...')
-            if self.options.other['pickle_mode']:
-                file = open(input_path[:-5] + '_noise_pickle.pickle', 'rb')
-                self.noise_catalog = pickle.load(file)
-                file.close()
-            elif self.options.other['large_file']:
-                store = pd.HDFStore(input_path[:-5] + '_noise_large.hdf5')
-                self.noise_catalog_pivot = {}
-                wl_keys = store.get('wl_keys')
-                for wl_key in tqdm(wl_keys):
-                    self.noise_catalog_pivot[wl_key[3:-1] + '.' + wl_key[-1]] = store.get(wl_key)
-                store.close()
-            else:
-                store = pd.HDFStore(input_path[:-5] + '_noise.hdf5')
-                self.noise_catalog = {}
-                for id in tqdm(self.catalog.id):
-                    self.noise_catalog[str(id)] = store.get('id_' + str(id))
-                store.close()
+            with xr.open_dataarray(input_path[:-5] + '_noise.nc',
+                                   engine='h5netcdf') as file:
+                self.noise_catalog = file
             print('[Done]')
+            # if self.options.other['pickle_mode']:
+            #     file = open(input_path[:-5] + '_noise_pickle.pickle', 'rb')
+            #     self.noise_catalog = pickle.load(file)
+            #     file.close()
+            # elif self.options.other['large_file']:
+            #     store = pd.HDFStore(input_path[:-5] + '_noise_large.hdf5')
+            #     self.noise_catalog_pivot = {}
+            #     wl_keys = store.get('wl_keys')
+            #     for wl_key in tqdm(wl_keys):
+            #         self.noise_catalog_pivot[wl_key[3:-1] + '.' + wl_key[-1]] = store.get(wl_key)
+            #     store.close()
+            # else:
+            #     store = pd.HDFStore(input_path[:-5] + '_noise.hdf5')
+            #     self.noise_catalog = {}
+            #     for id in tqdm(self.catalog.id):
+            #         self.noise_catalog[str(id)] = store.get('id_' + str(id))
+            #     store.close()
 
-    def pivot_noise_catalog(self,
-                            to_wavelength: bool):
-        print('Pivoting Noise Catalog...')
-        if to_wavelength:
-            self.noise_catalog_pivot = {}
-            idx = list(self.noise_catalog.keys())
-            wl_ids = self.noise_catalog[idx[0]].index.values
-            columns = self.noise_catalog[idx[0]].columns.values
-            for wl_id in tqdm(wl_ids):
-                pd_table = pd.DataFrame(columns=columns, index=idx)
-                for id in idx:
-                    pd_table.loc[id] = self.noise_catalog[id].loc[wl_id]
-                self.noise_catalog_pivot[wl_id] = pd_table
-            self.noise_catalog = None
-
-        else:
-            self.noise_catalog = {}
-            wl_ids = list(self.noise_catalog_pivot.keys())
-            idx = self.noise_catalog_pivot[wl_ids[0]].index.values
-            columns = self.noise_catalog_pivot[wl_ids[0]].columns.values
-            for id in tqdm(idx):
-                pd_table = pd.DataFrame(columns=columns, index=wl_ids)
-                for wl_id in wl_ids:
-                    pd_table.loc[wl_id] = self.noise_catalog_pivot[wl_id].loc[id]
-                self.noise_catalog[id] = pd_table
-            self.noise_catalog_pivot = None
-        print('')
-        print('[Done]')
+    # def pivot_noise_catalog(self,
+    #                         to_wavelength: bool):
+    #     print('Pivoting Noise Catalog...')
+    #     if to_wavelength:
+    #         self.noise_catalog_pivot = {}
+    #         idx = list(self.noise_catalog.keys())
+    #         wl_ids = self.noise_catalog[idx[0]].index.values
+    #         columns = self.noise_catalog[idx[0]].columns.values
+    #         for wl_id in tqdm(wl_ids):
+    #             pd_table = pd.DataFrame(columns=columns, index=idx)
+    #             for id in idx:
+    #                 pd_table.loc[id] = self.noise_catalog[id].loc[wl_id]
+    #             self.noise_catalog_pivot[wl_id] = pd_table
+    #         self.noise_catalog = None
+    #
+    #     else:
+    #         self.noise_catalog = {}
+    #         wl_ids = list(self.noise_catalog_pivot.keys())
+    #         idx = self.noise_catalog_pivot[wl_ids[0]].index.values
+    #         columns = self.noise_catalog_pivot[wl_ids[0]].columns.values
+    #         for id in tqdm(idx):
+    #             pd_table = pd.DataFrame(columns=columns, index=wl_ids)
+    #             for wl_id in wl_ids:
+    #                 pd_table.loc[wl_id] = self.noise_catalog_pivot[wl_id].loc[id]
+    #             self.noise_catalog[id] = pd_table
+    #         self.noise_catalog_pivot = None
+    #     print('')
+    #     print('[Done]')
 
 
     def noise_catalog_from_catalog(self):
