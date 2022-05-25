@@ -144,6 +144,16 @@ class InstrumentPrt(InstrumentModule):
                           'nstar': nstar,
                           'baseline': self.data.inst['bl'],
                           'safe_mode': safe_mode,
+                          'd_a_rms': self.data.options.array['d_a_rms'],
+                          'd_phi_rms': self.data.options.array['d_phi_rms'],
+                          'd_x_rms': self.data.options.array['d_x_rms'],
+                          'd_y_rms': self.data.options.array['d_y_rms'],
+                          'd_pol_rms': self.data.options.array['d_pol_rms'],
+                          'agn_phot_hot': self.data.options.array['agn_phot_hot'],
+                          'agn_phot_cold': self.data.options.array['agn_phot_cold'],
+                          'agn_phot_white': self.data.options.array['agn_phot_white'],
+                          'agn_spacecraft_temp': self.data.options.array['agn_spacecraft_temp'],
+                          'rms_mode': self.data.options.array['rms_mode']
                           }
 
             # if safe_mode:
@@ -189,6 +199,8 @@ class InstrumentPrt(InstrumentModule):
                 params=self.data.noise_catalog.coords['params'].values.astype(str),
                 ids=self.data.noise_catalog.coords['ids'].values.astype(int)
             )
+
+            self.data.noise_catalog = self.data.noise_catalog.astype(float)
             # self.data.pivot_noise_catalog(to_wavelength=True)
 
         # if safe_mode:
@@ -351,19 +363,19 @@ def multiprocessing_runner(input_dict: dict):
         primary_temp=0.,  # temperature of the primary mirror in K
         pink_noise_co=10000,  # cutoff frequency for the pink noise spectra
         n_cpu=1,  # number of cores used in the simulation
-        rms_mode='lay',  # mode for rms values, 'lay', 'static', 'wavelength'
+        rms_mode=input_dict['rms_mode'],  # mode for rms values, 'lay', 'static', 'wavelength'
         agnostic_mode=True,  # derive instrumental photon noise from agnostic mode
-        eps_cold=0.,  # scaling constant for cold agnostic photon noise spectrum
-        eps_hot=0.,  # scaling constant for hot agnostic photon noise spectrum
-        eps_white=0.,  # scaling constant white agnostic photon noise spectrum
-        agnostic_spacecraft_temp=0.,  # cold-side spacecraft temperature in the
+        eps_cold=input_dict['agn_phot_cold'],  # scaling constant for cold agnostic photon noise spectrum
+        eps_hot=input_dict['agn_phot_hot'],  # scaling constant for hot agnostic photon noise spectrum
+        eps_white=input_dict['agn_phot_white'],  # scaling constant white agnostic photon noise spectrum
+        agnostic_spacecraft_temp=input_dict['agn_spacecraft_temp'],  # cold-side spacecraft temperature in the
         # agnostic case
         n_sampling_max=10000,  # largest fourier mode used in noise sampling
-        d_a_rms=None,  # relative amplitude error rms
-        d_phi_rms=None,  # phase error rms
-        d_pol_rms=None,  # polarization error rms
-        d_x_rms=None,  # collector position rms, x-direction
-        d_y_rms=None,  # collector position rms, y-direction
+        d_a_rms=input_dict['d_a_rms'],  # relative amplitude error rms
+        d_phi_rms=input_dict['d_phi_rms'],  # phase error rms
+        d_pol_rms=input_dict['d_pol_rms'],  # polarization error rms
+        d_x_rms=input_dict['d_x_rms'],  # collector position rms, x-direction
+        d_y_rms=input_dict['d_y_rms'],  # collector position rms, y-direction
         wl_resolution=200,  # number of wavelength bins simulated for the thermal background
         flux_planet=None,  # substitute flux input in ph m-2 s-1
         simultaneous_chopping=True,

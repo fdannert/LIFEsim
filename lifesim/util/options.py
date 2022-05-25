@@ -69,7 +69,17 @@ class Options(object):
                       'bl_max': 0.,
                       'ratio': 0.,
                       't_slew': 0.,
-                      't_efficiency': 0.}
+                      't_efficiency': 0.,
+                      'rms_mode': '',
+                      'd_a_rms': 0.,
+                      'd_phi_rms': 0.,
+                      'd_pol_rms': 0.,
+                      'd_x_rms': 0.,
+                      'd_y_rms': 0.,
+                      'agn_phot_white': 0.,
+                      'agn_phot_hot': 0.,
+                      'agn_phot_cold': 0.,
+                      'agn_spacecraft_temp': 0.}
 
         self.other = {'image_size': 0,
                       'wl_optimal': 0.,
@@ -154,6 +164,27 @@ class Options(object):
 
         else:
             warnings.warn('Option case not recognised, no options set')
+
+    def set_noise_scenario(self,
+                           case: str):
+
+        if case == 'earth-twin':
+            self.array['d_a_rms'] = 0.0002
+            self.array['d_phi_rms'] = 0.0000628
+            self.array['d_x_rms'] = 0.01
+            self.array['d_y_rms'] = 0.01
+            self.array['d_pol_rms'] = 0.001
+            self.array['agn_phot_white'] = 0.0203
+            self.array['agn_phot_hot'] = 0.342
+            self.array['agn_phot_cold'] = 0.947
+            self.array['agn_spacecraft_temp'] = 50.
+
+            self.array['rms_mode'] = 'wavelength'
+        elif case == 'lay':
+            self.array['rms_mode'] = 'lay'
+        else:
+            warnings.warn('Option case not recognised, no options set')
+
 
     def set_manual(self, **kwargs):
         """
