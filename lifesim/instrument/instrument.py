@@ -526,9 +526,12 @@ class Instrument(InstrumentModule):
                                              index=None)
 
         if type(noise_bg_list_star) == list:
-            noise_bg_star = np.zeros_like(noise_bg_list_star[0])
-            for _, noise in enumerate(noise_bg_list_star):
-                noise_bg_star += noise
+            if not noise_bg_list_star:
+                noise_bg_star = np.zeros_like(self.data.inst['wl_bins'])
+            else:
+                noise_bg_star = np.zeros_like(noise_bg_list_star[0])
+                for _, noise in enumerate(noise_bg_list_star):
+                    noise_bg_star += noise
         else:
             noise_bg_star = noise_bg_list_star
 
@@ -538,9 +541,12 @@ class Instrument(InstrumentModule):
                                                  index=None)
 
         if type(noise_bg_list_universe) == list:
-            noise_bg_universe = np.zeros_like(noise_bg_list_universe[0])
-            for _, noise in enumerate(noise_bg_list_universe):
-                noise_bg_universe += noise
+            if not noise_bg_list_universe:
+                noise_bg_universe = np.zeros_like(self.data.inst['wl_bins'])
+            else:
+                noise_bg_universe = np.zeros_like(noise_bg_list_universe[0])
+                for _, noise in enumerate(noise_bg_list_universe):
+                    noise_bg_universe += noise
         else:
             noise_bg_universe = noise_bg_list_star
 
