@@ -282,7 +282,7 @@ class Instrument(InstrumentModule):
                 n_u = np.where(np.logical_and(self.data.catalog.nstar == nstar,
                                               self.data.catalog.nuniverse == nuniverse))[0][0]
 
-                noise_bg_universe_temp = noise_bg_universe * self.data.catalog.z.iloc[n_u]
+                noise_bg_universe_temp = noise_bg_universe * self.data.catalog.z.iloc[n_u] / self.data.catalog.z.iloc[n]
 
                 noise_bg = (noise_bg_star + noise_bg_universe_temp) * integration_time * self.data.inst['eff_tot'] * 2
 
@@ -507,18 +507,44 @@ class Instrument(InstrumentModule):
                        * self.data.inst['wl_bin_widths']
 
         # calculate the noise from the background sources
-        noise_bg_list = self.run_socket(s_name='photon_noise',
-                                        method='noise',
-                                        index=None)
+        # noise_bg_list = self.run_socket(s_name='photon_noise',
+        #                                 method='noise',
+        #                                 index=None)
+        #
+        # if type(noise_bg_list) == list:
+        #     noise_bg = np.zeros_like(noise_bg_list[0])
+        #     for _, noise in enumerate(noise_bg_list):
+        #         noise_bg += noise
+        # else:
+        #     noise_bg = noise_bg_list
+        #
+        # noise_bg = noise_bg * integration_time * self.data.inst['eff_tot']
 
-        if type(noise_bg_list) == list:
-            noise_bg = np.zeros_like(noise_bg_list[0])
-            for _, noise in enumerate(noise_bg_list):
-                noise_bg += noise
+        # calculate the noise from the background sources specific to star
+        noise_bg_list_star = self.run_socket(s_name='photon_noise_star',
+                                             method='noise',
+                                             index=None)
+
+        if type(noise_bg_list_star) == list:
+            noise_bg_star = np.zeros_like(noise_bg_list_star[0])
+            for _, noise in enumerate(noise_bg_list_star):
+                noise_bg_star += noise
         else:
-            noise_bg = noise_bg_list
+            noise_bg_star = noise_bg_list_star
 
-        noise_bg = noise_bg * integration_time * self.data.inst['eff_tot']
+        # calculate the noise from the background sources specific to universe
+        noise_bg_list_universe = self.run_socket(s_name='photon_noise_universe',
+                                                 method='noise',
+                                                 index=None)
+
+        if type(noise_bg_list_universe) == list:
+            noise_bg_universe = np.zeros_like(noise_bg_list_universe[0])
+            for _, noise in enumerate(noise_bg_list_universe):
+                noise_bg_universe += noise
+        else:
+            noise_bg_universe = noise_bg_list_star
+
+        noise_bg = (noise_bg_star + noise_bg_universe) * integration_time * self.data.inst['eff_tot'] * 2
 
         # Add up the noise and caluclate the SNR
         noise = (noise_bg + noise_planet) * 2
@@ -531,7 +557,7 @@ class Instrument(InstrumentModule):
         else:
             return ([self.data.inst['wl_bins'], snr_spec],
                     flux_planet,
-                    [noise, noise_bg_list])
+                    [noise, noise_bg_list_star, noise_bg_list_universe])
 
 def multiprocessing_runner(input_dict: dict):
     # create mask returning only unique stars
