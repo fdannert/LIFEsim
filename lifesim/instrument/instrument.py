@@ -195,7 +195,7 @@ class Instrument(InstrumentModule):
         # make sure that the baseline does not exeed the set baseline limits
         self.data.inst['bl'] = np.maximum(baseline,
                                           self.data.options.array['bl_min'])
-        self.data.inst['bl'] = np.minimum(baseline,
+        self.data.inst['bl'] = np.minimum(self.data.inst['bl'],
                                           self.data.options.array['bl_max'])
         if (self.data.inst['bl'] != baseline) and print_warning:
             warn('Specified baseline exceeded baseline limits. Baseline fixed to '
