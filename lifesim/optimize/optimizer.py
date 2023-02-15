@@ -62,21 +62,25 @@ class Optimizer(OptimizationModule):
                                  + self.data.catalog.theta_p.iloc[n_p]) ** 2))
             self.data.catalog.snr_new.iat[n_p] = self.data.catalog.snr_phase.iloc[n_p][0][i]
 
-
     def ahgs(self):
+        # set 0 if type limit is not hit
         self.data.optm['hit_limit'] = np.zeros(5)
+
+        # sum of detected planets per stype
         self.data.optm['sum_detected'] = np.zeros(5)
+
         self.data.optm['num_universe'] = self.data.catalog.nuniverse.max() + 1
         self.data.optm['hit_limit'] = ((self.data.optm['sum_detected']
                                        / (self.data.optm['num_universe']))
-                                       >= self.data.options.optimization['limit'][1][:])
-        self.data.optm['tot_time'] = 0
+                                       >= np.array(list(self.data.options.optimization['limit'].values())))
 
+        self.data.optm['tot_time'] = 0  # in sec
+
+        # add new columns to catalog
         self.data.catalog['detected'] = False
         self.data.catalog['snr_current'] = 0.
         self.data.catalog['int_time'] = 0.
         self.data.catalog['t_slew'] = -self.data.options.array['t_slew']
+
         self.run_socket(s_name='slope',
                         method='distribute_time')
-
-

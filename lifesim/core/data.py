@@ -4,7 +4,6 @@ import warnings
 import numpy as np
 import pandas as pd
 from astropy.io import fits
-from astropy.table import Table
 from astropy.coordinates import SkyCoord, BarycentricMeanEcliptic
 
 from lifesim.util.options import Options
@@ -47,7 +46,8 @@ class Data(object):
                           input_path: str,
                           overwrite: bool = False):
         """
-        Read the contents of the P-Pop output file (in .txt or .fits format) to a catalog.
+        Read the contents of the P-Pop output file (in .txt or .fits format) to a catalog. Note that reading catalogs
+        in .fits format is significantly faster.
 
         Parameters
         ----------
@@ -66,13 +66,6 @@ class Data(object):
         if (self.catalog is not None) and (not overwrite):
             raise ValueError('A catalog has already been imported. Delete the old catalog or set '
                              'overwrite=True')
-
-        # set keys for the stellar types to avoid type mismatched DataFrames
-        self.other['stype_key'] = {'A': 0,
-                                   'F': 1,
-                                   'G': 2,
-                                   'K': 3,
-                                   'M': 4}
 
         # initialize catalog
         self.catalog = pd.DataFrame(columns=['radius_p',
@@ -103,7 +96,8 @@ class Data(object):
                                              'nuniverse',
                                              'nstar',
                                              'stype',
-                                             'id'])
+                                             'id',
+                                             'name_s'])
 
         # check the format of the input file
         if input_path[-4:] == '.txt':
@@ -138,6 +132,7 @@ class Data(object):
             stype = []
             ra = []  # deg
             dec = []  # deg
+            name_s = []
 
             nlines = len(table_lines)
 
@@ -174,6 +169,7 @@ class Data(object):
             col_stype = np.where(np.array(tempLine) == 'Stype')[0][0]
             col_ra = np.where(np.array(tempLine) == 'RA')[0][0]
             col_dec = np.where(np.array(tempLine) == 'Dec')[0][0]
+            col_name_s = np.where(np.array(tempLine) == 'name')[0][0]
 
             for i, line in enumerate(table_lines[2:]):
 
@@ -210,17 +206,14 @@ class Data(object):
                 stype += [str(tempLine[col_stype])]
                 ra += [float(tempLine[col_ra])]  # deg
                 dec += [float(tempLine[col_dec])]  # deg
+                name_s += [str(tempLine[col_name_s])]
 
             sys.stdout.write('\rProcessed line %.0f of %.0f' % (nlines, nlines))
             sys.stdout.flush()
             print('')
 
-            # TODO: Move the stype to char
-            # convert stellar type to int
-            stype = np.array(stype)
-            stype_int = np.zeros_like(stype, dtype=int)
-            for _, k in enumerate(self.other['stype_key'].keys()):
-                stype_int[stype == k] = self.other['stype_key'][k]
+            # remove the newline string from the star names
+            name_s = [name.replace('\n', '') for name in name_s]
 
             # save the data to the pandas DataFrame
             self.catalog['nuniverse'] = np.array(nuniverse).astype(int)
@@ -248,24 +241,22 @@ class Data(object):
             self.catalog['mass_s'] = np.array(mass_s)
             self.catalog['temp_s'] = np.array(temp_s)
             self.catalog['distance_s'] = np.array(distance_s)
-            self.catalog['stype'] = stype_int
+            self.catalog['stype'] = pd.Series(stype, dtype=pd.StringDtype())
             self.catalog['ra'] = np.array(ra)
             self.catalog['dec'] = np.array(dec)
             self.catalog['id'] = np.arange(0, len(dec), 1)
+            self.catalog['name_s'] = pd.Series(name_s, dtype=pd.StringDtype())
 
         # check the format of the input file
         elif input_path[-5:] == '.fits':
             hdu = fits.open(input_path)
-            stype_int = np.zeros_like(hdu[1].data.Nstar.astype(int), dtype=int)
-            for _, k in enumerate(self.other['stype_key'].keys()):
-                stype_int[hdu[1].data.Stype.astype(str) == k] = self.other['stype_key'][k]
 
             # save the data to the pandas DataFrame, make sure it is saved in the correct type
             # some errors were produced here by not respecting the endianess of the data (numpy
             # usually works with little endian)
             self.catalog = pd.DataFrame({'nuniverse': hdu[1].data.Nuniverse.astype(int),
                                          'nstar': hdu[1].data.Nstar.astype(int),
-                                         'stype': stype_int,
+                                         'stype': pd.Series(hdu[1].data.Stype, dtype=pd.StringDtype()),
                                          'id': np.arange(0, hdu[1].data.Dec.shape[0], 1).astype(int),
                                          'radius_p': hdu[1].data.Rp.astype(float),
                                          'p_orb': hdu[1].data.Porb.astype(float),
@@ -293,13 +284,9 @@ class Data(object):
                                          'ra': hdu[1].data.RA.astype(float),
                                          'dec': hdu[1].data.Dec.astype(float),
                                          'lat': hdu[1].data.lat.astype(float),
-                                         'lon': hdu[1].data.lon.astype(float)})
+                                         'lon': hdu[1].data.lon.astype(float),
+                                         'name_s': pd.Series(hdu[1].data.name, dtype=pd.StringDtype())})
             hdu.close()
-
-        # create array saving the stellar types in character format
-        self.other['stype'] = np.zeros_like(self.catalog.nstar, dtype=str)
-        for _, k in enumerate(self.other['stype_key']):
-            self.other['stype'][self.catalog.stype == self.other['stype_key'][k]] = k
 
         # create mask returning only unique stars
         _, temp = np.unique(self.catalog.nstar, return_index=True)
@@ -349,7 +336,7 @@ class Data(object):
     #   Think about this a bit more. It is important to keep the ints in the DataFrame, but that
     #   decreases usability. Maybe an option is to use intermediate masks for the stellar types.
     def catalog_remove_distance(self,
-                                stype: int,
+                                stype: str,
                                 dist: float,
                                 mode: str):
         """
@@ -358,9 +345,9 @@ class Data(object):
 
         Parameters
         ----------
-        stype : int
+        stype : str
             Planets around stars of the specified stellar type are removed. Possible options are
-            `0` for A-stars, `1` for F-stars, `2` for G-stars, `3` for K-stars and `4` for M-stars.
+            'A, 'F', 'G', 'K' and 'M'.
         dist : float
             Specifies the distance over or under which the planets are removed in pc.
         mode : str
@@ -370,10 +357,9 @@ class Data(object):
                         removed.
         """
 
-        # TODO: Reinstate this check once the int/sting problem is resolved.
         # check if stellar type is valid
-        # if not np.isin(stype, np.array(('A', 'F', 'G', 'K', 'M'))):
-        #     raise ValueError('Stellar type not recognised')
+        if not np.isin(stype, np.array(('A', 'F', 'G', 'K', 'M'))):
+            raise ValueError('Stellar type not recognised')
 
         # create masks selecting closer or more far away planets
         if mode == 'larger':
@@ -438,7 +424,9 @@ class Data(object):
         """
         if self.catalog is None:
             raise ValueError('No catalog found')
+        self.str_to_obj(reverse=False)
         self.catalog.to_hdf(path_or_buf=output_path, key='catalog', mode='w')
+        self.str_to_obj(reverse=True)
 
     def import_catalog(self,
                        input_path: str,
@@ -463,4 +451,22 @@ class Data(object):
 
         self.catalog = pd.read_hdf(path_or_buf=input_path,
                                    key='catalog')
+        self.str_to_obj(reverse=True)
 
+    def str_to_obj(self,
+                   reverse: bool):
+        """
+        Converts all string type columns in the catalog between type 'object' (needed for saving to hdf5) and type
+        'pandas.StringDtype' (needed for fast computation).
+
+        Parameters
+        ----------
+        name_s : bool
+            if reveres is set true, the type will be converted 'object' -> 'pandas.StringDtype'
+        """
+        if not reverse:
+            for key in self.catalog.keys()[np.where(self.catalog.dtypes == 'string')]:
+                self.catalog[key] = self.catalog[key].astype(object)
+        else:
+            for key in self.catalog.keys()[np.where(self.catalog.dtypes == 'object')]:
+                self.catalog[key] = self.catalog[key].astype(pd.StringDtype())
