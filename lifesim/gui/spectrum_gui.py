@@ -3,6 +3,7 @@ import warnings
 import urllib.request
 from urllib.error import HTTPError, URLError
 import os
+import sys
 
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import (QApplication, QDialog, QGroupBox, QGridLayout, QLabel,
@@ -628,7 +629,15 @@ class Frame(QDialog):
             self.p_plot.axes.ticklabel_format(axis='x', style='sci')
             self.p_plot.draw()
         except Exception as e:
-            self.error_field.setText('Import Error: ' + str(e))
+            exc_type, exc_obj, exc_tb = sys.exc_info()
+            fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
+            print(exc_type, fname, exc_tb.tb_lineno)
+            self.error_field.setText('Import Error: '
+                                     + str(e) + '; '
+                                     + str(exc_type) + '; '
+                                     + str(fname) + '; '
+                                     + str(exc_tb.tb_lineno))
+
 
     def show_spectrum(self,
                       spectrum,

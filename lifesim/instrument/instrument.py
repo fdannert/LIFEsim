@@ -199,7 +199,7 @@ class Instrument(InstrumentModule):
         # make sure that the baseline does not exeed the set baseline limits
         self.data.inst['bl'] = np.maximum(baseline,
                                           self.data.options.array['bl_min'])
-        self.data.inst['bl'] = np.minimum(baseline,
+        self.data.inst['bl'] = np.minimum(self.data.inst['bl'],
                                           self.data.options.array['bl_max'])
         if (self.data.inst['bl'] != baseline) and print_warning:
             warn('Specified baseline exceeded baseline limits. Baseline fixed to '
@@ -218,14 +218,13 @@ class Instrument(InstrumentModule):
         ])
 
     def get_snr(self,
-                safe_mode: bool = False):
+                save_mode: bool = False):
         """
         Calculates the one-hour signal-to-noise ration for all planets in the catalog.
-
         Parameters
         ----------
         safe_mode : bool
-            If safe mode is enables, the individual photon counts of the planet and noise sources
+            If save mode is enables, the individual photon counts of the planet and noise sources
             are written to the catalog.
         """
 
@@ -240,7 +239,7 @@ class Instrument(InstrumentModule):
 
         self.data.catalog['snr_1h'] = np.zeros_like(self.data.catalog.nstar, dtype=float)
         self.data.catalog['baseline'] = np.zeros_like(self.data.catalog.nstar, dtype=float)
-        if safe_mode:
+        if save_mode:
             self.data.catalog['noise_astro'] = None
             self.data.catalog['planet_flux_use'] = None
             self.data.catalog['photon_rate_planet'] = None
@@ -251,8 +250,10 @@ class Instrument(InstrumentModule):
         star_mask = np.zeros_like(self.data.catalog.nstar, dtype=bool)
         star_mask[temp] = True
 
-        # iterate over all stars
-        for i, n_s in enumerate(tqdm(np.where(star_mask)[0])):
+
+        # iterate over all stars to calculate noise specific to stars
+        for i, n in enumerate(tqdm(np.where(star_mask)[0])):
+
             # if i == 10:
             #     break
             nstar = self.data.catalog.nstar.iloc[n_s]
@@ -266,43 +267,45 @@ class Instrument(InstrumentModule):
                                                                   method='transmission_map',
                                                                   map_selection='tm3')
 
-            # calculate the noise from the background sources constant with the star
-            noise_bg_list = self.run_socket(s_name='photon_noise',
-                                            method='noise_star',
-                                            index=n_s)
 
-            # TODO: Reinstate the method in which the noise list is keyed by the name of the
-            #  producing noise module
-            if type(noise_bg_list) == list:
-                noise_bg_star = np.zeros_like(noise_bg_list[0])
-                for _, noise in enumerate(noise_bg_list):
+            # calculate the noise from the background sources specific to star
+            noise_bg_list_star = self.run_socket(s_name='photon_noise_star',
+                                                 method='noise',
+                                                 index=n)
+
+            if type(noise_bg_list_star) == list:
+                noise_bg_star = np.zeros_like(noise_bg_list_star[0])
+                for _, noise in enumerate(noise_bg_list_star):
                     noise_bg_star += noise
             else:
-                noise_bg_star = noise_bg_list
+                noise_bg_star = noise_bg_list_star
 
-            # create mask returning only unique stars
-            universes = np.unique(self.data.catalog.nuniverse[self.data.catalog.nstar == nstar], return_index=False)
+            # calculate the noise from the background sources specific to universe
+            noise_bg_list_universe = self.run_socket(s_name='photon_noise_universe',
+                                                     method='noise',
+                                                     index=n)
+
+            if type(noise_bg_list_universe) == list:
+                noise_bg_universe = np.zeros_like(noise_bg_list_universe[0])
+                for _, noise in enumerate(noise_bg_list_universe):
+                    noise_bg_universe += noise
+            else:
+                noise_bg_universe = noise_bg_list_star
+
+            # iterate throgh all universes
+            universes = np.unique(self.data.catalog.nuniverse[self.data.catalog.nstar == nstar])
 
             for nuniverse in universes:
                 n_u = np.where(np.logical_and(self.data.catalog.nstar == nstar,
                                               self.data.catalog.nuniverse == nuniverse))[0][0]
 
-                # calculate noise from background sources constant with the universe
-                noise_bg_list = self.run_socket(s_name='photon_noise',
-                                                method='noise_universe',
-                                                index=n_u)
 
-                if type(noise_bg_list) == list:
-                    noise_bg_zodi = np.zeros_like(noise_bg_list[0])
-                    for _, noise in enumerate(noise_bg_list):
-                        noise_bg_zodi += noise
-                else:
-                    noise_bg_zodi = noise_bg_list
+                noise_bg_universe_temp = noise_bg_universe * self.data.catalog.z.iloc[n_u] / self.data.catalog.z.iloc[n]
 
-                noise_bg = noise_bg_zodi + noise_bg_star
-                noise_bg = noise_bg * integration_time * self.data.inst['eff_tot'] * 2
+                noise_bg = (noise_bg_star + noise_bg_universe_temp) * integration_time * self.data.inst['eff_tot'] * 2
 
-                # go through all planets for the chosen star and universe
+                # go through all planets for the chosen star
+
                 for _, n_p in enumerate(np.argwhere(
                         np.logical_and(self.data.catalog.nstar.to_numpy() == nstar,
                                        self.data.catalog.nuniverse.to_numpy() == nuniverse))[:, 0]):
@@ -341,7 +344,8 @@ class Instrument(InstrumentModule):
                     # save baseline
                     self.data.catalog['baseline'].iat[n_p] = self.data.inst['bl']
 
-                    if safe_mode:
+
+                    if save_mode:
                         self.data.catalog.noise_astro.iat[n_p] = [noise_bg]
                         self.data.catalog.planet_flux_use.iat[n_p] = (
                             [flux_planet_thermal
@@ -352,8 +356,8 @@ class Instrument(InstrumentModule):
                                                                             / integration_time
                                                                             / self.data.inst['eff_tot']).sum()
                         self.data.catalog['photon_rate_noise'].iat[n_p] = (noise
-                                                                            / integration_time
-                                                                            / self.data.inst['eff_tot']).sum()
+                                                                           / integration_time
+                                                                           / self.data.inst['eff_tot']).sum()
 
     # TODO: fix units in documentation
     def get_spectrum(self,
@@ -523,18 +527,50 @@ class Instrument(InstrumentModule):
                        * self.data.inst['wl_bin_widths']
 
         # calculate the noise from the background sources
-        noise_bg_list = self.run_socket(s_name='photon_noise',
-                                        method='noise',
-                                        index=None)
+        # noise_bg_list = self.run_socket(s_name='photon_noise',
+        #                                 method='noise',
+        #                                 index=None)
+        #
+        # if type(noise_bg_list) == list:
+        #     noise_bg = np.zeros_like(noise_bg_list[0])
+        #     for _, noise in enumerate(noise_bg_list):
+        #         noise_bg += noise
+        # else:
+        #     noise_bg = noise_bg_list
+        #
+        # noise_bg = noise_bg * integration_time * self.data.inst['eff_tot']
 
-        if type(noise_bg_list) == list:
-            noise_bg = np.zeros_like(noise_bg_list[0])
-            for _, noise in enumerate(noise_bg_list):
-                noise_bg += noise
+        # calculate the noise from the background sources specific to star
+        noise_bg_list_star = self.run_socket(s_name='photon_noise_star',
+                                             method='noise',
+                                             index=None)
+
+        if type(noise_bg_list_star) == list:
+            if not noise_bg_list_star:
+                noise_bg_star = np.zeros_like(self.data.inst['wl_bins'])
+            else:
+                noise_bg_star = np.zeros_like(noise_bg_list_star[0])
+                for _, noise in enumerate(noise_bg_list_star):
+                    noise_bg_star += noise
         else:
-            noise_bg = noise_bg_list
+            noise_bg_star = noise_bg_list_star
 
-        noise_bg = noise_bg * integration_time * self.data.inst['eff_tot']
+        # calculate the noise from the background sources specific to universe
+        noise_bg_list_universe = self.run_socket(s_name='photon_noise_universe',
+                                                 method='noise',
+                                                 index=None)
+
+        if type(noise_bg_list_universe) == list:
+            if not noise_bg_list_universe:
+                noise_bg_universe = np.zeros_like(self.data.inst['wl_bins'])
+            else:
+                noise_bg_universe = np.zeros_like(noise_bg_list_universe[0])
+                for _, noise in enumerate(noise_bg_list_universe):
+                    noise_bg_universe += noise
+        else:
+            noise_bg_universe = noise_bg_list_star
+
+        noise_bg = (noise_bg_star + noise_bg_universe) * integration_time * self.data.inst['eff_tot'] * 2
 
         # Add up the noise and caluclate the SNR
         noise = (noise_bg + noise_planet) * 2
@@ -547,7 +583,238 @@ class Instrument(InstrumentModule):
         else:
             return ([self.data.inst['wl_bins'], snr_spec],
                     flux_planet,
-                    [noise, noise_bg_list])
+                    [noise, noise_bg_list_star, noise_bg_list_universe])
+
+
+    def get_signal(self,
+                   temp_s: float,  # in K
+                   radius_s: float,  # in R_sun
+                   distance_s: float,  # in pc
+                   lat_s: float,  # in radians
+                   z: float,  # in zodis
+                   angsep: float,  # in arcsec
+                   flux_planet_spectrum: list,  # in ph m-3 s-1 over m
+                   integration_time: float,  # in s
+                   phi_n: int = 360):
+        """
+        Calculate the signal-to-noise ratio per spectral bin of a given spectrum of a single
+        planet.
+
+        Parameters
+        ----------
+        temp_s : float
+            Temperature of the observed star in [K].
+        radius_s : float
+            Radius of the observed star in [sun radii].
+        distance_s : float
+            Distance between the observed star and the LIFE array in [pc].
+        lat_s : float
+            Ecliptic latitude of the observed star in [rad].
+        z : float
+            Zodi level in the observed system in [zodis], i.e. the dust surface density of the
+            observed system is z-times as high as in the solar system.
+        angsep : float
+            Angular separation between the observed star and the observed exoplanet in [arcsec].
+        flux_planet_spectrum : list
+            Spectrum of the planet. In the first element of the list `flux_planet_spectrum[0]`, the
+            wavelength bins of the spectrum must be given in [m]. In the second element
+            `flux_planet_spectrum[1]`, the photon count within the spectral bin must be given in
+            [photons m-3 s-1].
+        integration_time : float
+            Time that the LIFE array spends for integrating on the observed planet in [s].
+        pbar
+            Takes a PyQt5 QProgressBar to display the progress of the baseline optimization.
+        baseline_to_planet : bool
+            If set to True, the baseline will be optimized to the position of the planet. If set
+            to False, the baseline will be optimized to the center of the habitable zone of the
+            host star.
+        baseline : float
+            Specifies a custom baseline. To have an effect, baseline_to_planet must be set to
+            False.
+
+        Returns
+        -------
+        Tuple[wl_bins, snr_spec]
+            Returns the wavelength bins in [m] in the first element and the SNR per wavelength bin
+            in the second element.
+        flux_planet
+            Returns the flux of the planet as used in the simulation in [photons]
+        noise
+            Returns the noise contribution in [photons]
+        """
+
+        # options are applied before the simulation run
+        self.apply_options()
+
+        # write the given parameters to the single planet data in the bus. If the connected modules
+        # are given an empty index to specify the star, they will use the data saved in this single
+        # planet location
+        self.data.single['temp_s'] = temp_s
+        self.data.single['radius_s'] = radius_s
+        self.data.single['distance_s'] = distance_s
+        self.data.single['lat'] = lat_s
+        self.data.single['z'] = z
+        self.data.single['angsep'] = angsep
+
+        # calculate the habitable zone of the specified star
+        s_in, s_out, l_sun, \
+            hz_in, hz_out, \
+            hz_center = single_habitable_zone(model=self.data.options.models['habitable'],
+                                              temp_s=temp_s,
+                                              radius_s=radius_s)
+
+        self.data.single['l_sun'] = l_sun
+
+        # adjust baseline to habitable zone
+        self.adjust_bl_to_hz(hz_center=hz_center,
+                             distance_s=distance_s)
+
+        # use spectres to rescale the spectrum onto the correct wl bins
+        flux_planet_spectrum_input = flux_planet_spectrum
+        flux_planet_spectrum = spectres(new_wavs=self.data.inst['wl_bin_edges'],
+                                        spec_wavs=flux_planet_spectrum[0].value,
+                                        spec_fluxes=flux_planet_spectrum[1].value,
+                                        edge_mode=True)
+
+        # calculate the transmission map
+        _, _, self.data.inst['t_map'], _, _ = self.run_socket(s_name='transmission',
+                                                              method='transmission_map',
+                                                              map_selection='tm3')
+
+        curve_chop, curve_tm4 = self.run_socket(s_name='transmission',
+                                                method='transmission_curve',
+                                                angsep=angsep,
+                                                phi_n=phi_n)
+
+        # calculate the signal and photon noise flux received from the planet per time bin
+        flux_planet = flux_planet_spectrum[:, np.newaxis] \
+                      * np.squeeze(curve_chop, axis=1) \
+                      * integration_time \
+                      / phi_n \
+                      * self.data.inst['eff_tot'] \
+                      * self.data.inst['telescope_area'] \
+                      * self.data.inst['wl_bin_widths'][:, np.newaxis]
+        noise_planet = flux_planet_spectrum[:, np.newaxis] \
+                       * np.squeeze(curve_tm4, axis=1) \
+                       / phi_n \
+                       * integration_time \
+                       * self.data.inst['eff_tot'] \
+                       * self.data.inst['telescope_area'] \
+                       * self.data.inst['wl_bin_widths'][:, np.newaxis]
+
+
+        # calculate the noise from the background sources specific to star
+        noise_bg_list_star = self.run_socket(s_name='photon_noise_star',
+                                             method='noise',
+                                             index=None)
+
+        if type(noise_bg_list_star) == list:
+            if not noise_bg_list_star:
+                noise_bg_star = np.zeros_like(self.data.inst['wl_bins'])
+            else:
+                noise_bg_star = np.zeros_like(noise_bg_list_star[0])
+                for _, noise in enumerate(noise_bg_list_star):
+                    noise_bg_star += noise
+        else:
+            noise_bg_star = noise_bg_list_star
+
+        # calculate the noise from the background sources specific to universe
+        noise_bg_list_universe = self.run_socket(s_name='photon_noise_universe',
+                                                 method='noise',
+                                                 index=None)
+
+        if type(noise_bg_list_universe) == list:
+            if not noise_bg_list_universe:
+                noise_bg_universe = np.zeros_like(self.data.inst['wl_bins'])
+            else:
+                noise_bg_universe = np.zeros_like(noise_bg_list_universe[0])
+                for _, noise in enumerate(noise_bg_list_universe):
+                    noise_bg_universe += noise
+        else:
+            noise_bg_universe = noise_bg_list_star
+
+        noise_bg = (noise_bg_star + noise_bg_universe) * integration_time / phi_n * self.data.inst['eff_tot'] * 2
+
+        noise = (noise_bg[:, np.newaxis] + noise_planet) * 2
+
+        # draw noise
+        noise_drawn = np.random.poisson(lam=noise) - np.random.poisson(lam=noise)
+
+        # add up to noisy signal
+        signal = flux_planet + noise_drawn
+
+        return signal, flux_planet
+
+
+def multiprocessing_runner(input_dict: dict):
+    # create mask returning only unique stars
+    universes = np.unique(
+        input_dict['catalog'].nuniverse[input_dict['catalog'].nstar == input_dict['nstar']], return_index=False)
+
+    # get transmission map
+    _, _, self.data.inst['t_map'], _, _ = self.run_socket(s_name='transmission',
+                                                          method='transmission_map',
+                                                          map_selection='tm3')
+
+    for nuniverse in universes:
+        inst.z = input_dict['catalog'][np.logical_and(input_dict['catalog'].nstar == input_dict['nstar'],
+                                                  input_dict['catalog'].nuniverse == nuniverse)].z.iloc[0]
+
+        # redo calculation for exozodi
+        inst.create_exozodi()
+        inst.sensitivity_coefficients(exozodi_only=True)
+        inst.fundamental_noise(exozodi_only=True)
+
+        # go through all planets for the chosen star
+        for _, n_p in enumerate(np.argwhere(
+                np.logical_and(input_dict['catalog'].nstar.to_numpy() == input_dict['nstar'],
+                               input_dict['catalog'].nuniverse.to_numpy() == nuniverse))[:, 0]):
+            inst.temp_planet = input_dict['catalog']['temp_p'].iloc[n_p]
+            inst.radius_planet = input_dict['catalog']['radius_p'].iloc[n_p]
+            inst.separation_planet = (input_dict['catalog']['angsep'].iloc[n_p]
+                                      * input_dict['catalog']['distance_s'].iloc[n_p])
+
+            # ----- must be repeated for every planet -----
+            inst.create_planet(force=True)
+            inst.planet_signal()
+
+            if (inst.chopping == 'nchop'):
+                inst.sn_nchop()
+            else:
+                inst.sn_chop()
+
+            # save baseline
+            input_dict['catalog']['baseline'].iat[n_p] = input_dict['baseline']
+
+            # save snr results
+            if (inst.chopping == 'nchop'):
+                input_dict['catalog'].t_rot.iat[n_p] = input_dict['integration_time']
+                input_dict['catalog'].signal.iat[n_p] = inst.photon_rates.loc['signal', 'nchop'].sum()
+                input_dict['catalog'].photon_noise.iat[n_p] = (
+                    np.sqrt((inst.photon_rates.loc['pn', 'nchop'] ** 2).sum()))
+                input_dict['catalog'].systematic_noise.iat[n_p] = (
+                    np.sqrt((inst.photon_rates.loc['sn', 'nchop'] ** 2).sum()))
+            else:
+                input_dict['catalog'].t_rot.iat[n_p] = input_dict['integration_time']
+                input_dict['catalog'].signal.iat[n_p] = inst.photon_rates.loc['signal', 'chop'].sum()
+                input_dict['catalog'].photon_noise.iat[n_p] = (
+                    np.sqrt((inst.photon_rates.loc['pn', 'chop'] ** 2).sum()))
+                input_dict['catalog'].systematic_noise.iat[n_p] = (
+                    np.sqrt((inst.photon_rates.loc['sn', 'chop'] ** 2).sum()))
+
+            if input_dict['safe_mode']:
+                if (inst.chopping == 'nchop'):
+                    input_dict['noise_catalog'].loc[input_dict['catalog']['id'].iloc[n_p]] = (
+                        inst.photon_rates.nchop)
+                else:
+                    input_dict['noise_catalog'].loc[input_dict['catalog']['id'].iloc[n_p]] = (
+                        inst.photon_rates.chop)
+
+    return_dict = {'catalog': input_dict['catalog']}
+    if input_dict['safe_mode']:
+        return_dict['noise_catalog'] = input_dict['noise_catalog']
+
+    return return_dict
 
 
 

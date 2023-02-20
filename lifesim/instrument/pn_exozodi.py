@@ -1,12 +1,12 @@
 import numpy as np
 from typing import Union
 
-from lifesim.core.modules import PhotonNoiseModule
+from lifesim.core.modules import PhotonNoiseUniverseModule
 from lifesim.util import constants
 from lifesim.util.radiation import black_body
 
 
-class PhotonNoiseExozodi(PhotonNoiseModule):
+class PhotonNoiseExozodi(PhotonNoiseUniverseModule):
     """
     This class simulates the noise contribution of an exozodi disk to the interferometric
     measurement of LIFE.
