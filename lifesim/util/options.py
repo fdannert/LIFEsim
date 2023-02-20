@@ -115,8 +115,11 @@ class Options(object):
 
         self.optimization['N_pf'] = 25
         self.optimization['snr_target'] = 7
-        self.optimization['limit'] = np.array(((0, 1, 2, 3, 4),
-                                               (np.inf, np.inf, np.inf, np.inf, np.inf)))
+        self.optimization['limit'] = {'A': np.inf,
+                                      'F': np.inf,
+                                      'G': np.inf,
+                                      'K': np.inf,
+                                      'M': np.inf}
         self.optimization['habitable'] = True
         self.optimization['t_search'] = 2.5 * 365. * 24. * 60. * 60.
 

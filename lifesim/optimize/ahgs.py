@@ -10,8 +10,9 @@ class AhgsModule(SlopeModule):
     def obs_array_star(self, nstar):
         mask = self.data.catalog.nstar == nstar
 
+        # return infinity if the detection limit is reached for this stype
         if not bool(np.isin(element=self.data.catalog.stype.loc[mask].iloc[0],
-                            test_elements=self.data.options.optimization['limit'][0][np.invert(
+                            test_elements=np.array(list(self.data.options.optimization['limit'].keys()))[np.invert(
                                 self.data.optm['hit_limit'])])):
             return np.array((np.inf, np.inf))
         else:
@@ -63,9 +64,9 @@ class AhgsModule(SlopeModule):
                          >= self.data.options.optimization['snr_target']):
                     self.data.catalog.detected.iat[i] = True
                     if self.data.catalog.habitable.iloc[i]:
-                        self.data.optm['sum_detected'][np.where(
-                            self.data.options.optimization['limit'][0][:]
-                            == self.data.catalog.stype.iloc[i])] += 1
+                        self.data.optm['sum_detected'][
+                            np.where(np.array(list(self.data.options.optimization['limit'].keys()))
+                                     == self.data.catalog.stype.iloc[i])] += 1
         else:
             pass
             # self.planets.slew_time[mask_star] = -self.t_slew
@@ -92,6 +93,8 @@ class AhgsModule(SlopeModule):
 
         tot_time = 0
 
+        print('Number of planets detected by stellar type:')
+
         while tot_time < obs_time:
             # find the best global slope and observe star
             no_star, ind_t = np.unravel_index(np.argmin(obs), obs.shape)
@@ -115,12 +118,21 @@ class AhgsModule(SlopeModule):
                 obs[no_star, :] = np.inf
                 obs[no_star, :temp.shape[0]] = temp
 
-            print(self.data.optm['sum_detected'] / self.data.optm['num_universe'])
+            out_string = ''
+            for key in self.data.options.optimization['limit'].keys():
+                out_string += (key + ': '
+                               + str((self.data.optm['sum_detected'] / self.data.optm['num_universe'])[
+                                         np.where(np.array(list(self.data.options.optimization['limit'].keys()))
+                                                  == key)][0])
+                               + '  ')
+            out_string += ('-  (' + str(np.round(tot_time/60/60/24/365.25, 1)) + ' / '
+                           + str(np.round(obs_time/60/60/24/365.25, 1)) + ') yrs observed')
+            print('\r' + out_string, end='')
 
             if np.any(
                     np.logical_and(
                         (self.data.optm['sum_detected'] / self.data.optm['num_universe'])
-                        > self.data.options.optimization['limit'][1][:],
+                        > np.array(list(self.data.options.optimization['limit'].values())),
                         np.invert(self.data.optm['hit_limit']))):
                 print('HIT LIMIT, RECOUNTING -------------------')
                 self.data.optm['hit_limit'] = ((self.data.optm['sum_detected']
