@@ -1,8 +1,11 @@
 from __future__ import annotations
 import abc
 from abc import ABC
-from typing import Tuple
+from typing import Tuple, Union
 import warnings
+
+import yaml
+from numpy import ndarray, array
 
 from lifesim.core.data import Data
 
@@ -435,3 +438,66 @@ class Bus(object):
 
         # point module to the data storage class
         module.data = self.data
+
+    def write_config(self):
+        module_dict = {key: str(type(module)) for (key, module) in self.modules.items()}
+
+        config_dict = {'array': convert_to_list(self.data.options.array),
+                       'models': convert_to_list(self.data.options.models),
+                       'optimization': convert_to_list(self.data.options.optimization),
+                       'other': convert_to_list(self.data.options.other),
+                       'modules': module_dict,
+                       'connections': convert_to_list(self.connections)}
+
+        with open(self.data.options.other['output_path']
+                  + self.data.options.other['output_filename'] + '.yaml', 'w') as file:
+            documents = yaml.dump(config_dict, file)
+
+    def build_from_config(self,
+                          filename: str):
+        with open(filename) as file:
+            config_dict = yaml.load(file, Loader=yaml.FullLoader)
+
+        self.data.options.array = convert_to_np(config_dict['array'])
+        self.data.options.optimization = convert_to_np(config_dict['optimization'])
+        self.data.options.models = config_dict['models']
+        self.data.options.other = config_dict['other']
+
+        # TODO: Implement methods for rebuilding modules and connections from config file
+
+    def save(self):
+        print('Saving database and config files...')
+        self.write_config()
+        if self.data.catalog is not None:
+            self.data.export_catalog()
+        print('[Done]')
+
+
+def convert_to_list(inp: Union[dict, list]):
+
+    if isinstance(inp, dict):
+        out = {}
+        for k in inp.keys():
+            if isinstance(inp[k], ndarray):
+                out[k] = inp[k].tolist()
+            else:
+                out[k] = inp[k]
+    elif isinstance(inp, list):
+        out = []
+        for el in inp:
+            if isinstance(el, set):
+                out.append(list(el))
+            else:
+                out.append(el)
+    else:
+        raise ValueError('Unsupported input type')
+    return out
+
+def convert_to_np(inp: dict):
+    out = {}
+    for k in inp.keys():
+        if isinstance(inp[k], list):
+            out[k] = array(inp[k])
+        else:
+            out[k] = inp[k]
+    return out

@@ -121,6 +121,36 @@ class PhotonNoiseUniverseModule(Module):
         """
         pass
 
+    @abc.abstractmethod
+    def noise_star(self,
+                   index: Union[int, type(None)]):
+        """
+        Calculates the photon shot noise contribution from star and localzodi.
+
+        Parameters
+        ----------
+        index : Union[int, type(None)]
+            If an integer is given, the photon noise of the planet corresponding to the respective
+            interger row position in the catalog is given. If `None` is given, the photon noise is
+            calculated for the parameters found in `bus.data.single`.
+        """
+        pass
+
+    @abc.abstractmethod
+    def noise_universe(self,
+                       index: Union[int, type(None)]):
+        """
+        Calculates the photon shot noise contribution from exozodi.
+
+        Parameters
+        ----------
+        index : Union[int, type(None)]
+            If an integer is given, the photon noise of the planet corresponding to the respective
+            interger row position in the catalog is given. If `None` is given, the photon noise is
+            calculated for the parameters found in `bus.data.single`.
+        """
+        pass
+
 
 class TransmissionModule(Module):
     """
@@ -197,4 +227,11 @@ class SlopeModule(Module):
         """
         Run the aHGS algorithm.
         """
+        pass
+
+
+class AnalysisModule(Module):
+    # TODO: Documentation
+    @abc.abstractmethod
+    def planet_count(self):
         pass

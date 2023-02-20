@@ -6,6 +6,10 @@ from lifesim.instrument.pn_exozodi import PhotonNoiseExozodi
 from lifesim.instrument.pn_localzodi import PhotonNoiseLocalzodi
 from lifesim.instrument.pn_star import PhotonNoiseStar
 
+from lifesim.instrument_prt.instrument_prt import InstrumentPrt
+
+from lifesim.analysis.planet_counts import SampleAnalysisModule
+
 from lifesim.util.importer import SpectrumImporter
 
 from lifesim.optimize.optimizer import Optimizer

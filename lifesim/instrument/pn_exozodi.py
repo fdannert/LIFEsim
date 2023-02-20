@@ -22,8 +22,8 @@ class PhotonNoiseExozodi(PhotonNoiseUniverseModule):
             Name of the module.
         """
 
-    def noise(self,
-              index: Union[int, type(None)]):
+    def noise_universe(self,
+                       index: Union[int, type(None)]):
         """
         Simulates the amount of photon noise originating from the exozodi of the observed system
         leaking into the LIFE array measurement.
@@ -134,3 +134,11 @@ class PhotonNoiseExozodi(PhotonNoiseUniverseModule):
         ez_leak = (f_nu_disk * self.data.inst['t_map'] * ap).sum(axis=(-2, -1))
 
         return ez_leak
+
+    def noise_star(self,
+                   index: Union[int, type(None)]):
+        return np.zeros_like(self.data.inst['wl_bins'])
+
+    def noise(self,
+              index: Union[int, type(None)]):
+        return self.noise_universe(index=index)

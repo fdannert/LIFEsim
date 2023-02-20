@@ -2,8 +2,12 @@ import sys
 import warnings
 
 import numpy as np
+import xarray as xr
 import pandas as pd
 from astropy.io import fits
+from tqdm import tqdm
+import pickle
+
 from astropy.coordinates import SkyCoord, BarycentricMeanEcliptic
 
 from lifesim.util.options import Options
@@ -34,6 +38,8 @@ class Data(object):
     def __init__(self):
         self.inst = {}
         self.catalog = None
+        self.noise_catalog = None
+        self.noise_catalog_pivot = None
         self.single = {}
         self.other = {}
         self.options = Options()
@@ -66,6 +72,10 @@ class Data(object):
         if (self.catalog is not None) and (not overwrite):
             raise ValueError('A catalog has already been imported. Delete the old catalog or set '
                              'overwrite=True')
+
+        print('Loading catalog from P-Pop...')
+
+        self.options.other['database_path'] = input_path
 
         # initialize catalog
         self.catalog = pd.DataFrame(columns=['radius_p',
@@ -332,6 +342,8 @@ class Data(object):
             (self.catalog['radius_p'].ge(0.5)).to_numpy(),
             (self.catalog['radius_p'].le(1.5)).to_numpy()))
 
+        print('[Done]')
+
     # TODO: Definition of stype here is wrong. It should be an int not a string.
     #   Think about this a bit more. It is important to keep the ints in the DataFrame, but that
     #   decreases usability. Maybe an option is to use intermediate masks for the stellar types.
@@ -407,8 +419,7 @@ class Data(object):
             raise ValueError('Data can not be overwritten in safe mode')
         self.catalog[name] = data
 
-    def export_catalog(self,
-                       output_path: str):
+    def export_catalog(self):
         """
         Save the catalog to an file in the hdf-format.
 
@@ -424,13 +435,91 @@ class Data(object):
         """
         if self.catalog is None:
             raise ValueError('No catalog found')
+
         self.str_to_obj(reverse=False)
         self.catalog.to_hdf(path_or_buf=output_path, key='catalog', mode='w')
         self.str_to_obj(reverse=True)
+        
+        print('Main Catalog Stored')
+
+        print('Exporting Noise Catalog...')
+        if self.noise_catalog is not None:
+            self.noise_catalog.to_netcdf(path=self.options.other['output_path']
+                                              + self.options.other['output_filename'] + '_noise.nc',
+                                         mode='w',
+                                         engine='h5netcdf')
+        print('[Done]')
+        # if (self.options.other['pickle_mode'] == True) and (self.noise_catalog is not None):
+        #     file = open(self.options.other['output_path']
+        #                 + self.options.other['output_filename'] + '_noise_pickle.pickle', 'wb')
+        #     pickle.dump(self.noise_catalog, file)
+        #     file.close()
+        # elif self.options.other['large_file']:
+        #     if self.noise_catalog_pivot is not None:
+        #         self.store_pivot_noise_catalog()
+        #         print('Pivoted Noise Catalog Stored')
+        #     elif self.noise_catalog is not None:
+        #         self.pivot_noise_catalog(to_wavelength=True)
+        #         self.store_pivot_noise_catalog()
+        #         print('Pivoted Noise Catalog Stored')
+        #     else:
+        #         print('No Noise Catalog Stored')
+        # else:
+        #     if self.noise_catalog is not None:
+        #         self.store_noise_catalog()
+        #         print('Standard Noise Catalog Stored')
+        #     elif self.noise_catalog_pivot is not None:
+        #         self.pivot_noise_catalog(to_wavelength=False)
+        #         self.store_noise_catalog()
+        #         print('Standard Noise Catalog Stored')
+        #     else:
+        #         print('No Noise Catalog Stored')
+
+
+        # if self.noise_catalog is not None:
+        #     print('Exporting Noise Catalog...')
+        #     if self.options.other['large_file']:
+        #         self.pivot_noise_catalog(to_wavelength=True)
+        #         store = pd.HDFStore(self.options.other['output_path']
+        #                             + self.options.other['output_filename'] + '_noise_large.hdf5')
+        #         for k in self.noise_catalog_pivot.keys():
+        #             store.put(key='id_' + k.replace('.', ''), value=self.noise_catalog_pivot[k].astype(float))
+        #         store.put(key='wl_keys', value=pd.Series(
+        #             ['id_' + k.replace('.', '') for k in self.noise_catalog_pivot.keys()]
+        #         ))
+        #         store.close()
+        #     else:
+        #         store = pd.HDFStore(self.options.other['output_path']
+        #                             + self.options.other['output_filename'] + '_noise.hdf5')
+        #         for k in self.noise_catalog.keys():
+        #             store.put(key='id_' + k, value=self.noise_catalog[k].astype(float))
+        #         store.close()
+        #     print('[Done]')
+        #     self.noise_catalog.to_hdf(path_or_buf=self.options.other['output_path']
+        #                                           + self.options.other['output_filename']
+        #                                           + '_noise.hdf5', key='noise_catalog', mode='w')
+
+    # def store_pivot_noise_catalog(self):
+    #     store = pd.HDFStore(self.options.other['output_path']
+    #                         + self.options.other['output_filename'] + '_noise_large.hdf5')
+    #     for k in self.noise_catalog_pivot.keys():
+    #         store.put(key='id_' + k.replace('.', ''), value=self.noise_catalog_pivot[k].astype(float))
+    #     store.put(key='wl_keys', value=pd.Series(
+    #         ['id_' + k.replace('.', '') for k in self.noise_catalog_pivot.keys()]
+    #     ))
+    #     store.close()
+    #
+    # def store_noise_catalog(self):
+    #     store = pd.HDFStore(self.options.other['output_path']
+    #                         + self.options.other['output_filename'] + '_noise.hdf5')
+    #     for k in self.noise_catalog.keys():
+    #         store.put(key='id_' + k, value=self.noise_catalog[k].astype(float))
+    #     store.close()
 
     def import_catalog(self,
                        input_path: str,
-                       overwrite: bool = False):
+                       overwrite: bool = False,
+                       noise_catalog: bool = False):
         """
         Import catalog from external file of hdf-format.
 
@@ -446,22 +535,118 @@ class Data(object):
         ValueError
             If the data class already has an initialized catalog and overwrite is set to False.
         """
+
+        print('Importing Catalog...')
         if (self.catalog is not None) and (not overwrite):
             raise ValueError('Can not overwrite existing catalog')
+
+        self.options.other['database_path'] = input_path
 
         self.catalog = pd.read_hdf(path_or_buf=input_path,
                                    key='catalog')
         self.str_to_obj(reverse=True)
+        
+        print('[Done]')
+
+        if noise_catalog:
+            print('Importing Noise Catalog...')
+            with xr.open_dataarray(input_path[:-5] + '_noise.nc',
+                                   engine='h5netcdf') as file:
+                self.noise_catalog = file
+            print('[Done]')
+            # if self.options.other['pickle_mode']:
+            #     file = open(input_path[:-5] + '_noise_pickle.pickle', 'rb')
+            #     self.noise_catalog = pickle.load(file)
+            #     file.close()
+            # elif self.options.other['large_file']:
+            #     store = pd.HDFStore(input_path[:-5] + '_noise_large.hdf5')
+            #     self.noise_catalog_pivot = {}
+            #     wl_keys = store.get('wl_keys')
+            #     for wl_key in tqdm(wl_keys):
+            #         self.noise_catalog_pivot[wl_key[3:-1] + '.' + wl_key[-1]] = store.get(wl_key)
+            #     store.close()
+            # else:
+            #     store = pd.HDFStore(input_path[:-5] + '_noise.hdf5')
+            #     self.noise_catalog = {}
+            #     for id in tqdm(self.catalog.id):
+            #         self.noise_catalog[str(id)] = store.get('id_' + str(id))
+            #     store.close()
+
+    # def pivot_noise_catalog(self,
+    #                         to_wavelength: bool):
+    #     print('Pivoting Noise Catalog...')
+    #     if to_wavelength:
+    #         self.noise_catalog_pivot = {}
+    #         idx = list(self.noise_catalog.keys())
+    #         wl_ids = self.noise_catalog[idx[0]].index.values
+    #         columns = self.noise_catalog[idx[0]].columns.values
+    #         for wl_id in tqdm(wl_ids):
+    #             pd_table = pd.DataFrame(columns=columns, index=idx)
+    #             for id in idx:
+    #                 pd_table.loc[id] = self.noise_catalog[id].loc[wl_id]
+    #             self.noise_catalog_pivot[wl_id] = pd_table
+    #         self.noise_catalog = None
+    #
+    #     else:
+    #         self.noise_catalog = {}
+    #         wl_ids = list(self.noise_catalog_pivot.keys())
+    #         idx = self.noise_catalog_pivot[wl_ids[0]].index.values
+    #         columns = self.noise_catalog_pivot[wl_ids[0]].columns.values
+    #         for id in tqdm(idx):
+    #             pd_table = pd.DataFrame(columns=columns, index=wl_ids)
+    #             for wl_id in wl_ids:
+    #                 pd_table.loc[wl_id] = self.noise_catalog_pivot[wl_id].loc[id]
+    #             self.noise_catalog[id] = pd_table
+    #         self.noise_catalog_pivot = None
+    #     print('')
+    #     print('[Done]')
+
+
+    def noise_catalog_from_catalog(self):
+        pass
+        # self.noise_catalog = pd.DataFrame(columns=['signal',  # planet signal
+        #                                            'noise',  # overall noise contribution
+        #                                            'wl',  # wavelength bin
+        #                                            'pn_sgl',  # stellar geometric leakage
+        #                                            'pn_ez',  # exozodi leakage
+        #                                            'pn_lz',  # localzodi leakage
+        #                                            'pn_dc',  # dark current
+        #                                            'pn_tbd',  # thermal background detector
+        #                                            'pn_tbpm',  # thermal background primary mirror
+        #                                            'pn_pa',  # polarization angle
+        #                                            'pn_snfl',  # stellar null floor leakage
+        #                                            'pn_ag_cld',  # agnostic cold instrumental photon noise
+        #                                            'pn_ag_ht',  # agnostic hot instrumental photon noise
+        #                                            'pn_ag_wht',  # agnostic white instrumental photon noise
+        #                                            'pn',  # photon noise
+        #                                            'sn_fo_a',  # first order amplitude
+        #                                            'sn_fo_phi',  # first order phase
+        #                                            'sn_fo_x',  # first order x position
+        #                                            'sn_fo_y',  # first order y position
+        #                                            'sn_fo',  # systematic noise first order
+        #                                            'sn_so_aa',  # second order amplitude-amplitude term
+        #                                            'sn_so_phiphi',  # second order phase-phase term
+        #                                            'sn_so_aphi',  # amplitude phase cross term
+        #                                            'sn_so_polpol',  # second order polarization-polarization term
+        #                                            'sn_so',  # systematic noise second order
+        #                                            'sn',  # systematic noise
+        #                                            'fundamental',  # fundamental noise (astrophysical)
+        #                                            'instrumental',  # instrumental noise
+        #                                            'snr'  # signal to noise ratio
+        #                                            ],
+        #                                   index=self.catalog.id)
+
+        # self.noise_catalog =
 
     def str_to_obj(self,
                    reverse: bool):
         """
         Converts all string type columns in the catalog between type 'object' (needed for saving to hdf5) and type
         'pandas.StringDtype' (needed for fast computation).
-
+        
         Parameters
         ----------
-        name_s : bool
+        reverse : bool
             if reveres is set true, the type will be converted 'object' -> 'pandas.StringDtype'
         """
         if not reverse:
@@ -470,3 +655,4 @@ class Data(object):
         else:
             for key in self.catalog.keys()[np.where(self.catalog.dtypes == 'object')]:
                 self.catalog[key] = self.catalog[key].astype(pd.StringDtype())
+      

@@ -150,6 +150,10 @@ class Instrument(InstrumentModule):
         wl_bin_widths = np.array(wl_bin_widths) * 1e-6  # in m
         wl_bin_edges = np.array(wl_bin_edges) * 1e-6  # in m
 
+        # wl_bins = np.arange(4e-6, 18.5e-6, 1e-6)
+        # wl_bin_widths = np.ones_like(wl_bins) * 1e-6
+        # wl_bin_edges = np.append(wl_bins - 0.5e-6, wl_bins[-1] + 0.5e-6)
+
         return wl_bins, wl_bin_widths, wl_bin_edges
 
     # TODO does not take the inclination into account!
@@ -246,20 +250,23 @@ class Instrument(InstrumentModule):
         star_mask = np.zeros_like(self.data.catalog.nstar, dtype=bool)
         star_mask[temp] = True
 
+
         # iterate over all stars to calculate noise specific to stars
         for i, n in enumerate(tqdm(np.where(star_mask)[0])):
+
             # if i == 10:
             #     break
-            nstar = self.data.catalog.nstar.iloc[n]
+            nstar = self.data.catalog.nstar.iloc[n_s]
 
             # adjust baseline of array and give new baseline to transmission generator plugin
-            self.adjust_bl_to_hz(hz_center=float(self.data.catalog.hz_center.iloc[n]),
-                                 distance_s=float(self.data.catalog.distance_s.iloc[n]))
+            self.adjust_bl_to_hz(hz_center=float(self.data.catalog.hz_center.iloc[n_s]),
+                                 distance_s=float(self.data.catalog.distance_s.iloc[n_s]))
 
             # get transmission map
             _, _, self.data.inst['t_map'], _, _ = self.run_socket(s_name='transmission',
                                                                   method='transmission_map',
                                                                   map_selection='tm3')
+
 
             # calculate the noise from the background sources specific to star
             noise_bg_list_star = self.run_socket(s_name='photon_noise_star',
@@ -287,15 +294,18 @@ class Instrument(InstrumentModule):
 
             # iterate throgh all universes
             universes = np.unique(self.data.catalog.nuniverse[self.data.catalog.nstar == nstar])
+
             for nuniverse in universes:
                 n_u = np.where(np.logical_and(self.data.catalog.nstar == nstar,
                                               self.data.catalog.nuniverse == nuniverse))[0][0]
+
 
                 noise_bg_universe_temp = noise_bg_universe * self.data.catalog.z.iloc[n_u] / self.data.catalog.z.iloc[n]
 
                 noise_bg = (noise_bg_star + noise_bg_universe_temp) * integration_time * self.data.inst['eff_tot'] * 2
 
                 # go through all planets for the chosen star
+
                 for _, n_p in enumerate(np.argwhere(
                         np.logical_and(self.data.catalog.nstar.to_numpy() == nstar,
                                        self.data.catalog.nuniverse.to_numpy() == nuniverse))[:, 0]):
@@ -333,6 +343,7 @@ class Instrument(InstrumentModule):
 
                     # save baseline
                     self.data.catalog['baseline'].iat[n_p] = self.data.inst['bl']
+
 
                     if save_mode:
                         self.data.catalog.noise_astro.iat[n_p] = [noise_bg]

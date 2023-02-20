@@ -69,11 +69,28 @@ class Options(object):
                       'bl_max': 0.,
                       'ratio': 0.,
                       't_slew': 0.,
-                      't_efficiency': 0.}
+                      't_efficiency': 0.,
+                      'rms_mode': '',
+                      'd_a_rms': 0.,
+                      'd_phi_rms': 0.,
+                      'd_pol_rms': 0.,
+                      'd_x_rms': 0.,
+                      'd_y_rms': 0.,
+                      'agn_phot_white': 0.,
+                      'agn_phot_hot': 0.,
+                      'agn_phot_cold': 0.,
+                      'agn_spacecraft_temp': 0.}
 
         self.other = {'image_size': 0,
                       'wl_optimal': 0.,
-                      'n_plugins': 0}
+                      'n_plugins': 0,
+                      'n_cpu': 1,
+                      'n_sampling_max': 0,
+                      'database_path': None,
+                      'output_path': None,
+                      'output_filename': None,
+                      'large_file': False,
+                      'pickle_mode': False}
 
         self.models = {'localzodi': '',
                        'habitable': ''}
@@ -82,7 +99,8 @@ class Options(object):
                              'snr_target': 0.,
                              'limit': None,
                              'habitable': False,
-                             't_search': 0.}
+                             't_search': 0.,
+                             'instrumental_opt': False}
 
     def set_scenario(self,
                      case: str):
@@ -96,6 +114,7 @@ class Options(object):
             ``'baseline'`` and ``'pessimistic'``
         """
 
+        # TODO: Fix definition in __init__
         self.array['quantum_eff'] = 0.7
         self.array['throughput'] = 0.05
         self.array['spec_res'] = 20.
@@ -105,10 +124,18 @@ class Options(object):
         self.array['ratio'] = 6.
         self.array['t_slew'] = 10. * 60. * 60.
         self.array['t_efficiency'] = 0.8
+        self.array['flux_division'] = np.array((0.25, 0.25, 0.25, 0.25))
+        self.array['phase_response'] = np.array((0, np.pi / 2, np.pi, 3 * np.pi / 2))
+        self.array['phase_response_chop'] = -np.array((0, np.pi / 2, np.pi, 3 * np.pi / 2))
+        self.array['t_rot'] = 50000
+        self.array['chopping'] = 'chop'
+        self.array['pix_per_wl'] = 2.2
+        self.array['n_sampling_rot'] = 360  # TODO: use this option in the transmission module
 
         self.other['image_size'] = 256  # TODO: or 512?
         self.other['wl_optimal'] = 15
         self.other['n_plugins'] = 5
+        self.other['n_sampling_max'] = 100000  # Number of Fourier components in calculation of instrumental noise
 
         self.models['localzodi'] = 'darwinsim'
         self.models['habitable'] = 'MS'
@@ -140,6 +167,27 @@ class Options(object):
 
         else:
             warnings.warn('Option case not recognised, no options set')
+
+    def set_noise_scenario(self,
+                           case: str):
+
+        if case == 'earth-twin':
+            self.array['d_a_rms'] = 0.0002
+            self.array['d_phi_rms'] = 0.0000628
+            self.array['d_x_rms'] = 0.01
+            self.array['d_y_rms'] = 0.01
+            self.array['d_pol_rms'] = 0.001
+            self.array['agn_phot_white'] = 0.0203
+            self.array['agn_phot_hot'] = 0.342
+            self.array['agn_phot_cold'] = 0.947
+            self.array['agn_spacecraft_temp'] = 50.
+
+            self.array['rms_mode'] = 'wavelength'
+        elif case == 'lay':
+            self.array['rms_mode'] = 'lay'
+        else:
+            warnings.warn('Option case not recognised, no options set')
+
 
     def set_manual(self, **kwargs):
         """
@@ -173,4 +221,6 @@ class Options(object):
             # raise error if no option was set
             if not option_set:
                 raise ValueError(str(key) + ' is an unknown option')
+
+
 
