@@ -640,45 +640,45 @@ class Frame(QDialog):
 
 
     def show_spectrum(self,
-                          spectrum,
-                          planet,
-                          noise):
-            self.r_plot.axes.cla()
-            self.r_plot.axes.step(spectrum[0] * 1e6, planet / (self.time_b.value()*60*60),
-                                  where="mid", color="r", label=f"Planet")
-            self.r_plot.axes.step(spectrum[0] * 1e6, noise / (self.time_b.value()*60*60),
-                                  where="mid", color="black", label=f"Noise sources")
-            self.r_plot.axes.set_xlabel(r"$\lambda$ [$\mu$m]")
-            self.r_plot.axes.set_ylabel(r"Detected signal per bin [e$^-$ s$^{-1}$ bin$^{-1}$]")
+                      spectrum,
+                      planet,
+                      noise):
+        self.r_plot.axes.cla()
+        self.r_plot.axes.step(spectrum[0] * 1e6, planet / (self.time_b.value()*60*60),
+                              where="mid", color="r", label=f"Planet")
+        self.r_plot.axes.step(spectrum[0] * 1e6, noise / (self.time_b.value()*60*60),
+                              where="mid", color="black", label=f"Noise sources")
+        self.r_plot.axes.set_xlabel(r"$\lambda$ [$\mu$m]")
+        self.r_plot.axes.set_ylabel(r"Detected signal per bin [e$^-$ s$^{-1}$ bin$^{-1}$]")
 
-            self.r_plot.axes.set_xlim(self.bus.data.options.array['wl_min']-0.5,
-                                      self.bus.data.options.array['wl_max']+0.5)
-            self.r_plot.axes.set_yscale('log')
-            self.r_plot.axes.grid()
+        self.r_plot.axes.set_xlim(self.bus.data.options.array['wl_min']-0.5,
+                                  self.bus.data.options.array['wl_max']+0.5)
+        self.r_plot.axes.set_yscale('log')
+        self.r_plot.axes.grid()
 
-            ax2a = self.r_plot.axes.twinx()
-            ax2a.set_yscale('log')
-            ax2a.step(spectrum[0] * 1e6, spectrum[1],
-                      where="mid", color="darkblue", linestyle="--",
-                      label=f"SNR per bin \nTotal: {np.sqrt((spectrum[1] ** 2).sum()):.2f}")
-            ax2a.set_ylabel('SNR per bin')
-            lines, labels = self.r_plot.axes.get_legend_handles_labels()
-            lines2, labels2 = ax2a.get_legend_handles_labels()
-            ax2a.legend(lines + lines2, labels + labels2, framealpha=1)
-            ax2a.grid(False)
+        ax2a = self.r_plot.axes.twinx()
+        ax2a.set_yscale('log')
+        ax2a.step(spectrum[0] * 1e6, spectrum[1],
+                  where="mid", color="darkblue", linestyle="--",
+                  label=f"SNR per bin \nTotal: {np.sqrt((spectrum[1] ** 2).sum()):.2f}")
+        ax2a.set_ylabel('SNR per bin')
+        lines, labels = self.r_plot.axes.get_legend_handles_labels()
+        lines2, labels2 = ax2a.get_legend_handles_labels()
+        ax2a.legend(lines + lines2, labels + labels2, framealpha=1)
+        ax2a.grid(False)
 
-            d_min = np.min(np.array((spectrum[1],
-                                     planet / (self.time_b.value()*60*60),
-                                     noise / (self.time_b.value()*60*60)))) * 1e-1
-            d_max = np.max(np.array((spectrum[1],
-                                     planet / (self.time_b.value()*60*60),
-                                     noise / (self.time_b.value()*60*60)))) * 1e1
-            self.r_plot.axes.set_ylim(d_min, d_max)
-            ax2a.set_ylim(d_min, d_max)
+        d_min = np.min(np.array((spectrum[1],
+                                 planet / (self.time_b.value()*60*60),
+                                 noise / (self.time_b.value()*60*60)))) * 1e-1
+        d_max = np.max(np.array((spectrum[1],
+                                 planet / (self.time_b.value()*60*60),
+                                 noise / (self.time_b.value()*60*60)))) * 1e1
+        self.r_plot.axes.set_ylim(d_min, d_max)
+        ax2a.set_ylim(d_min, d_max)
 
-            self.r_plot.draw()
+        self.r_plot.draw()
 
-            ax2a.remove()
+        ax2a.remove()
 
     def run_simulation(self):
         self.progress.setValue(10)
