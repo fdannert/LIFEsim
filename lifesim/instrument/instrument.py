@@ -215,6 +215,15 @@ class Instrument(InstrumentModule):
 
     def get_snr(self,
                 save_mode: bool = False):
+        """
+        Calculates the one-hour signal-to-noise ration for all planets in the catalog.
+        Parameters
+        ----------
+        safe_mode : bool
+            If save mode is enables, the individual photon counts of the planet and noise sources
+            are written to the catalog.
+        """
+
         # options are applied before the simulation run
         self.apply_options()
 
