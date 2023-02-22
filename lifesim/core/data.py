@@ -465,8 +465,10 @@ class Data(object):
             if reveres is set true, the type will be converted 'object' -> 'pandas.StringDtype'
         """
         if not reverse:
-            for key in self.catalog.keys()[np.where(self.catalog.dtypes == 'string')]:
+            for key in list(set(self.catalog.keys()[np.where(self.catalog.dtypes == 'object')])
+                            & {'name_s', 'stype'}):
                 self.catalog[key] = self.catalog[key].astype(object)
         else:
-            for key in self.catalog.keys()[np.where(self.catalog.dtypes == 'object')]:
+            for key in list(set(self.catalog.keys()[np.where(self.catalog.dtypes == 'object')])
+                            & {'name_s', 'stype'}):
                 self.catalog[key] = self.catalog[key].astype(pd.StringDtype())
