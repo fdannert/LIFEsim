@@ -1,5 +1,6 @@
 import sys
 import warnings
+import time
 
 import numpy as np
 import xarray as xr
@@ -437,7 +438,10 @@ class Data(object):
             raise ValueError('No catalog found')
 
         self.str_to_obj(reverse=False)
-        self.catalog.to_hdf(path_or_buf=output_path, key='catalog', mode='w')
+        self.catalog.to_hdf(path_or_buf=self.options.other['output_path']
+                                        + self.options.other['output_filename'] + '_catalog.hdf5',
+                            key='catalog',
+                            mode='w')
         self.str_to_obj(reverse=True)
         
         print('Main Catalog Stored')
@@ -541,12 +545,16 @@ class Data(object):
             raise ValueError('Can not overwrite existing catalog')
 
         self.options.other['database_path'] = input_path
-
+        
+        print('Beginning Import...')
+        t0 = time.time()
         self.catalog = pd.read_hdf(path_or_buf=input_path,
                                    key='catalog')
+        print('Import completed (Time: ' + str(time.time()-t0) + '), changing string object types...')
+        t0 = time.time()
         self.str_to_obj(reverse=True)
         
-        print('[Done]')
+        print('[Done] (Time: ' + str(time.time()-t0) + ')')
 
         if noise_catalog:
             print('Importing Noise Catalog...')

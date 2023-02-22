@@ -252,7 +252,7 @@ class Instrument(InstrumentModule):
 
 
         # iterate over all stars to calculate noise specific to stars
-        for i, n in enumerate(tqdm(np.where(star_mask)[0])):
+        for i, n_s in enumerate(tqdm(np.where(star_mask)[0])):
 
             # if i == 10:
             #     break
@@ -271,7 +271,7 @@ class Instrument(InstrumentModule):
             # calculate the noise from the background sources specific to star
             noise_bg_list_star = self.run_socket(s_name='photon_noise_star',
                                                  method='noise',
-                                                 index=n)
+                                                 index=n_s)
 
             if type(noise_bg_list_star) == list:
                 noise_bg_star = np.zeros_like(noise_bg_list_star[0])
@@ -283,7 +283,7 @@ class Instrument(InstrumentModule):
             # calculate the noise from the background sources specific to universe
             noise_bg_list_universe = self.run_socket(s_name='photon_noise_universe',
                                                      method='noise',
-                                                     index=n)
+                                                     index=n_s)
 
             if type(noise_bg_list_universe) == list:
                 noise_bg_universe = np.zeros_like(noise_bg_list_universe[0])
@@ -300,7 +300,7 @@ class Instrument(InstrumentModule):
                                               self.data.catalog.nuniverse == nuniverse))[0][0]
 
 
-                noise_bg_universe_temp = noise_bg_universe * self.data.catalog.z.iloc[n_u] / self.data.catalog.z.iloc[n]
+                noise_bg_universe_temp = noise_bg_universe * self.data.catalog.z.iloc[n_u] / self.data.catalog.z.iloc[n_s]
 
                 noise_bg = (noise_bg_star + noise_bg_universe_temp) * integration_time * self.data.inst['eff_tot'] * 2
 
