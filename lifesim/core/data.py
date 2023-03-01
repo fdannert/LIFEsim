@@ -152,6 +152,9 @@ class Data(object):
             # of the old Ppop.
 
             tempLine = table_lines[1].split('\t')
+
+            get_name = ('name' in tempLine)
+
             col_nuniverse = np.where(np.array(tempLine) == 'Nuniverse')[0][0]
             col_radius_p = np.where(np.array(tempLine) == 'Rp')[0][0]
             col_p_orb = np.where(np.array(tempLine) == 'Porb')[0][0]
@@ -180,7 +183,9 @@ class Data(object):
             col_stype = np.where(np.array(tempLine) == 'Stype')[0][0]
             col_ra = np.where(np.array(tempLine) == 'RA')[0][0]
             col_dec = np.where(np.array(tempLine) == 'Dec')[0][0]
-            col_name_s = np.where(np.array(tempLine) == 'name')[0][0]
+
+            if get_name:
+                col_name_s = np.where(np.array(tempLine) == 'name')[0][0]
 
             for i, line in enumerate(table_lines[2:]):
 
@@ -217,14 +222,19 @@ class Data(object):
                 stype += [str(tempLine[col_stype])]
                 ra += [float(tempLine[col_ra])]  # deg
                 dec += [float(tempLine[col_dec])]  # deg
-                name_s += [str(tempLine[col_name_s])]
+
+                if get_name:
+                    name_s += [str(tempLine[col_name_s])]
 
             sys.stdout.write('\rProcessed line %.0f of %.0f' % (nlines, nlines))
             sys.stdout.flush()
             print('')
 
             # remove the newline string from the star names
-            name_s = [name.replace('\n', '') for name in name_s]
+            if get_name:
+                name_s = [name.replace('\n', '') for name in name_s]
+            else:
+                name_s = ['None'] * len(dec)
 
             # save the data to the pandas DataFrame
             self.catalog['nuniverse'] = np.array(nuniverse).astype(int)
@@ -262,41 +272,77 @@ class Data(object):
         elif input_path[-5:] == '.fits':
             hdu = fits.open(input_path)
 
+            get_name = ('name' in hdu[1].columns.names)
+
             # save the data to the pandas DataFrame, make sure it is saved in the correct type
             # some errors were produced here by not respecting the endianess of the data (numpy
             # usually works with little endian)
-            self.catalog = pd.DataFrame({'nuniverse': hdu[1].data.Nuniverse.astype(int),
-                                         'nstar': hdu[1].data.Nstar.astype(int),
-                                         'stype': pd.Series(hdu[1].data.Stype, dtype=pd.StringDtype()),
-                                         'id': np.arange(0, hdu[1].data.Dec.shape[0], 1).astype(int),
-                                         'radius_p': hdu[1].data.Rp.astype(float),
-                                         'p_orb': hdu[1].data.Porb.astype(float),
-                                         'mass_p': hdu[1].data.Mp.astype(float),
-                                         'ecc_p': hdu[1].data.ep.astype(float),
-                                         'inc_p': hdu[1].data.ip.astype(float),
-                                         'large_omega_p': hdu[1].data.Omegap.astype(float),
-                                         'small_omega_p': hdu[1].data.omegap.astype(float),
-                                         'theta_p': hdu[1].data.thetap.astype(float),
-                                         'albedo_bond': hdu[1].data.Abond.astype(float),
-                                         'albedo_geom_vis': hdu[1].data.AgeomVIS.astype(float),
-                                         'albedo_geom_mir': hdu[1].data.AgeomMIR.astype(float),
-                                         'z': hdu[1].data.z.astype(float),
-                                         'semimajor_p': hdu[1].data.ap.astype(float),
-                                         'sep_p': hdu[1].data.rp.astype(float),
-                                         'angsep': hdu[1].data.AngSep.astype(float),
-                                         'maxangsep': hdu[1].data.maxAngSep.astype(float),
-                                         'flux_p': hdu[1].data.Fp.astype(float),
-                                         'fp': hdu[1].data.fp.astype(float),
-                                         'temp_p': hdu[1].data.Tp.astype(float),
-                                         'radius_s': hdu[1].data.Rs.astype(float),
-                                         'mass_s': hdu[1].data.Ms.astype(float),
-                                         'temp_s': hdu[1].data.Ts.astype(float),
-                                         'distance_s': hdu[1].data.Ds.astype(float),
-                                         'ra': hdu[1].data.RA.astype(float),
-                                         'dec': hdu[1].data.Dec.astype(float),
-                                         'lat': hdu[1].data.lat.astype(float),
-                                         'lon': hdu[1].data.lon.astype(float),
-                                         'name_s': pd.Series(hdu[1].data.name, dtype=pd.StringDtype())})
+            if get_name:
+                self.catalog = pd.DataFrame({'nuniverse': hdu[1].data.Nuniverse.astype(int),
+                                             'nstar': hdu[1].data.Nstar.astype(int),
+                                             'stype': pd.Series(hdu[1].data.Stype, dtype=pd.StringDtype()),
+                                             'id': np.arange(0, hdu[1].data.Dec.shape[0], 1).astype(int),
+                                             'radius_p': hdu[1].data.Rp.astype(float),
+                                             'p_orb': hdu[1].data.Porb.astype(float),
+                                             'mass_p': hdu[1].data.Mp.astype(float),
+                                             'ecc_p': hdu[1].data.ep.astype(float),
+                                             'inc_p': hdu[1].data.ip.astype(float),
+                                             'large_omega_p': hdu[1].data.Omegap.astype(float),
+                                             'small_omega_p': hdu[1].data.omegap.astype(float),
+                                             'theta_p': hdu[1].data.thetap.astype(float),
+                                             'albedo_bond': hdu[1].data.Abond.astype(float),
+                                             'albedo_geom_vis': hdu[1].data.AgeomVIS.astype(float),
+                                             'albedo_geom_mir': hdu[1].data.AgeomMIR.astype(float),
+                                             'z': hdu[1].data.z.astype(float),
+                                             'semimajor_p': hdu[1].data.ap.astype(float),
+                                             'sep_p': hdu[1].data.rp.astype(float),
+                                             'angsep': hdu[1].data.AngSep.astype(float),
+                                             'maxangsep': hdu[1].data.maxAngSep.astype(float),
+                                             'flux_p': hdu[1].data.Fp.astype(float),
+                                             'fp': hdu[1].data.fp.astype(float),
+                                             'temp_p': hdu[1].data.Tp.astype(float),
+                                             'radius_s': hdu[1].data.Rs.astype(float),
+                                             'mass_s': hdu[1].data.Ms.astype(float),
+                                             'temp_s': hdu[1].data.Ts.astype(float),
+                                             'distance_s': hdu[1].data.Ds.astype(float),
+                                             'ra': hdu[1].data.RA.astype(float),
+                                             'dec': hdu[1].data.Dec.astype(float),
+                                             'lat': hdu[1].data.lat.astype(float),
+                                             'lon': hdu[1].data.lon.astype(float),
+                                             'name_s': pd.Series(hdu[1].data.name, dtype=pd.StringDtype())})
+            else:
+                self.catalog = pd.DataFrame({'nuniverse': hdu[1].data.Nuniverse.astype(int),
+                                             'nstar': hdu[1].data.Nstar.astype(int),
+                                             'stype': pd.Series(hdu[1].data.Stype, dtype=pd.StringDtype()),
+                                             'id': np.arange(0, hdu[1].data.Dec.shape[0], 1).astype(int),
+                                             'radius_p': hdu[1].data.Rp.astype(float),
+                                             'p_orb': hdu[1].data.Porb.astype(float),
+                                             'mass_p': hdu[1].data.Mp.astype(float),
+                                             'ecc_p': hdu[1].data.ep.astype(float),
+                                             'inc_p': hdu[1].data.ip.astype(float),
+                                             'large_omega_p': hdu[1].data.Omegap.astype(float),
+                                             'small_omega_p': hdu[1].data.omegap.astype(float),
+                                             'theta_p': hdu[1].data.thetap.astype(float),
+                                             'albedo_bond': hdu[1].data.Abond.astype(float),
+                                             'albedo_geom_vis': hdu[1].data.AgeomVIS.astype(float),
+                                             'albedo_geom_mir': hdu[1].data.AgeomMIR.astype(float),
+                                             'z': hdu[1].data.z.astype(float),
+                                             'semimajor_p': hdu[1].data.ap.astype(float),
+                                             'sep_p': hdu[1].data.rp.astype(float),
+                                             'angsep': hdu[1].data.AngSep.astype(float),
+                                             'maxangsep': hdu[1].data.maxAngSep.astype(float),
+                                             'flux_p': hdu[1].data.Fp.astype(float),
+                                             'fp': hdu[1].data.fp.astype(float),
+                                             'temp_p': hdu[1].data.Tp.astype(float),
+                                             'radius_s': hdu[1].data.Rs.astype(float),
+                                             'mass_s': hdu[1].data.Ms.astype(float),
+                                             'temp_s': hdu[1].data.Ts.astype(float),
+                                             'distance_s': hdu[1].data.Ds.astype(float),
+                                             'ra': hdu[1].data.RA.astype(float),
+                                             'dec': hdu[1].data.Dec.astype(float),
+                                             'lat': hdu[1].data.lat.astype(float),
+                                             'lon': hdu[1].data.lon.astype(float),
+                                             'name_s': pd.Series(['None']*hdu[1].data.shape[0], dtype=pd.StringDtype())})
             hdu.close()
 
         # create mask returning only unique stars
@@ -443,7 +489,7 @@ class Data(object):
                             key='catalog',
                             mode='w')
         self.str_to_obj(reverse=True)
-        
+
         print('Main Catalog Stored')
 
         print('Exporting Noise Catalog...')
@@ -545,7 +591,7 @@ class Data(object):
             raise ValueError('Can not overwrite existing catalog')
 
         self.options.other['database_path'] = input_path
-        
+
         print('Beginning Import...')
         t0 = time.time()
         self.catalog = pd.read_hdf(path_or_buf=input_path,
@@ -553,7 +599,7 @@ class Data(object):
         print('Import completed (Time: ' + str(time.time()-t0) + '), changing string object types...')
         t0 = time.time()
         self.str_to_obj(reverse=True)
-        
+
         print('[Done] (Time: ' + str(time.time()-t0) + ')')
 
         if noise_catalog:
@@ -651,18 +697,17 @@ class Data(object):
         """
         Converts all string type columns in the catalog between type 'object' (needed for saving to hdf5) and type
         'pandas.StringDtype' (needed for fast computation).
-        
+
         Parameters
         ----------
         reverse : bool
             if reveres is set true, the type will be converted 'object' -> 'pandas.StringDtype'
         """
         if not reverse:
-            for key in list(set(self.catalog.keys()[np.where(self.catalog.dtypes == 'object')])
+            for key in list(set(self.catalog.keys()[np.where(self.catalog.dtypes == 'string')])
                             & {'name_s', 'stype'}):
                 self.catalog[key] = self.catalog[key].astype(object)
         else:
             for key in list(set(self.catalog.keys()[np.where(self.catalog.dtypes == 'object')])
                             & {'name_s', 'stype'}):
                 self.catalog[key] = self.catalog[key].astype(pd.StringDtype())
-      

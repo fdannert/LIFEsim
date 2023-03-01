@@ -513,18 +513,19 @@ class Instrument(InstrumentModule):
 
         # calculate the signal and photon noise flux received from the planet
         # TODO: to be consistent with get_snr, make it such that bin_width is multiplied elsewhere
-        flux_planet = flux_planet_spectrum \
-                      * transm_eff \
-                      * integration_time \
-                      * self.data.inst['eff_tot'] \
-                      * self.data.inst['telescope_area'] \
-                      * self.data.inst['wl_bin_widths']
-        noise_planet = flux_planet_spectrum \
-                       * transm_noise \
-                       * integration_time \
-                       * self.data.inst['eff_tot'] \
-                       * self.data.inst['telescope_area'] \
-                       * self.data.inst['wl_bin_widths']
+        flux_planet = (flux_planet_spectrum
+                       * transm_eff
+                       * integration_time
+                       * self.data.inst['eff_tot']
+                       * self.data.inst['telescope_area']
+                       * self.data.inst['wl_bin_widths'])
+        noise_planet = (flux_planet_spectrum
+                        * transm_noise
+                        * integration_time
+                        * self.data.inst['eff_tot']
+                        * self.data.inst['telescope_area']
+                        * self.data.inst['wl_bin_widths']
+                        * 2)
 
         # calculate the noise from the background sources
         # noise_bg_list = self.run_socket(s_name='photon_noise',
@@ -573,7 +574,7 @@ class Instrument(InstrumentModule):
         noise_bg = (noise_bg_star + noise_bg_universe) * integration_time * self.data.inst['eff_tot'] * 2
 
         # Add up the noise and caluclate the SNR
-        noise = (noise_bg + noise_planet) * 2
+        noise = (noise_bg + noise_planet)
         snr_spec = np.sqrt((flux_planet ** 2 / noise))
 
         if not safe_mode:
@@ -687,20 +688,20 @@ class Instrument(InstrumentModule):
                                                 phi_n=phi_n)
 
         # calculate the signal and photon noise flux received from the planet per time bin
-        flux_planet = flux_planet_spectrum[:, np.newaxis] \
-                      * np.squeeze(curve_chop, axis=1) \
-                      * integration_time \
-                      / phi_n \
-                      * self.data.inst['eff_tot'] \
-                      * self.data.inst['telescope_area'] \
-                      * self.data.inst['wl_bin_widths'][:, np.newaxis]
-        noise_planet = flux_planet_spectrum[:, np.newaxis] \
-                       * np.squeeze(curve_tm4, axis=1) \
-                       / phi_n \
-                       * integration_time \
-                       * self.data.inst['eff_tot'] \
-                       * self.data.inst['telescope_area'] \
-                       * self.data.inst['wl_bin_widths'][:, np.newaxis]
+        flux_planet = (flux_planet_spectrum[:, np.newaxis]
+                      * np.squeeze(curve_chop, axis=1)
+                      * integration_time
+                      / phi_n
+                      * self.data.inst['eff_tot']
+                      * self.data.inst['telescope_area']
+                      * self.data.inst['wl_bin_widths'][:, np.newaxis])
+        noise_planet = (flux_planet_spectrum[:, np.newaxis]
+                       * np.squeeze(curve_tm4, axis=1)
+                       / phi_n
+                       * integration_time
+                       * self.data.inst['eff_tot']
+                       * self.data.inst['telescope_area']
+                       * self.data.inst['wl_bin_widths'][:, np.newaxis])
 
 
         # calculate the noise from the background sources specific to star
@@ -735,7 +736,7 @@ class Instrument(InstrumentModule):
 
         noise_bg = (noise_bg_star + noise_bg_universe) * integration_time / phi_n * self.data.inst['eff_tot'] * 2
 
-        noise = (noise_bg[:, np.newaxis] + noise_planet) * 2
+        noise = (noise_bg[:, np.newaxis] + noise_planet)
 
         # draw noise
         noise_drawn = np.random.poisson(lam=noise) - np.random.poisson(lam=noise)
