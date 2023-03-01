@@ -31,7 +31,7 @@ If you use LIFEsim in your work, please cite
 License
 -------
 
-Copyright 2019-2022 Felix Dannert, Maurice Ottiger, Sascha Quanz and contributors.
+Copyright 2019-2023 Felix Dannert, Maurice Ottiger, Sascha Quanz and contributors.
 
 LIFEsim is distributed under the GNU General Public License v3. See the LICENSE file for the terms
 and conditions.
