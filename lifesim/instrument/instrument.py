@@ -409,6 +409,12 @@ class Instrument(InstrumentModule):
             Returns the noise contribution in [photons]
         """
 
+        # TODO: remove by 2024
+        warn('The get_spectrum function was implemented with a major bug between versions 0.2.16 '
+             'and 0.2.24 in which the noise level was twice as large as the correct value. If '
+             'you created results with the versions in question, please validate them with the '
+             'latest version of LIFEsim.')
+
         # options are applied before the simulation run
         self.apply_options()
 
@@ -632,6 +638,12 @@ class Instrument(InstrumentModule):
         noise
             Returns the noise contribution in [photons]
         """
+
+        # TODO: remove by 2024
+        warn('The get_spectrum function was implemented with a major bug between versions 0.2.16 '
+             'and 0.2.24 in which the noise level was twice as large as the correct value. If '
+             'you created results with the versions in question, please validate them with the '
+             'latest version of LIFEsim.')
 
         # options are applied before the simulation run
         self.apply_options()
