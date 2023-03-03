@@ -241,7 +241,8 @@ class Instrument(InstrumentModule):
         self.data.catalog['baseline'] = np.zeros_like(self.data.catalog.nstar, dtype=float)
         if save_mode:
             self.data.catalog['noise_astro'] = None
-            self.data.catalog['planet_flux_use'] = None
+            self.data.catalog['flux_planet'] = None
+            self.data.catalog['noise'] = None
             self.data.catalog['photon_rate_planet'] = None
             self.data.catalog['photon_rate_noise'] = None
 
@@ -290,7 +291,7 @@ class Instrument(InstrumentModule):
                 for _, noise in enumerate(noise_bg_list_universe):
                     noise_bg_universe += noise
             else:
-                noise_bg_universe = noise_bg_list_star
+                noise_bg_universe = noise_bg_list_universe
 
             # iterate throgh all universes
             universes = np.unique(self.data.catalog.nuniverse[self.data.catalog.nstar == nstar])
@@ -348,11 +349,8 @@ class Instrument(InstrumentModule):
                     if save_mode:
                         self.data.catalog.noise_astro.iat[n_p] = np.array([noise_bg_universe_temp]
                                                                           + noise_bg_list_star)
-                        self.data.catalog.planet_flux_use.iat[n_p] = (
-                            [flux_planet_thermal
-                             * integration_time
-                             * self.data.inst['eff_tot']
-                             * self.data.inst['telescope_area']])
+                        self.data.catalog.flux_planet.iat[n_p] = flux_planet
+                        self.data.catalog.noise.iat[n_p] = noise
                         self.data.catalog['photon_rate_planet'].iat[n_p] = (flux_planet
                                                                             / integration_time
                                                                             / self.data.inst['eff_tot']).sum()
@@ -570,7 +568,7 @@ class Instrument(InstrumentModule):
                 for _, noise in enumerate(noise_bg_list_universe):
                     noise_bg_universe += noise
         else:
-            noise_bg_universe = noise_bg_list_star
+            noise_bg_universe = noise_bg_list_universe
 
         noise_bg = (noise_bg_star + noise_bg_universe) * integration_time * self.data.inst['eff_tot'] * 2
 
