@@ -346,7 +346,8 @@ class Instrument(InstrumentModule):
 
 
                     if save_mode:
-                        self.data.catalog.noise_astro.iat[n_p] = [noise_bg]
+                        self.data.catalog.noise_astro.iat[n_p] = np.array([noise_bg_universe_temp]
+                                                                          + noise_bg_list_star)
                         self.data.catalog.planet_flux_use.iat[n_p] = (
                             [flux_planet_thermal
                              * integration_time
