@@ -200,8 +200,7 @@ class TransmissionMap(TransmissionModule):
         return transm_eff, transm_noise
 
     def transmission_curve(self,
-                           angsep: float,
-                           phi_n: int = 360):
+                           angsep: float):
         """
         Calculates the radial transmission curve of the LIFE array
 
@@ -224,7 +223,9 @@ class TransmissionMap(TransmissionModule):
         angsep_rad = angsep / (3600 * 180) * np.pi
 
         # create 1D array with azimuthal coordinates
-        phi_lin = np.linspace(0, 2 * np.pi, phi_n, endpoint=False)
+        phi_lin = np.linspace(0, 2 * np.pi,
+                              self.data.options.array['n_sampling_rot'],
+                              endpoint=False)
 
         # retrieve the transmission curves
         (_, _, _,

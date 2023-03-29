@@ -604,7 +604,7 @@ class Data(object):
 
         if noise_catalog:
             print('Importing Noise Catalog...')
-            with xr.open_dataarray(input_path[:-13] + '_noise.nc',
+            with xr.open_dataarray(input_path[:-5] + '_noise.nc',
                                    engine='h5netcdf') as file:
                 self.noise_catalog = file
             print('[Done]')

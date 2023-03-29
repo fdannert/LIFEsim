@@ -25,7 +25,7 @@ class SampleAnalysisModule(AnalysisModule):
                                                            (self.data.noise_catalog.sel(params='signal')
                                                             / self.data.noise_catalog.sel(params='fundamental')) ** 2
                                                    ).sum(axis=1) * 3600 / self.data.options.array['t_rot']
-                                                   ).to_pandas().rename('snr_1h'),
+                                                   ).to_pandas().rename('snr_1h_prt'),
                                      left_on='id',
                                      right_on='ids')
 

@@ -79,7 +79,9 @@ class Options(object):
                       'agn_phot_white': 0.,
                       'agn_phot_hot': 0.,
                       'agn_phot_cold': 0.,
-                      'agn_spacecraft_temp': 0.}
+                      'agn_spacecraft_temp': 0.,
+                      'n_sampling_rot': 0,
+                      'n_sampling_multiplier': 0}
 
         self.other = {'image_size': 0,
                       'wl_optimal': 0.,
@@ -131,6 +133,7 @@ class Options(object):
         self.array['chopping'] = 'chop'
         self.array['pix_per_wl'] = 2.2
         self.array['n_sampling_rot'] = 360  # TODO: use this option in the transmission module
+        self.array['n_sampling_multiplier'] = 6
 
         self.other['image_size'] = 256  # TODO: or 512?
         self.other['wl_optimal'] = 15

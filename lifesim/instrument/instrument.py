@@ -1,4 +1,5 @@
 from warnings import warn
+from typing import Union
 
 import numpy as np
 from tqdm import tqdm
@@ -217,6 +218,27 @@ class Instrument(InstrumentModule):
              self.data.options.array['ratio'] * self.data.inst['bl'] / 2., 1.]
         ])
 
+    def adjust_sampling(self,
+                        angsep: float,
+                        baseline: float):
+        """
+        Adjust the temporal sampling rate of the simulation to the combination of imaging baseline
+        and angular separation of the planet as a multiple of the factor
+        2*pi*imaging_baseline*angsep/lambda
+
+        Parameters
+        ----------
+        angsep : float
+            Angular separation of the planet in [arcsec].
+        baseline : float
+            Length of the nulling baseline in [m].
+        """
+        self.data.options.array['n_sampling_rot'] = int(np.max((
+                2 * np.pi * baseline * self.data.options.array['ratio']
+                * angsep * np.pi / 180 / 3600
+                * self.data.options.array['n_sampling_multiplier']
+                / self.data.options.array['wl_min'] / 1e-6, 360)))
+
     def get_snr(self,
                 save_mode: bool = False):
         """
@@ -239,6 +261,7 @@ class Instrument(InstrumentModule):
 
         self.data.catalog['snr_1h'] = np.zeros_like(self.data.catalog.nstar, dtype=float)
         self.data.catalog['baseline'] = np.zeros_like(self.data.catalog.nstar, dtype=float)
+        self.data.catalog['n_sampling_rot'] = np.zeros_like(self.data.catalog.nstar, dtype=int)
         if save_mode:
             self.data.catalog['noise_astro'] = None
             self.data.catalog['flux_planet'] = None
@@ -262,6 +285,10 @@ class Instrument(InstrumentModule):
             # adjust baseline of array and give new baseline to transmission generator plugin
             self.adjust_bl_to_hz(hz_center=float(self.data.catalog.hz_center.iloc[n_s]),
                                  distance_s=float(self.data.catalog.distance_s.iloc[n_s]))
+
+            # adjust sampling rate to baseline and planet separation
+            self.adjust_sampling(angsep=float(self.data.catalog.angsep.iloc[n_s]),
+                                 baseline=self.data.inst['bl'])
 
             # get transmission map
             _, _, self.data.inst['t_map'], _, _ = self.run_socket(s_name='transmission',
@@ -344,6 +371,10 @@ class Instrument(InstrumentModule):
 
                     # save baseline
                     self.data.catalog['baseline'].iat[n_p] = self.data.inst['bl']
+
+                    # save the sampling rate
+                    self.data.catalog['n_sampling_rot'].iat[n_p] = \
+                        self.data.options.array['n_sampling_rot']
 
 
                     if save_mode:
@@ -501,6 +532,10 @@ class Instrument(InstrumentModule):
                 self.adjust_bl_to_hz(hz_center=hz_center,
                                      distance_s=distance_s)
 
+        # adjust sampling rate to baseline and planet separation
+        self.adjust_sampling(angsep=self.data.single['angsep'],
+                             baseline=self.data.inst['bl'])
+
         # calculate the transmission map
         _, _, self.data.inst['t_map'], _, _ = self.run_socket(s_name='transmission',
                                                               method='transmission_map',
@@ -595,7 +630,7 @@ class Instrument(InstrumentModule):
                    angsep: float,  # in arcsec
                    flux_planet_spectrum: list,  # in ph m-3 s-1 over m
                    integration_time: float,  # in s
-                   phi_n: int = 360):
+                   phi_n: Union[int, None] = None):
         """
         Calculate the signal-to-noise ratio per spectral bin of a given spectrum of a single
         planet.
@@ -669,6 +704,13 @@ class Instrument(InstrumentModule):
         self.adjust_bl_to_hz(hz_center=hz_center,
                              distance_s=distance_s)
 
+        if phi_n is None:
+            # adjust sampling rate to baseline and planet separation
+            self.adjust_sampling(angsep=self.data.single['angsep'],
+                                 baseline=self.data.inst['bl'])
+        else:
+            self.data.options.array['n_sampling_rot'] = phi_n
+
         # use spectres to rescale the spectrum onto the correct wl bins
         flux_planet_spectrum_input = flux_planet_spectrum
         flux_planet_spectrum = spectres(new_wavs=self.data.inst['wl_bin_edges'],
@@ -684,7 +726,7 @@ class Instrument(InstrumentModule):
         curve_chop, curve_tm4 = self.run_socket(s_name='transmission',
                                                 method='transmission_curve',
                                                 angsep=angsep,
-                                                phi_n=phi_n)
+                                                phi_n=self.data.options.array['n_sampling_rot'])
 
         # calculate the signal and photon noise flux received from the planet per time bin
         flux_planet = (flux_planet_spectrum[:, np.newaxis]
