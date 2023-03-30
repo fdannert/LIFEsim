@@ -218,9 +218,8 @@ class Instrument(InstrumentModule):
              self.data.options.array['ratio'] * self.data.inst['bl'] / 2., 1.]
         ])
 
-    def adjust_sampling(self,
-                        angsep: float,
-                        baseline: float):
+    def adjust_sampling_rate(self,
+                             angsep: float):
         """
         Adjust the temporal sampling rate of the simulation to the combination of imaging baseline
         and angular separation of the planet as a multiple of the factor
@@ -230,14 +229,14 @@ class Instrument(InstrumentModule):
         ----------
         angsep : float
             Angular separation of the planet in [arcsec].
-        baseline : float
-            Length of the nulling baseline in [m].
         """
-        self.data.options.array['n_sampling_rot'] = int(np.max((
-                2 * np.pi * baseline * self.data.options.array['ratio']
-                * angsep * np.pi / 180 / 3600
-                * self.data.options.array['n_sampling_multiplier']
-                / self.data.options.array['wl_min'] / 1e-6, 360)))
+        self.data.options.array['n_sampling_rot'] = adjust_sampling(
+            angsep=angsep,
+            baseline=self.data.inst['bl'],
+            baseline_ratio=self.data.options.array['ratio'],
+            n_sampling_multiplier=self.data.options.array['n_sampling_multiplier'],
+            wl_min=self.data.options.array['wl_min']
+        )
 
     def get_snr(self,
                 save_mode: bool = False):
@@ -286,10 +285,6 @@ class Instrument(InstrumentModule):
             self.adjust_bl_to_hz(hz_center=float(self.data.catalog.hz_center.iloc[n_s]),
                                  distance_s=float(self.data.catalog.distance_s.iloc[n_s]))
 
-            # adjust sampling rate to baseline and planet separation
-            self.adjust_sampling(angsep=float(self.data.catalog.angsep.iloc[n_s]),
-                                 baseline=self.data.inst['bl'])
-
             # get transmission map
             _, _, self.data.inst['t_map'], _, _ = self.run_socket(s_name='transmission',
                                                                   method='transmission_map',
@@ -337,6 +332,9 @@ class Instrument(InstrumentModule):
                 for _, n_p in enumerate(np.argwhere(
                         np.logical_and(self.data.catalog.nstar.to_numpy() == nstar,
                                        self.data.catalog.nuniverse.to_numpy() == nuniverse))[:, 0]):
+
+                    # adjust sampling rate to baseline and planet separation
+                    self.adjust_sampling_rate(angsep=float(self.data.catalog.angsep.iloc[n_p]))
 
                     # calculate the photon flux originating from the planet
                     flux_planet_thermal = black_body(mode='planet',
@@ -533,8 +531,7 @@ class Instrument(InstrumentModule):
                                      distance_s=distance_s)
 
         # adjust sampling rate to baseline and planet separation
-        self.adjust_sampling(angsep=self.data.single['angsep'],
-                             baseline=self.data.inst['bl'])
+        self.adjust_sampling_rate(angsep=self.data.single['angsep'])
 
         # calculate the transmission map
         _, _, self.data.inst['t_map'], _, _ = self.run_socket(s_name='transmission',
@@ -706,8 +703,7 @@ class Instrument(InstrumentModule):
 
         if phi_n is None:
             # adjust sampling rate to baseline and planet separation
-            self.adjust_sampling(angsep=self.data.single['angsep'],
-                                 baseline=self.data.inst['bl'])
+            self.adjust_sampling_rate(angsep=self.data.single['angsep'])
         else:
             self.data.options.array['n_sampling_rot'] = phi_n
 
@@ -787,6 +783,39 @@ class Instrument(InstrumentModule):
 
         return signal, flux_planet
 
+
+def adjust_sampling(angsep: float,
+                    baseline: float,
+                    baseline_ratio: float,
+                    n_sampling_multiplier: float,
+                    wl_min: float):
+    """
+    Return the optimal temporal sampling rate of the simulation to the combination of imaging
+    baseline and angular separation of the planet as a multiple of the factor
+    2*pi*imaging_baseline*angsep/lambda
+
+    Parameters
+    ----------
+    angsep : float
+        Angular separation of the planet in [arcsec].
+    baseline : float
+        Length of the nulling baseline in [m].
+    baseline_ratio : float
+        Ratio of the nulling baseline to the imaging baseline.
+    n_sampling_multiplier : float
+        Factor to multiply the optimal sampling rate by.
+    wl_min : float
+        Minimum wavelength of the spectrum in [um].
+
+    Returns
+    -------
+    int
+        Optimal temporal sampling rate of the simulation.
+    """
+    return int(np.max((
+        2 * np.pi * baseline * baseline_ratio * angsep * np.pi / 180 / 3600* n_sampling_multiplier
+        / wl_min / 1e-6, 360
+    )))
 
 def multiprocessing_runner(input_dict: dict):
     # create mask returning only unique stars

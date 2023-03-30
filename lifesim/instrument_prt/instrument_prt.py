@@ -11,6 +11,7 @@ from lifesim.core.modules import InstrumentModule
 import inlifesim as ils
 from lifesim.instrument.instrument import Instrument
 from lifesim.util.habitable import single_habitable_zone
+from lifesim.instrument.instrument import adjust_sampling
 
 
 class InstrumentPrt(InstrumentModule):
@@ -65,6 +66,7 @@ class InstrumentPrt(InstrumentModule):
         self.data.catalog['photon_noise'] = np.zeros_like(self.data.catalog.nstar, dtype=float)
         self.data.catalog['systematic_noise'] = np.zeros_like(self.data.catalog.nstar, dtype=float)
         self.data.catalog['baseline'] = np.zeros_like(self.data.catalog.nstar, dtype=float)
+        self.data.catalog['n_sampling_rot'] = np.zeros_like(self.data.catalog.nstar, dtype=int)
         if safe_mode:
             self.data.noise_catalog = {}
             # self.apply_options(run_baseline=False)
@@ -100,7 +102,8 @@ class InstrumentPrt(InstrumentModule):
             #            'instrumental',  # instrumental noise
             #            'snr'  # signal to noise ratio
             #            ]
-            # self.data.noise_catalog_pivot = {id_wl: pd.DataFrame(columns=columns, index=ids) for id_wl in ids_wl}
+            # self.data.noise_catalog_pivot = {id_wl: pd.DataFrame(columns=columns, index=ids) for
+            # id_wl in ids_wl}
 
         # create mask returning only unique stars
         _, temp = np.unique(self.data.catalog.nstar, return_index=True)
@@ -119,21 +122,27 @@ class InstrumentPrt(InstrumentModule):
             self.apply_options(hz_center=float(self.data.catalog.hz_center.iloc[n]),
                                distance_s=float(self.data.catalog.distance_s.iloc[n]))
 
-            col_pos = np.array(((-self.data.inst['bl'] / 2, -self.data.inst['bl']*self.data.options.array['ratio'] / 2),
-                                (-self.data.inst['bl'] / 2, self.data.inst['bl']*self.data.options.array['ratio'] / 2),
-                                (self.data.inst['bl'] / 2, -self.data.inst['bl']*self.data.options.array['ratio'] / 2),
-                                (self.data.inst['bl'] / 2, self.data.inst['bl']*self.data.options.array['ratio'] / 2)))
+            col_pos = np.array(((-self.data.inst['bl'] / 2,
+                                 -self.data.inst['bl']*self.data.options.array['ratio'] / 2),
+                                (-self.data.inst['bl'] / 2,
+                                 self.data.inst['bl']*self.data.options.array['ratio'] / 2),
+                                (self.data.inst['bl'] / 2,
+                                 -self.data.inst['bl']*self.data.options.array['ratio'] / 2),
+                                (self.data.inst['bl'] / 2,
+                                 self.data.inst['bl']*self.data.options.array['ratio'] / 2)))
 
             # create single input dictionary
 
             input_dict = {'catalog': self.data.catalog[self.data.catalog.nstar == nstar],
                           'wl_bins': self.data.inst['wl_bins'],
                           'wl_bin_widths': self.data.inst['wl_bin_widths'],
+                          'wl_min': self.data.options.array['wl_min'],
                           'integration_time': integration_time,
                           'image_size': self.data.options.other['image_size'],
                           'diameter_ap': self.data.options.array['diameter'],
                           'flux_division': self.data.options.array['flux_division'],
-                          'throughput': self.data.options.array['throughput'] * self.data.options.array['quantum_eff'],
+                          'throughput': self.data.options.array['throughput']
+                                        * self.data.options.array['quantum_eff'],
                           'phase_response': self.data.options.array['phase_response'],
                           'phase_response_chop': self.data.options.array['phase_response_chop'],
                           't_rot': self.data.options.array['t_rot'],
@@ -141,6 +150,9 @@ class InstrumentPrt(InstrumentModule):
                           'pix_per_wl': self.data.options.array['pix_per_wl'],
                           'n_sampling_rot': self.data.options.array['n_sampling_rot'],
                           'col_pos': col_pos,
+                          'bl': self.data.inst['bl'],
+                          'ratio': self.data.options.array['ratio'],
+                          'n_sampling_multiplier': self.data.options.array['n_sampling_multiplier'],
                           'nstar': nstar,
                           'baseline': self.data.inst['bl'],
                           'safe_mode': safe_mode,
@@ -185,7 +197,8 @@ class InstrumentPrt(InstrumentModule):
 
         self.data.catalog = pd.concat([output_dict['catalog'] for output_dict in output_dict_list])
         # if safe_mode:
-        #     self.data.noise_catalog = pd.concat([output_dict['noise_catalog'] for output_dict in output_dict_list])
+        #     self.data.noise_catalog = pd.concat([output_dict['noise_catalog'] for output_dict in
+        #     output_dict_list])
         if safe_mode:
             for output_dict in output_dict_list:
                 self.data.noise_catalog.update(output_dict['noise_catalog'])
@@ -254,29 +267,38 @@ class InstrumentPrt(InstrumentModule):
                             hz_center=hz_center,
                             distance_s=distance_s)
 
-        col_pos = np.array(((-self.data.inst['bl'] / 2, -self.data.inst['bl'] * self.data.options.array['ratio'] / 2),
-                            (-self.data.inst['bl'] / 2, self.data.inst['bl'] * self.data.options.array['ratio'] / 2),
-                            (self.data.inst['bl'] / 2, -self.data.inst['bl'] * self.data.options.array['ratio'] / 2),
-                            (self.data.inst['bl'] / 2, self.data.inst['bl'] * self.data.options.array['ratio'] / 2)))
+        col_pos = np.array(((-self.data.inst['bl'] / 2,
+                             -self.data.inst['bl'] * self.data.options.array['ratio'] / 2),
+                            (-self.data.inst['bl'] / 2,
+                             self.data.inst['bl'] * self.data.options.array['ratio'] / 2),
+                            (self.data.inst['bl'] / 2,
+                             -self.data.inst['bl'] * self.data.options.array['ratio'] / 2),
+                            (self.data.inst['bl'] / 2,
+                             self.data.inst['bl'] * self.data.options.array['ratio'] / 2)))
 
         inst = ils.Instrument(
             # ----- static parameters -----
             wl_bins=self.data.inst['wl_bins'],  # wavelength bins center position in m
             wl_bin_widths=self.data.inst['wl_bin_widths'],  # wavelength bin widhts in m
             integration_time=integration_time,
-            image_size=self.data.options.other['image_size'],  # size of image used to simulate exozodi in pix
-            diameter_ap=self.data.options.array['diameter'],  # diameter of the primary mirrors in m
+            image_size=self.data.options.other['image_size'],
+            # size of image used to simulate exozodi in pix
+            diameter_ap=self.data.options.array['diameter'],
+            # diameter of the primary mirrors in m
             flux_division=self.data.options.array['flux_division'],
-            # division of the flux between the primary mirrors, e.g. in baseline case [0.25, 0.25, 0.25, 0.25]
+            # division of the flux between the primary mirrors, e.g. in baseline case
+            # [0.25, 0.25, 0.25, 0.25]
             throughput=self.data.options.array['throughput']*self.data.options.array['quantum_eff'],
             # fraction of light that is sustained through the optical train
-            phase_response=self.data.options.array['phase_response'],  # phase response of each collector arm in rad
+            phase_response=self.data.options.array['phase_response'],
+            # phase response of each collector arm in rad
             phase_response_chop=self.data.options.array['phase_response_chop'],
             # phase response of each collector arm in the chopped state in rad
             t_rot=self.data.options.array['t_rot'],  # rotation period of the array in seconds
             chopping=self.data.options.array['chopping'],
             # run calculation with or without chopping, 'chop', 'nchop', 'both'
-            pix_per_wl=self.data.options.array['pix_per_wl'],  # pixels on detector used per wavelength channel
+            pix_per_wl=self.data.options.array['pix_per_wl'],
+            # pixels on detector used per wavelength channel
             n_sampling_rot=self.data.options.array['n_sampling_rot'],
             # number of sampling points per array rotation
             detector_dark_current='manual',
@@ -298,7 +320,8 @@ class InstrumentPrt(InstrumentModule):
             eps_white=0.,  # scaling constant white agnostic photon noise spectrum
             agnostic_spacecraft_temp=0.,  # cold-side spacecraft temperature in the
             # agnostic case
-            n_sampling_max=self.data.options.other['n_sampling_max'],  # largest fourier mode used in noise sampling
+            n_sampling_max=self.data.options.other['n_sampling_max'],
+            # largest fourier mode used in noise sampling
             d_a_rms=None,  # relative amplitude error rms
             d_phi_rms=None,  # phase error rms
             d_pol_rms=None,  # polarization error rms
@@ -319,7 +342,8 @@ class InstrumentPrt(InstrumentModule):
             # ----- parameters change with planet -----
             temp_planet=0.,  # planet temperature in Kelvin
             radius_planet=0.,  # planet radius in earth radii
-            separation_planet=angsep * distance_s,  # separation of target planet from host star in AU
+            separation_planet=angsep * distance_s,
+            # separation of target planet from host star in AU
         )
 
         inst.run()
@@ -339,7 +363,8 @@ def multiprocessing_runner(input_dict: dict):
         image_size=input_dict['image_size'],  # size of image used to simulate exozodi in pix
         diameter_ap=input_dict['diameter_ap'],  # diameter of the primary mirrors in m
         flux_division=input_dict['flux_division'],
-        # division of the flux between the primary mirrors, e.g. in baseline case [0.25, 0.25, 0.25, 0.25]
+        # division of the flux between the primary mirrors, e.g. in baseline case
+        # [0.25, 0.25, 0.25, 0.25]
         throughput=input_dict['throughput'],
         # fraction of light that is sustained through the optical train
         phase_response=input_dict['phase_response'],  # phase response of each collector arm in rad
@@ -365,11 +390,14 @@ def multiprocessing_runner(input_dict: dict):
         n_cpu=1,  # number of cores used in the simulation
         rms_mode=input_dict['rms_mode'],  # mode for rms values, 'lay', 'static', 'wavelength'
         agnostic_mode=True,  # derive instrumental photon noise from agnostic mode
-        eps_cold=input_dict['agn_phot_cold'],  # scaling constant for cold agnostic photon noise spectrum
-        eps_hot=input_dict['agn_phot_hot'],  # scaling constant for hot agnostic photon noise spectrum
-        eps_white=input_dict['agn_phot_white'],  # scaling constant white agnostic photon noise spectrum
-        agnostic_spacecraft_temp=input_dict['agn_spacecraft_temp'],  # cold-side spacecraft temperature in the
-        # agnostic case
+        eps_cold=input_dict['agn_phot_cold'],
+        # scaling constant for cold agnostic photon noise spectrum
+        eps_hot=input_dict['agn_phot_hot'],
+        # scaling constant for hot agnostic photon noise spectrum
+        eps_white=input_dict['agn_phot_white'],
+        # scaling constant white agnostic photon noise spectrum
+        agnostic_spacecraft_temp=input_dict['agn_spacecraft_temp'],
+        # cold-side spacecraft temperature in the agnostic case
         n_sampling_max=10000,  # largest fourier mode used in noise sampling
         d_a_rms=input_dict['d_a_rms'],  # relative amplitude error rms
         d_phi_rms=input_dict['d_phi_rms'],  # phase error rms
@@ -413,11 +441,15 @@ def multiprocessing_runner(input_dict: dict):
 
     # create mask returning only unique stars
     universes = np.unique(
-        input_dict['catalog'].nuniverse[input_dict['catalog'].nstar == input_dict['nstar']], return_index=False)
+        input_dict['catalog'].nuniverse[input_dict['catalog'].nstar == input_dict['nstar']],
+        return_index=False
+    )
 
     for nuniverse in universes:
-        inst.z = input_dict['catalog'][np.logical_and(input_dict['catalog'].nstar == input_dict['nstar'],
-                                                  input_dict['catalog'].nuniverse == nuniverse)].z.iloc[0]
+        inst.z = input_dict['catalog'][np.logical_and(
+            input_dict['catalog'].nstar == input_dict['nstar'],
+            input_dict['catalog'].nuniverse == nuniverse
+        )].z.iloc[0]
 
         # redo calculation for exozodi
         inst.create_exozodi()
@@ -428,6 +460,16 @@ def multiprocessing_runner(input_dict: dict):
         for _, n_p in enumerate(np.argwhere(
                 np.logical_and(input_dict['catalog'].nstar.to_numpy() == input_dict['nstar'],
                                input_dict['catalog'].nuniverse.to_numpy() == nuniverse))[:, 0]):
+
+            # adjust the temporal sampling rate to the baseline and planet separation
+            inst.n_sampling_rot = adjust_sampling(
+                angsep=input_dict['catalog']['angsep'].iloc[n_p],
+                baseline=input_dict['bl'],
+                baseline_ratio=input_dict['ratio'],
+                n_sampling_multiplier=input_dict['n_sampling_multiplier'],
+                wl_min=input_dict['wl_min']
+            )
+
             inst.temp_planet = input_dict['catalog']['temp_p'].iloc[n_p]
             inst.radius_planet = input_dict['catalog']['radius_p'].iloc[n_p]
             inst.separation_planet = (input_dict['catalog']['angsep'].iloc[n_p]
@@ -444,6 +486,9 @@ def multiprocessing_runner(input_dict: dict):
 
             # save baseline
             input_dict['catalog']['baseline'].iat[n_p] = deepcopy(input_dict['baseline'])
+
+            # save sampling rate
+            input_dict['catalog']['n_sampling_rot'].iat[n_p] = deepcopy(inst.n_sampling_rot)
 
             # save snr results
             if (inst.chopping == 'nchop'):
@@ -463,9 +508,13 @@ def multiprocessing_runner(input_dict: dict):
 
             if input_dict['safe_mode']:
                 if (inst.chopping == 'nchop'):
-                    return_dict['noise_catalog'][str(input_dict['catalog'].id.iat[n_p])] = deepcopy(inst.photon_rates_nchop)
+                    return_dict['noise_catalog'][str(input_dict['catalog'].id.iat[n_p])] = deepcopy(
+                        inst.photon_rates_nchop
+                    )
                 else:
-                    return_dict['noise_catalog'][str(input_dict['catalog'].id.iat[n_p])] = deepcopy(inst.photon_rates_chop)
+                    return_dict['noise_catalog'][str(input_dict['catalog'].id.iat[n_p])] = deepcopy(
+                        inst.photon_rates_chop
+                    )
 
     return_dict['catalog'] = input_dict['catalog']
     return_dict['nstar'] = input_dict['nstar']
