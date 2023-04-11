@@ -153,7 +153,6 @@ class InstrumentPrt(InstrumentModule):
                           't_rot': self.data.options.array['t_rot'],
                           'chopping': self.data.options.array['chopping'],
                           'pix_per_wl': self.data.options.array['pix_per_wl'],
-                          'n_sampling_rot': self.data.inst['n_sampling_rot'],
                           'col_pos': col_pos,
                           'bl': self.data.inst['bl'],
                           'ratio': self.data.options.array['ratio'],
@@ -385,7 +384,7 @@ def multiprocessing_runner(input_dict: dict):
         chopping=input_dict['chopping'],
         # run calculation with or without chopping, 'chop', 'nchop', 'both'
         pix_per_wl=input_dict['pix_per_wl'],  # pixels on detector used per wavelength channel
-        n_sampling_rot=input_dict['n_sampling_rot'],
+        n_sampling_rot=360,
         # number of sampling points per array rotation
         detector_dark_current='manual',
         # detector type, 'MIRI' or 'manual'. Specify dark_current_pix in 'manual'
