@@ -40,6 +40,7 @@ class InstrumentPrt(InstrumentModule):
         self.add_socket(s_name='instrument',
                         s_type=InstrumentModule,
                         s_number=1)
+        self.inst_prt = None
 
     def apply_options(self,
                       hz_center: float = 0.,
@@ -232,7 +233,8 @@ class InstrumentPrt(InstrumentModule):
                      pbar: bool = None,
                      baseline_to_planet: bool = False,
                      baseline: float = None,
-                     safe_mode: bool = False):
+                     safe_mode: bool = False,
+                     run: bool = True):
 
         # TODO: Implement baseline_to_planet option
 
@@ -276,7 +278,7 @@ class InstrumentPrt(InstrumentModule):
                             (self.data.inst['bl'] / 2,
                              self.data.inst['bl'] * self.data.options.array['ratio'] / 2)))
 
-        inst = ils.Instrument(
+        self.inst_prt = ils.Instrument(
             # ----- static parameters -----
             wl_bins=self.data.inst['wl_bins'],  # wavelength bins center position in m
             wl_bin_widths=self.data.inst['wl_bin_widths'],  # wavelength bin widhts in m
@@ -346,12 +348,13 @@ class InstrumentPrt(InstrumentModule):
             # separation of target planet from host star in AU
         )
 
-        inst.run()
+        if run:
+            self.inst_prt.run()
 
-        if self.data.options.array['chopping'] == 'nchop':
-            return inst.photon_rates_nchop
-        else:
-            return inst.photon_rates_chop
+            if self.data.options.array['chopping'] == 'nchop':
+                return self.inst_prt.photon_rates_nchop
+            else:
+                return self.inst_prt.photon_rates_chop
 
 def multiprocessing_runner(input_dict: dict):
     # TODO: Correct treatment of quantum efficiency
