@@ -133,6 +133,9 @@ class InstrumentPrt(InstrumentModule):
                                 (self.data.inst['bl'] / 2,
                                  self.data.inst['bl']*self.data.options.array['ratio'] / 2)))
 
+            self.run_socket(s_name='instrument',
+                            method='adjust_image_size')
+
             # create single input dictionary
 
             input_dict = {'catalog': self.data.catalog[self.data.catalog.nstar == nstar],
