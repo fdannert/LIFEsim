@@ -80,11 +80,10 @@ class Options(object):
                       'agn_phot_hot': 0.,
                       'agn_phot_cold': 0.,
                       'agn_spacecraft_temp': 0.,
-                      'n_sampling_rot': 0,
-                      'n_sampling_multiplier': 0}
+                      'n_sampling_multiplier': 0,
+                      'image_size_multiplier': 0}
 
-        self.other = {'image_size': 0,
-                      'wl_optimal': 0.,
+        self.other = {'wl_optimal': 0.,
                       'n_plugins': 0,
                       'n_cpu': 1,
                       'n_sampling_max': 0,
@@ -132,10 +131,9 @@ class Options(object):
         self.array['t_rot'] = 50000
         self.array['chopping'] = 'chop'
         self.array['pix_per_wl'] = 2.2
-        self.array['n_sampling_rot'] = 360  # TODO: use this option in the transmission module
         self.array['n_sampling_multiplier'] = 6
+        self.array['image_size_multiplier'] = 2
 
-        self.other['image_size'] = 256  # TODO: or 512?
         self.other['wl_optimal'] = 15
         self.other['n_plugins'] = 5
         self.other['n_sampling_max'] = 100000  # Number of Fourier components in calculation of instrumental noise

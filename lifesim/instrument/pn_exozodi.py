@@ -102,16 +102,22 @@ class PhotonNoiseExozodi(PhotonNoiseUniverseModule):
 
         # identify all pixels where the radius is larges than the inner radius by Kennedy+2015
         r_cond = ((r_au >= r_in)
-                  & (r_au <= self.data.options.other['image_size'] / 2 * au_pix))
+                  & (r_au <= self.data.inst['image_size'] / 2 * au_pix))
 
         # calculate the temperature at all pixel positions according to Kennedy2015 Eq. 2
         temp_map = np.where(r_cond,
-                            278.3 * (l_sun ** 0.25) / np.sqrt(r_au), 0)
+                            np.divide(278.3 * (l_sun ** 0.25), np.sqrt(r_au),
+                                      out=np.zeros_like(r_au),
+                                      where=(r_au!=0.)),
+                            0)
 
         # calculate the Sigma (Eq. 3) in Kennedy2015 and set everything inside the inner radius to 0
         sigma = np.where(r_cond,
                          sigma_zero * z *
-                         (r_au / r_0) ** (-alpha), 0)
+                         np.power(r_au / r_in, -alpha,
+                                  out=np.zeros_like(r_au),
+                                  where=(r_au!=0.)),
+                         0)
 
         wl_bins = np.array([self.data.inst['wl_bins']])
         if wl_bins.shape[-1] > 1:
@@ -129,7 +135,8 @@ class PhotonNoiseExozodi(PhotonNoiseUniverseModule):
                     * sigma * rad_pix ** 2 * self.data.inst['telescope_area']
 
         ap = np.where(self.data.inst['radius_map']
-                      <= self.data.options.other['image_size'] / 2, 1, 0)
+                      <= self.data.inst['image_size'] / 2, 1, 0)
+
         # add the transmission map
         ez_leak = (f_nu_disk * self.data.inst['t_map'] * ap).sum(axis=(-2, -1))
 

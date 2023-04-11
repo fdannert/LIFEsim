@@ -94,10 +94,6 @@ class Instrument(InstrumentModule):
                                  / (2. * self.data.options.array['diameter'])
 
         self.data.inst['hfov_mas'] = self.data.inst['hfov'] * (3600000. * 180.) / np.pi
-        self.data.inst['rad_pix'] = (2 * self.data.inst['hfov']) \
-                                    / self.data.options.other['image_size']  # Radians per pixel
-        self.data.inst['mas_pix'] = (2 * self.data.inst['hfov_mas']) \
-                                    / self.data.options.other['image_size']  # mas per pixel
 
         # apertures defines the telescope positions (and *relative* radius)
         self.data.inst['apertures'] = np.array([
@@ -111,13 +107,7 @@ class Instrument(InstrumentModule):
              self.data.options.array['ratio'] * self.data.inst['bl'] / 2., 1.]
         ])
 
-        # coordinate maps for faster calculations
-        x_map = np.tile(np.array(range(0, self.data.options.other['image_size'])),
-                        (self.data.options.other['image_size'], 1))
-        y_map = x_map.T
-        r_square_map = ((x_map - (self.data.options.other['image_size'] - 1) / 2) ** 2
-                        + (y_map - (self.data.options.other['image_size'] - 1) / 2) ** 2)
-        self.data.inst['radius_map'] = np.sqrt(r_square_map)
+        self.adjust_image_size()
 
     def get_wl_bins_const_spec_res(self):
         """
@@ -218,6 +208,8 @@ class Instrument(InstrumentModule):
              self.data.options.array['ratio'] * self.data.inst['bl'] / 2., 1.]
         ])
 
+        self.adjust_image_size()
+
     def adjust_sampling_rate(self,
                              angsep: float):
         """
@@ -230,13 +222,39 @@ class Instrument(InstrumentModule):
         angsep : float
             Angular separation of the planet in [arcsec].
         """
-        self.data.options.array['n_sampling_rot'] = adjust_sampling(
+        self.data.inst['n_sampling_rot'] = adjust_sampling(
             angsep=angsep,
             baseline=self.data.inst['bl'],
             baseline_ratio=self.data.options.array['ratio'],
             n_sampling_multiplier=self.data.options.array['n_sampling_multiplier'],
             wl_min=self.data.options.array['wl_min']
         )
+
+    def adjust_image_size(self):
+        """
+        Adjust the image size of the simulation to the longest baseline of the array.
+        """
+        # set image size to appropriate sampling
+        self.data.inst['image_size'] = ((2 * self.data.inst['bl']
+                                         * np.sqrt(1 + self.data.options.array['ratio'] ** 2)
+                                         / self.data.options.array['diameter'] + 2)
+                                        * self.data.options.array['image_size_multiplier'])
+
+        # make sure that the image size is an odd number
+        self.data.inst['image_size'] = int(np.ceil(self.data.inst['image_size'] / 2.) * 2) + 1
+
+        self.data.inst['rad_pix'] = (2 * self.data.inst['hfov']) \
+                                    / self.data.inst['image_size']  # Radians per pixel
+        self.data.inst['mas_pix'] = (2 * self.data.inst['hfov_mas']) \
+                                    / self.data.inst['image_size']  # mas per pixel
+
+        # create a map of the radius of each pixel
+        x_map = np.tile(np.array(range(0, self.data.inst['image_size'])),
+                        (self.data.inst['image_size'], 1))
+        y_map = x_map.T
+        r_square_map = ((x_map - (self.data.inst['image_size'] - 1) / 2) ** 2
+                        + (y_map - (self.data.inst['image_size'] - 1) / 2) ** 2)
+        self.data.inst['radius_map'] = np.sqrt(r_square_map)
 
     def get_snr(self,
                 save_mode: bool = False):
@@ -372,7 +390,7 @@ class Instrument(InstrumentModule):
 
                     # save the sampling rate
                     self.data.catalog['n_sampling_rot'].iat[n_p] = \
-                        self.data.options.array['n_sampling_rot']
+                        self.data.inst['n_sampling_rot']
 
 
                     if save_mode:
@@ -705,7 +723,7 @@ class Instrument(InstrumentModule):
             # adjust sampling rate to baseline and planet separation
             self.adjust_sampling_rate(angsep=self.data.single['angsep'])
         else:
-            self.data.options.array['n_sampling_rot'] = phi_n
+            self.data.inst['n_sampling_rot'] = phi_n
 
         # use spectres to rescale the spectrum onto the correct wl bins
         flux_planet_spectrum_input = flux_planet_spectrum
@@ -722,7 +740,7 @@ class Instrument(InstrumentModule):
         curve_chop, curve_tm4 = self.run_socket(s_name='transmission',
                                                 method='transmission_curve',
                                                 angsep=angsep,
-                                                phi_n=self.data.options.array['n_sampling_rot'])
+                                                phi_n=self.data.inst['n_sampling_rot'])
 
         # calculate the signal and photon noise flux received from the planet per time bin
         flux_planet = (flux_planet_spectrum[:, np.newaxis]

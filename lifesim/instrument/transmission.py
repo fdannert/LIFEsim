@@ -82,7 +82,7 @@ class TransmissionMap(TransmissionModule):
         if hfov is None:
             hfov = self.data.inst['hfov']
         if image_size is None:
-            image_size = self.data.options.other['image_size']
+            image_size = self.data.inst['image_size']
 
         # reshape the wl_bins and hfov arrays for calculation (to (n, 1, 1))
         wl_bins = np.array([self.data.inst['wl_bins']])  # wavelength in m
@@ -224,7 +224,7 @@ class TransmissionMap(TransmissionModule):
 
         # create 1D array with azimuthal coordinates
         phi_lin = np.linspace(0, 2 * np.pi,
-                              self.data.options.array['n_sampling_rot'],
+                              self.data.inst['n_sampling_rot'],
                               endpoint=False)
 
         # retrieve the transmission curves

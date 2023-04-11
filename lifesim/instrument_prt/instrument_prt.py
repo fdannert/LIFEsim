@@ -68,6 +68,7 @@ class InstrumentPrt(InstrumentModule):
         self.data.catalog['systematic_noise'] = np.zeros_like(self.data.catalog.nstar, dtype=float)
         self.data.catalog['baseline'] = np.zeros_like(self.data.catalog.nstar, dtype=float)
         self.data.catalog['n_sampling_rot'] = np.zeros_like(self.data.catalog.nstar, dtype=int)
+        self.data.catalog['image_size'] = np.zeros_like(self.data.catalog.nstar, dtype=int)
         if safe_mode:
             self.data.noise_catalog = {}
             # self.apply_options(run_baseline=False)
@@ -115,7 +116,7 @@ class InstrumentPrt(InstrumentModule):
         input_dict_list = []
 
         # iterate over all stars
-        print('Preparing sample...')
+        print('\nPreparing sample...')
         for i, n in enumerate(tqdm(np.where(star_mask)[0])):
             nstar = self.data.catalog.nstar.iloc[n]
 
@@ -139,7 +140,7 @@ class InstrumentPrt(InstrumentModule):
                           'wl_bin_widths': self.data.inst['wl_bin_widths'],
                           'wl_min': self.data.options.array['wl_min'],
                           'integration_time': integration_time,
-                          'image_size': self.data.options.other['image_size'],
+                          'image_size': self.data.inst['image_size'],
                           'diameter_ap': self.data.options.array['diameter'],
                           'flux_division': self.data.options.array['flux_division'],
                           'throughput': self.data.options.array['throughput']
@@ -149,7 +150,7 @@ class InstrumentPrt(InstrumentModule):
                           't_rot': self.data.options.array['t_rot'],
                           'chopping': self.data.options.array['chopping'],
                           'pix_per_wl': self.data.options.array['pix_per_wl'],
-                          'n_sampling_rot': self.data.options.array['n_sampling_rot'],
+                          'n_sampling_rot': self.data.inst['n_sampling_rot'],
                           'col_pos': col_pos,
                           'bl': self.data.inst['bl'],
                           'ratio': self.data.options.array['ratio'],
@@ -184,12 +185,12 @@ class InstrumentPrt(InstrumentModule):
         output_dict_list = []
 
         if self.data.options.other['n_cpu'] == 1:
-            print('Running in single processing...')
+            print('\nRunning in single processing...')
             for input_dict in tqdm(input_dict_list):
                 output_dict_list.append(multiprocessing_runner(input_dict=input_dict))
 
         else:
-            print('Running in multiprocessing...')
+            print('\nRunning in multiprocessing...')
             pool = mp.Pool(self.data.options.other['n_cpu'])
             output_dict_list = []
             for result in tqdm(pool.imap_unordered(multiprocessing_runner, input_dict_list),
@@ -278,12 +279,16 @@ class InstrumentPrt(InstrumentModule):
                             (self.data.inst['bl'] / 2,
                              self.data.inst['bl'] * self.data.options.array['ratio'] / 2)))
 
+        self.run_socket(s_name='instrument',
+                        method='adjust_sampling_rate',
+                        angsep=angsep)
+
         self.inst_prt = ils.Instrument(
             # ----- static parameters -----
             wl_bins=self.data.inst['wl_bins'],  # wavelength bins center position in m
             wl_bin_widths=self.data.inst['wl_bin_widths'],  # wavelength bin widhts in m
             integration_time=integration_time,
-            image_size=self.data.options.other['image_size'],
+            image_size=self.data.inst['image_size'],
             # size of image used to simulate exozodi in pix
             diameter_ap=self.data.options.array['diameter'],
             # diameter of the primary mirrors in m
@@ -301,7 +306,7 @@ class InstrumentPrt(InstrumentModule):
             # run calculation with or without chopping, 'chop', 'nchop', 'both'
             pix_per_wl=self.data.options.array['pix_per_wl'],
             # pixels on detector used per wavelength channel
-            n_sampling_rot=self.data.options.array['n_sampling_rot'],
+            n_sampling_rot=self.data.inst['n_sampling_rot'],
             # number of sampling points per array rotation
             detector_dark_current='manual',
             # detector type, 'MIRI' or 'manual'. Specify dark_current_pix in 'manual'
@@ -490,8 +495,9 @@ def multiprocessing_runner(input_dict: dict):
             # save baseline
             input_dict['catalog']['baseline'].iat[n_p] = deepcopy(input_dict['baseline'])
 
-            # save sampling rate
+            # save sampling rates
             input_dict['catalog']['n_sampling_rot'].iat[n_p] = deepcopy(inst.n_sampling_rot)
+            input_dict['catalog']['image_size'].iat[n_p] = deepcopy(inst.image_size)
 
             # save snr results
             if (inst.chopping == 'nchop'):

@@ -52,7 +52,7 @@ class PhotonNoiseLocalzodi(PhotonNoiseStarModule):
             Specifies which localzodi model will be used.
         data.inst['radius_map'] : np.ndarray
             Contains the distance of a pixel from the center of the detector in [pix].
-        data.options.other['image_size']
+        data.inst['image_size']
             Number of pixels on one axis of a square detector (dimensionless). I.e. for a 512x512
             detector this value is 512.
         data.inst['wl_bins'] : np.ndarray
@@ -93,7 +93,7 @@ class PhotonNoiseLocalzodi(PhotonNoiseStarModule):
         lat = lat_s
 
         ap = np.where(self.data.inst['radius_map']
-                      <= self.data.options.other['image_size'] / 2, 1, 0)
+                      <= self.data.inst['image_size'] / 2, 1, 0)
 
         # calculate the localzodi flux depending on the correct model
         if self.data.options.models['localzodi'] == 'glasse':
@@ -129,11 +129,9 @@ class PhotonNoiseLocalzodi(PhotonNoiseStarModule):
         lz_flux = lz_flux_sr * (np.pi * self.data.inst['hfov'] ** 2)
 
         # calculate the leakage contribution to the measurement
-        # TODO: is the lz_leakage attenuated by the interferometer? Prob. not because it is diffuse radiation
+        # sum over t_map accounts for only 1/4 of the light making in into one of the dark outputs
         lz_leak = (ap * self.data.inst['t_map']).sum(axis=(-2, -1)) / ap.sum() * lz_flux \
                   * self.data.inst['telescope_area']
-
-        # lz_leak = lz_flux * self.data.inst['telescope_area']
 
         return lz_leak
 
