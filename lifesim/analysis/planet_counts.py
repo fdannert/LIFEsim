@@ -20,14 +20,21 @@ class SampleAnalysisModule(AnalysisModule):
         if (self.data.catalog is None) or (self.data.noise_catalog is None):
             raise ValueError('Catalog and noise catalog need to be specified')
 
-        self.data.catalog = pd.merge(left=self.data.catalog,
-                                     right=np.sqrt((
-                                                           (self.data.noise_catalog.sel(params='signal')
-                                                            / self.data.noise_catalog.sel(params='fundamental')) ** 2
-                                                   ).sum(axis=1) * 3600 / self.data.options.array['t_rot']
-                                                   ).to_pandas().rename('snr_1h_prt'),
-                                     left_on='id',
-                                     right_on='ids')
+        self.data.catalog = pd.merge(
+            left=self.data.catalog,
+            right=np.sqrt(
+                (
+                        (self.data.noise_catalog.sel(params='signal') /
+                         np.sqrt(
+                             self.data.noise_catalog.sel(params='fundamental') ** 2
+                             + self.data.noise_catalog.sel(params='signal') ** 2
+                         )) ** 2
+                ).sum(axis=1)
+                * 3600 / self.data.options.array['t_rot']
+            ).to_pandas().rename('snr_1h_prt'),
+            left_on='id',
+            right_on='ids'
+        )
 
     def planet_count(self):
         pass
