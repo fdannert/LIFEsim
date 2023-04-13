@@ -27,7 +27,8 @@ class SampleAnalysisModule(AnalysisModule):
                         (self.data.noise_catalog.sel(params='signal') /
                          np.sqrt(
                              self.data.noise_catalog.sel(params='fundamental') ** 2
-                             + self.data.noise_catalog.sel(params='signal') ** 2
+                             # planet signal need to be taken twice for two dark outputs
+                             + self.data.noise_catalog.sel(params='signal') * 2
                          )) ** 2
                 ).sum(axis=1)
                 * 3600 / self.data.options.array['t_rot']
