@@ -1,9 +1,24 @@
 import os
 from setuptools import setup
 
+def read(rel_path: str) -> str:
+    here = os.path.abspath(os.path.dirname(__file__))
+    # intentionally *not* adding an encoding option to open, See:
+    #   https://github.com/pypa/virtualenv/issues/201#issuecomment-3145690
+    with open(os.path.join(here, rel_path)) as fp:
+        return fp.read()
+
+def get_version(rel_path: str) -> str:
+    for line in read(rel_path).splitlines():
+        if line.startswith("__version__"):
+            # __version__ = "0.9"
+            delim = '"' if '"' in line else "'"
+            return line.split(delim)[1]
+    raise RuntimeError("Unable to find version string.")
+
 setup(
     name='LIFEsim',
-    version='0.2.24',
+    version=get_version("lifesim/__init__.py"),
     description='Simulator software for the Large Interferometer For Exoplanets (LIFE)',
     long_description=open('README.rst').read(),
     long_description_content_type='text/x-rst',
@@ -24,7 +39,8 @@ setup(
                       'pandas~=1.5.3',
                       'PyQt5==5.15.4',
                       'tqdm~=4.64.1',
-                      'tables~=3.8.0'
+                      'tables~=3.8.0',
+                      'gitpython~=3.1.31',
                       ],
     license='GPLv3',
     zip_safe=False,

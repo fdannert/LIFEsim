@@ -3,9 +3,11 @@ import abc
 from abc import ABC
 from typing import Tuple, Union
 import warnings
+import os
 
 import yaml
 from numpy import ndarray, array
+import git
 
 from lifesim.core.data import Data
 
@@ -442,12 +444,29 @@ class Bus(object):
     def write_config(self):
         module_dict = {key: str(type(module)) for (key, module) in self.modules.items()}
 
+        # fetch version number and git commit hash if available
+        lifesim_path = os.path.abspath(os.path.join(os.path.dirname( __file__ ), '..', '..'))
+        version_dict = {}
+
+        try:
+            repo = git.Repo(lifesim_path)
+            version_dict['git_sha'] = repo.head.object.hexsha
+            version_dict['git_branch'] = repo.active_branch.name
+        except ValueError:
+            version_dict['git_sha'] = 'not a git repository'
+            version_dict['git_branch'] = 'not a git repository'
+
+        # TODO: This is extremely ugly. Fix this.
+        from lifesim.__init__ import __version__
+        version_dict['version'] = __version__
+
         config_dict = {'array': convert_to_list(self.data.options.array),
                        'models': convert_to_list(self.data.options.models),
                        'optimization': convert_to_list(self.data.options.optimization),
                        'other': convert_to_list(self.data.options.other),
                        'modules': module_dict,
-                       'connections': convert_to_list(self.connections)}
+                       'connections': convert_to_list(self.connections),
+                       'version': version_dict}
 
         with open(self.data.options.other['output_path']
                   + self.data.options.other['output_filename'] + '.yaml', 'w') as file:
