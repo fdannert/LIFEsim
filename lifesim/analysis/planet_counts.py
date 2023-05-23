@@ -32,7 +32,7 @@ class SampleAnalysisModule(AnalysisModule):
                          )) ** 2
                 ).sum(axis=1)
                 * 3600 / self.data.options.array['t_rot']
-            ).to_pandas().rename('snr_1h_prt'),
+            ).to_pandas().rename('snr_1h'),
             left_on='id',
             right_on='ids'
         )
