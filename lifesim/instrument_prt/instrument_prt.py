@@ -169,7 +169,9 @@ class InstrumentPrt(InstrumentModule):
                           'agn_phot_cold': self.data.options.array['agn_phot_cold'],
                           'agn_phot_white': self.data.options.array['agn_phot_white'],
                           'agn_spacecraft_temp': self.data.options.array['agn_spacecraft_temp'],
-                          'rms_mode': self.data.options.array['rms_mode']
+                          'rms_mode': self.data.options.array['rms_mode'],
+                          # TODO: this needs to be sourced from options, 'create', 'use', 'none'
+                          'lookup_table': 'create',
                           }
 
             # if safe_mode:
@@ -391,7 +393,7 @@ def multiprocessing_runner(input_dict: dict):
         dark_current_pix=0.,  # detector dark current in electrons s-1 px-1
         detector_thermal='MIRI',  # detector type, 'MIRI'
         det_temp=0.,  # temperature of the detector environment in K
-        magnification=15.73,  # telescope magnification
+        magnification=15.73,  # tele# scope magnification
         f_number=20.21,  # telescope f-number, i.e. ratio of focal length to aperture size
         secondary_primary_ratio=0.114,  # ratio of secondary to primary mirror sizes
         primary_emissivity=0.,  # emissivity epsilon of the primary mirror
@@ -448,6 +450,34 @@ def multiprocessing_runner(input_dict: dict):
         inst.pn_thermal_primary_mirror()
 
     return_dict = {'noise_catalog': {}}
+    if input_dict['lookup_table'] == 'create':
+        return_dict['lookup_table'] = {'id': [],
+                                       'A': inst.A,
+                                       'wl_bins': inst.wl_bins,
+                                       'num_a': inst.num_a,
+                                       'rms_mode': inst.rms_mode,
+                                       'n_sampling_max': inst.n_sampling_max,
+                                       't_rot': inst.t_rot,
+                                       't_int': inst.t_int,
+                                       'flux_star': inst.flux_star
+                                       }
+
+        if inst.chopping == 'chop':
+            return_dict['lookup_table']['planet_template_chop'] = []
+            return_dict['lookup_table']['c_phi'] = []
+            return_dict['lookup_table']['c_aphi'] = []
+            return_dict['lookup_table']['c_aa'] = []
+            return_dict['lookup_table']['c_phiphi'] = []
+        else:
+            return_dict['lookup_table']['planet_template_nchop'] = []
+            return_dict['lookup_table']['c_a'] = []
+            return_dict['lookup_table']['c_phi'] = []
+            return_dict['lookup_table']['c_x'] = []
+            return_dict['lookup_table']['c_y'] = []
+            return_dict['lookup_table']['c_aa'] = []
+            return_dict['lookup_table']['c_phiphi'] = []
+            return_dict['lookup_table']['c_aphi'] = []
+            return_dict['lookup_table']['c_thetatheta'] = []
 
     # create mask returning only unique stars
     universes = np.unique(
@@ -471,6 +501,8 @@ def multiprocessing_runner(input_dict: dict):
                 np.logical_and(input_dict['catalog'].nstar.to_numpy() == input_dict['nstar'],
                                input_dict['catalog'].nuniverse.to_numpy() == nuniverse))[:, 0]):
 
+            # ----- must be repeated for every planet -----
+
             # adjust the temporal sampling rate to the baseline and planet separation
             inst.n_sampling_rot = adjust_sampling(
                 angsep=input_dict['catalog']['angsep'].iloc[n_p],
@@ -485,47 +517,69 @@ def multiprocessing_runner(input_dict: dict):
             inst.separation_planet = (input_dict['catalog']['angsep'].iloc[n_p]
                                       * input_dict['catalog']['distance_s'].iloc[n_p])
 
-            # ----- must be repeated for every planet -----
+            # create the planet signal and template function
             inst.create_planet(force=True)
             inst.planet_signal()
 
-            if (inst.chopping == 'nchop'):
-                inst.sn_nchop()
-            else:
-                inst.sn_chop()
-
-            # save baseline
-            input_dict['catalog']['baseline'].iat[n_p] = deepcopy(input_dict['baseline'])
-
-            # save sampling rates
-            input_dict['catalog']['n_sampling_rot'].iat[n_p] = deepcopy(inst.n_sampling_rot)
-            input_dict['catalog']['image_size'].iat[n_p] = deepcopy(inst.image_size)
-
-            # save snr results
-            if (inst.chopping == 'nchop'):
-                input_dict['catalog'].t_rot.iat[n_p] = deepcopy(input_dict['integration_time'])
-                input_dict['catalog'].signal.iat[n_p] = inst.photon_rates_nchop['signal'].sum()
-                input_dict['catalog'].photon_noise.iat[n_p] = (
-                    np.sqrt((inst.photon_rates_nchop['pn'] ** 2).sum()))
-                input_dict['catalog'].systematic_noise.iat[n_p] = (
-                    np.sqrt((inst.photon_rates_nchop['sn'] ** 2).sum()))
-            else:
-                input_dict['catalog'].t_rot.iat[n_p] = deepcopy(input_dict['integration_time'])
-                input_dict['catalog'].signal.iat[n_p] = inst.photon_rates_chop['signal'].sum()
-                input_dict['catalog'].photon_noise.iat[n_p] = (
-                    np.sqrt((inst.photon_rates_chop['pn'] ** 2).sum()))
-                input_dict['catalog'].systematic_noise.iat[n_p] = (
-                    np.sqrt((inst.photon_rates_chop['sn'] ** 2).sum()))
-
-            if input_dict['safe_mode']:
-                if (inst.chopping == 'nchop'):
-                    return_dict['noise_catalog'][str(input_dict['catalog'].id.iat[n_p])] = deepcopy(
-                        inst.photon_rates_nchop
-                    )
+            # create lookup table for planets if requested
+            if input_dict['lookup_table'] == 'create':
+                if inst.chopping == 'chop':
+                    return_dict['lookup_table']['planet_template_chop'].append(inst.planet_template_chop)
+                    return_dict['lookup_table']['c_phi'].append(inst.c_phi)
+                    return_dict['lookup_table']['c_aphi'].append(inst.c_aphi)
+                    return_dict['lookup_table']['c_aa'].append(inst.c_aa)
+                    return_dict['lookup_table']['c_phiphi'].append(inst.c_phiphi)
                 else:
-                    return_dict['noise_catalog'][str(input_dict['catalog'].id.iat[n_p])] = deepcopy(
-                        inst.photon_rates_chop
-                    )
+                    return_dict['lookup_table']['planet_template_nchop'].append(inst.planet_template_nchop)
+                    return_dict['lookup_table']['c_a'].append(inst.c_a)
+                    return_dict['lookup_table']['c_phi'].append(inst.c_phi)
+                    return_dict['lookup_table']['c_x'].append(inst.c_x)
+                    return_dict['lookup_table']['c_y'].append(inst.c_y)
+                    return_dict['lookup_table']['c_aa'].append(inst.c_aa)
+                    return_dict['lookup_table']['c_phiphi'].append(inst.c_phiphi)
+                    return_dict['lookup_table']['c_aphi'].append(inst.c_aphi)
+                    return_dict['lookup_table']['c_thetatheta'].append(inst.c_thetatheta)
+
+                    # next step: see which variables need to be saved to calculate everything in sn_chop or sn_nchop
+
+            else:
+                if (inst.chopping == 'nchop'):
+                    inst.sn_nchop()
+                else:
+                    inst.sn_chop()
+
+                # save baseline
+                input_dict['catalog']['baseline'].iat[n_p] = deepcopy(input_dict['baseline'])
+
+                # save sampling rates
+                input_dict['catalog']['n_sampling_rot'].iat[n_p] = deepcopy(inst.n_sampling_rot)
+                input_dict['catalog']['image_size'].iat[n_p] = deepcopy(inst.image_size)
+
+                # save snr results
+                if (inst.chopping == 'nchop'):
+                    input_dict['catalog'].t_rot.iat[n_p] = deepcopy(input_dict['integration_time'])
+                    input_dict['catalog'].signal.iat[n_p] = inst.photon_rates_nchop['signal'].sum()
+                    input_dict['catalog'].photon_noise.iat[n_p] = (
+                        np.sqrt((inst.photon_rates_nchop['pn'] ** 2).sum()))
+                    input_dict['catalog'].systematic_noise.iat[n_p] = (
+                        np.sqrt((inst.photon_rates_nchop['sn'] ** 2).sum()))
+                else:
+                    input_dict['catalog'].t_rot.iat[n_p] = deepcopy(input_dict['integration_time'])
+                    input_dict['catalog'].signal.iat[n_p] = inst.photon_rates_chop['signal'].sum()
+                    input_dict['catalog'].photon_noise.iat[n_p] = (
+                        np.sqrt((inst.photon_rates_chop['pn'] ** 2).sum()))
+                    input_dict['catalog'].systematic_noise.iat[n_p] = (
+                        np.sqrt((inst.photon_rates_chop['sn'] ** 2).sum()))
+
+                if input_dict['safe_mode']:
+                    if (inst.chopping == 'nchop'):
+                        return_dict['noise_catalog'][str(input_dict['catalog'].id.iat[n_p])] = deepcopy(
+                            inst.photon_rates_nchop
+                        )
+                    else:
+                        return_dict['noise_catalog'][str(input_dict['catalog'].id.iat[n_p])] = deepcopy(
+                            inst.photon_rates_chop
+                        )
 
     return_dict['catalog'] = input_dict['catalog']
     return_dict['nstar'] = input_dict['nstar']
