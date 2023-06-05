@@ -25,7 +25,8 @@ class TransmissionMap(TransmissionModule):
                          d_alpha: np.ndarray = None,
                          d_beta: np.ndarray = None,
                          hfov: np.ndarray = None,
-                         image_size: int = None):
+                         image_size: int = None,
+                         null_depth: Union[type(None), float, np.ndarray] = None):
         """
         Return the transmission map of a double-Bracewell configuration for the LIFE array.
 
@@ -89,6 +90,12 @@ class TransmissionMap(TransmissionModule):
         if wl_bins.shape[-1] > 1:
             wl_bins = np.reshape(wl_bins, (wl_bins.shape[-1], 1, 1))
 
+        if (null_depth is not None) and (type(null_depth) != float):
+            if null_depth.shape[-1] > 1:
+                null_depth = np.reshape(null_depth, (null_depth.shape[-1], 1, 1))
+        elif null_depth is None:
+            null_depth = 0
+
         if direct_mode:
             alpha = d_alpha
             beta = d_beta
@@ -126,9 +133,11 @@ class TransmissionMap(TransmissionModule):
                 2 * self.data.options.array['ratio'] * np.pi * L * beta / wl_bins + np.pi / 4) ** 2
 
         # transmission map of mode 3
+        # TODO: EXTREMELY IMPORTANT: null depth only implemented from tm3, needs to be done for all
         if 'tm3' in map_selection:
-            tm3 = np.sin(2 * np.pi * L * alpha / wl_bins) ** 2 * np.cos(
-                2 * self.data.options.array['ratio'] * np.pi * L * beta / wl_bins - np.pi / 4) ** 2
+            tm3 = ((np.sin(2 * np.pi * L * alpha / wl_bins) ** 2 * (1 - null_depth) + null_depth)
+                   * (np.cos(2 * self.data.options.array['ratio'] * np.pi * L * beta / wl_bins
+                             - np.pi / 4) ** 2 * (1 - null_depth) + null_depth))
 
         # transmission map of mode 4
         if 'tm4' in map_selection:

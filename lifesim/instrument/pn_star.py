@@ -26,7 +26,8 @@ class PhotonNoiseStar(PhotonNoiseStarModule):
                         s_type=TransmissionModule)
 
     def noise_star(self,
-                   index: Union[int, type(None)]):
+                   index: Union[int, type(None)],
+                   null_depth: Union[type(None), float, np.ndarray] = None):
         """
         Simulates the amount of photon noise originating from the star of the observed system
         leaking into the LIFE array measurement.
@@ -97,7 +98,8 @@ class PhotonNoiseStar(PhotonNoiseStarModule):
                                   s_name='transmission_star',
                                   map_selection=[map_selection],
                                   hfov=Rs_rad,
-                                  image_size=image_size)[int(map_selection[-1]) - 1]
+                                  image_size=image_size,
+                                  null_depth=null_depth)[int(map_selection[-1]) - 1]
 
         x_map = np.tile(np.array(range(0, image_size)), (image_size, 1))
         y_map = x_map.T

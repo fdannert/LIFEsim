@@ -287,6 +287,8 @@ class InstrumentPrt(InstrumentModule):
                         method='adjust_sampling_rate',
                         angsep=angsep)
 
+        print('Sampling rate: ', self.data.inst['n_sampling_rot'])
+
         self.inst_prt = ils.Instrument(
             # ----- static parameters -----
             wl_bins=self.data.inst['wl_bins'],  # wavelength bins center position in m
