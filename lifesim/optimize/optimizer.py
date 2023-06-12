@@ -75,6 +75,7 @@ class Optimizer(OptimizationModule):
                                        >= np.array(list(self.data.options.optimization['limit'].values())))
 
         self.data.optm['tot_time'] = 0  # in sec
+        self.data.optm['opt_protocol'] = []
 
         # add new columns to catalog
         self.data.catalog['detected'] = False

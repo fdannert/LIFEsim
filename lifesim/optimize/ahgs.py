@@ -58,15 +58,18 @@ class AhgsModule(SlopeModule):
                    * np.sqrt(int_actual
                              / (60 * 60)))**2)
 
+            ids_detected = []
             for _, i in enumerate(np.where(mask)[0]):
                 if (not self.data.catalog.detected.iloc[i]) and \
                         (self.data.catalog.snr_current.iloc[i]
                          >= self.data.options.optimization['snr_target']):
                     self.data.catalog.detected.iat[i] = True
+                    ids_detected.append(self.data.catalog.id.iat[i])
                     if self.data.catalog.habitable.iloc[i]:
                         self.data.optm['sum_detected'][
                             np.where(np.array(list(self.data.options.optimization['limit'].keys()))
                                      == self.data.catalog.stype.iloc[i])] += 1
+            self.data.optm['opt_protocol'].append([self.data.optm['tot_time'], ids_detected])
         else:
             pass
             # self.planets.slew_time[mask_star] = -self.t_slew
