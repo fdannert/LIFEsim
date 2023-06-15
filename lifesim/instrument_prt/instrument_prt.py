@@ -1,5 +1,6 @@
 import multiprocessing as mp
 from copy import deepcopy
+from typing import Union
 
 import numpy as np
 from tqdm import tqdm
@@ -55,7 +56,23 @@ class InstrumentPrt(InstrumentModule):
                             distance_s=distance_s)
 
     def get_snr(self,
-                safe_mode=True):
+                safe_mode:bool = True,
+                lookup_table:str = 'none'):
+        '''
+        Calculate the SNR for all stars in the catalog.
+        Parameters
+        ----------
+        safe_mode : bool
+        lookup_table : str, None
+            If set to 'none', no lookup table is used. If set to 'input:path' the lookup
+            table is read from the specified path. If set to 'output:path' the lookup table is saved
+            to the specified path.
+
+        Returns
+        -------
+
+        '''
+
         # currently, the choice of integration time here is arbitrary. Since the background limited
         # case is assumed, the SNR scales with sqrt(integration time) and through this, the SNR
         # for any integration time can be calculated by knowing the SNR of a specific integration
@@ -170,8 +187,7 @@ class InstrumentPrt(InstrumentModule):
                           'agn_phot_white': self.data.options.array['agn_phot_white'],
                           'agn_spacecraft_temp': self.data.options.array['agn_spacecraft_temp'],
                           'rms_mode': self.data.options.array['rms_mode'],
-                          # TODO: this needs to be sourced from options, 'create', 'use', 'none'
-                          'lookup_table': 'create',
+                          'lookup_table': lookup_table.split(':')[0],
                           }
 
             # if safe_mode:
@@ -205,6 +221,13 @@ class InstrumentPrt(InstrumentModule):
         # if safe_mode:
         #     self.data.noise_catalog = pd.concat([output_dict['noise_catalog'] for output_dict in
         #     output_dict_list])
+
+        # if lookup table is in output mode, collect all lookup data and save it to a file
+        if lookup_table.split(':')[0] == 'output':
+            lookup_table = pd.concat([output_dict['lookup_table'] for output_dict in output_dict_list])
+            lookup_table.to_hdf(lookup_table.split(':')[1],
+                                key='lookup_table', mode='a')
+
         if safe_mode:
             for output_dict in output_dict_list:
                 self.data.noise_catalog.update(output_dict['noise_catalog'])
@@ -452,8 +475,9 @@ def multiprocessing_runner(input_dict: dict):
         inst.pn_thermal_primary_mirror()
 
     return_dict = {'noise_catalog': {}}
-    if input_dict['lookup_table'] == 'create':
+    if input_dict['lookup_table'] == 'output':
         return_dict['lookup_table'] = {'id': [],
+                                       'nstar': input_dict['nstar'],
                                        'A': inst.A,
                                        'wl_bins': inst.wl_bins,
                                        'num_a': inst.num_a,
@@ -461,7 +485,16 @@ def multiprocessing_runner(input_dict: dict):
                                        'n_sampling_max': inst.n_sampling_max,
                                        't_rot': inst.t_rot,
                                        't_int': inst.t_int,
-                                       'flux_star': inst.flux_star
+                                       'flux_star': inst.flux_star,
+                                       'pn_sgl': [],
+                                       'pn_ez': [],
+                                       'pn_lz': [],
+                                       'pn_dc': [],
+                                       'pn_tbd': [],
+                                       'pn_tbpm': [],
+                                       'pn_ag_ht': [],
+                                       'pn_ag_cld': [],
+                                       'pn_ag_wht': [],
                                        }
 
         if inst.chopping == 'chop':
@@ -524,15 +557,24 @@ def multiprocessing_runner(input_dict: dict):
             inst.planet_signal()
 
             # create lookup table for planets if requested
-            if input_dict['lookup_table'] == 'create':
+            if input_dict['lookup_table'] == 'output':
+                return_dict['lookup_table']['id'].append(input_dict['catalog']['id'].iloc[n_p])
                 if inst.chopping == 'chop':
-                    return_dict['lookup_table']['planet_template_chop'].append(inst.planet_template_chop)
+                    return_dict['lookup_table']['planet_template_chop'].append(
+                        inst.planet_template_chop
+                    )
                     return_dict['lookup_table']['c_phi'].append(inst.c_phi)
                     return_dict['lookup_table']['c_aphi'].append(inst.c_aphi)
                     return_dict['lookup_table']['c_aa'].append(inst.c_aa)
                     return_dict['lookup_table']['c_phiphi'].append(inst.c_phiphi)
+
+                    # other parameters needed to calculate sn_chop
+                    # return_dict['lookup_table']['pn'].append(inst.photon_rates_chop['pn'])
+
                 else:
-                    return_dict['lookup_table']['planet_template_nchop'].append(inst.planet_template_nchop)
+                    return_dict['lookup_table']['planet_template_nchop'].append(
+                        inst.planet_template_nchop
+                    )
                     return_dict['lookup_table']['c_a'].append(inst.c_a)
                     return_dict['lookup_table']['c_phi'].append(inst.c_phi)
                     return_dict['lookup_table']['c_x'].append(inst.c_x)
@@ -542,8 +584,32 @@ def multiprocessing_runner(input_dict: dict):
                     return_dict['lookup_table']['c_aphi'].append(inst.c_aphi)
                     return_dict['lookup_table']['c_thetatheta'].append(inst.c_thetatheta)
 
-                    # next step: see which variables need to be saved to calculate everything in sn_chop or sn_nchop
+                    # other parameters needed to calculate sn_nchop
+                    # return_dict['lookup_table']['pn'].append(inst.photon_rates_nchop['pn'])
 
+                # other parameters needed to calculate sn_(n)chop
+                return_dict['lookup_table']['pn_sgl'].append(inst.photon_rates_nchop['pn_sgl'])
+                return_dict['lookup_table']['pn_ez'].append(inst.photon_rates_nchop['pn_ez'])
+                return_dict['lookup_table']['pn_lz'].append(inst.photon_rates_nchop['pn_lz'])
+
+                return_dict['lookup_table']['pn_dc'].append(inst.photon_rates_nchop['pn_dc'])
+                return_dict['lookup_table']['pn_tbd'].append(inst.photon_rates_nchop['pn_tbd'])
+                return_dict['lookup_table']['pn_tbpm'].append(
+                    inst.photon_rates_nchop['pn_tbpm']
+                )
+
+                return_dict['lookup_table']['pn_ag_ht'].append(
+                    inst.photon_rates_nchop['pn_ag_ht']
+                )
+                return_dict['lookup_table']['pn_ag_cld'].append(
+                    inst.photon_rates_nchop['pn_ag_cld']
+                )
+                return_dict['lookup_table']['pn_ag_wht'].append(
+                    inst.photon_rates_nchop['pn_ag_wht']
+                )
+
+            elif input_dict['lookup_table'] == 'input':
+                pass
             else:
                 if (inst.chopping == 'nchop'):
                     inst.sn_nchop()
@@ -575,12 +641,12 @@ def multiprocessing_runner(input_dict: dict):
 
                 if input_dict['safe_mode']:
                     if (inst.chopping == 'nchop'):
-                        return_dict['noise_catalog'][str(input_dict['catalog'].id.iat[n_p])] = deepcopy(
-                            inst.photon_rates_nchop
+                        return_dict['noise_catalog'][str(input_dict['catalog'].id.iat[n_p])] = (
+                            deepcopy(inst.photon_rates_nchop)
                         )
                     else:
-                        return_dict['noise_catalog'][str(input_dict['catalog'].id.iat[n_p])] = deepcopy(
-                            inst.photon_rates_chop
+                        return_dict['noise_catalog'][str(input_dict['catalog'].id.iat[n_p])] = (
+                            deepcopy(inst.photon_rates_chop)
                         )
 
     return_dict['catalog'] = input_dict['catalog']
