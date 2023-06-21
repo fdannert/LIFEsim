@@ -73,6 +73,9 @@ class InstrumentPrt(InstrumentModule):
 
         '''
 
+        if safe_mode and (lookup_table.split(':')[0] == 'output'):
+            raise ValueError('Save mode cannot be used when creating a lookup table.')
+
         # currently, the choice of integration time here is arbitrary. Since the background limited
         # case is assumed, the SNR scales with sqrt(integration time) and through this, the SNR
         # for any integration time can be calculated by knowing the SNR of a specific integration
@@ -86,43 +89,13 @@ class InstrumentPrt(InstrumentModule):
         self.data.catalog['baseline'] = np.zeros_like(self.data.catalog.nstar, dtype=float)
         self.data.catalog['n_sampling_rot'] = np.zeros_like(self.data.catalog.nstar, dtype=int)
         self.data.catalog['image_size'] = np.zeros_like(self.data.catalog.nstar, dtype=int)
+
         if safe_mode:
             self.data.noise_catalog = {}
-            # self.apply_options(run_baseline=False)
-            # ids_wl = [str(np.round(wl * 1e6, 1)) for wl in self.data.inst['wl_bins']]
-            # ids = self.data.catalog.id.values.astype(str)
-            # columns = ['signal',  # planet signal
-            #            'noise',  # overall noise contribution
-            #            'wl',  # wavelength bin
-            #            'pn_sgl',  # stellar geometric leakage
-            #            'pn_ez',  # exozodi leakage
-            #            'pn_lz',  # localzodi leakage
-            #            'pn_dc',  # dark current
-            #            'pn_tbd',  # thermal background detector
-            #            'pn_tbpm',  # thermal background primary mirror
-            #            'pn_pa',  # polarization angle
-            #            'pn_snfl',  # stellar null floor leakage
-            #            'pn_ag_cld',  # agnostic cold instrumental photon noise
-            #            'pn_ag_ht',  # agnostic hot instrumental photon noise
-            #            'pn_ag_wht',  # agnostic white instrumental photon noise
-            #            'pn',  # photon noise
-            #            'sn_fo_a',  # first order amplitude
-            #            'sn_fo_phi',  # first order phase
-            #            'sn_fo_x',  # first order x position
-            #            'sn_fo_y',  # first order y position
-            #            'sn_fo',  # systematic noise first order
-            #            'sn_so_aa',  # second order amplitude-amplitude term
-            #            'sn_so_phiphi',  # second order phase-phase term
-            #            'sn_so_aphi',  # amplitude phase cross term
-            #            'sn_so_polpol',  # second order polarization-polarization term
-            #            'sn_so',  # systematic noise second order
-            #            'sn',  # systematic noise
-            #            'fundamental',  # fundamental noise (astrophysical)
-            #            'instrumental',  # instrumental noise
-            #            'snr'  # signal to noise ratio
-            #            ]
-            # self.data.noise_catalog_pivot = {id_wl: pd.DataFrame(columns=columns, index=ids) for
-            # id_wl in ids_wl}
+
+        # load lookup table
+        if lookup_table.split(':')[0] == 'input':
+            lookup_table_in = pd.read_hdf(lookup_table.split(':')[1]).to_dict()
 
         # create mask returning only unique stars
         _, temp = np.unique(self.data.catalog.nstar, return_index=True)
@@ -152,6 +125,11 @@ class InstrumentPrt(InstrumentModule):
 
             self.run_socket(s_name='instrument',
                             method='adjust_image_size')
+
+            if lookup_table.split(':')[0] == 'input':
+                lt_in = lookup_table_in[nstar]
+            else:
+                lt_in = None
 
             # create single input dictionary
 
@@ -188,6 +166,7 @@ class InstrumentPrt(InstrumentModule):
                           'agn_spacecraft_temp': self.data.options.array['agn_spacecraft_temp'],
                           'rms_mode': self.data.options.array['rms_mode'],
                           'lookup_table': lookup_table.split(':')[0],
+                          'lt_in': lt_in,
                           }
 
             # if safe_mode:
@@ -224,9 +203,12 @@ class InstrumentPrt(InstrumentModule):
 
         # if lookup table is in output mode, collect all lookup data and save it to a file
         if lookup_table.split(':')[0] == 'output':
-            lookup_table = pd.concat([output_dict['lookup_table'] for output_dict in output_dict_list])
-            lookup_table.to_hdf(lookup_table.split(':')[1],
-                                key='lookup_table', mode='a')
+            lookup_table_out = pd.DataFrame.from_dict(
+                {output_dict['lookup_table']['nstar']:output_dict['lookup_table']
+                                for output_dict in output_dict_list}
+            )
+            lookup_table_out.to_hdf(lookup_table.split(':')[1],
+                                    key='lookup_table', mode='a')
 
         if safe_mode:
             for output_dict in output_dict_list:
@@ -458,26 +440,26 @@ def multiprocessing_runner(input_dict: dict):
         radius_planet=0.,  # planet radius in earth radii
         separation_planet=0.,  # separation of target planet from host star in AU
     )
-
-    # ----- same for every star -----
-    inst.instrumental_parameters()
-    inst.create_star()
-    inst.create_localzodi()
-    inst.create_exozodi()
-    inst.sensitivity_coefficients()
-    inst.fundamental_noise()
-
-    if inst.agnostic_mode:
-        inst.pn_agnostic()
-    else:
-        inst.pn_dark_current()
-        inst.pn_thermal_background_detector()
-        inst.pn_thermal_primary_mirror()
-
     return_dict = {'noise_catalog': {}}
+
+    if input_dict['lookup_table'] != 'input':
+        # ----- same for every star -----
+        inst.instrumental_parameters()
+        inst.create_star()
+        inst.create_localzodi()
+        inst.create_exozodi()
+        inst.sensitivity_coefficients()
+        inst.fundamental_noise()
+
+        if inst.agnostic_mode:
+            inst.pn_agnostic()
+        else:
+            inst.pn_dark_current()
+            inst.pn_thermal_background_detector()
+            inst.pn_thermal_primary_mirror()
+
     if input_dict['lookup_table'] == 'output':
-        return_dict['lookup_table'] = {'id': [],
-                                       'nstar': input_dict['nstar'],
+        return_dict['lookup_table'] = {'nstar': input_dict['nstar'],
                                        'A': inst.A,
                                        'wl_bins': inst.wl_bins,
                                        'num_a': inst.num_a,
@@ -486,33 +468,10 @@ def multiprocessing_runner(input_dict: dict):
                                        't_rot': inst.t_rot,
                                        't_int': inst.t_int,
                                        'flux_star': inst.flux_star,
-                                       'pn_sgl': [],
-                                       'pn_ez': [],
-                                       'pn_lz': [],
-                                       'pn_dc': [],
-                                       'pn_tbd': [],
-                                       'pn_tbpm': [],
-                                       'pn_ag_ht': [],
-                                       'pn_ag_cld': [],
-                                       'pn_ag_wht': [],
-                                       }
-
-        if inst.chopping == 'chop':
-            return_dict['lookup_table']['planet_template_chop'] = []
-            return_dict['lookup_table']['c_phi'] = []
-            return_dict['lookup_table']['c_aphi'] = []
-            return_dict['lookup_table']['c_aa'] = []
-            return_dict['lookup_table']['c_phiphi'] = []
-        else:
-            return_dict['lookup_table']['planet_template_nchop'] = []
-            return_dict['lookup_table']['c_a'] = []
-            return_dict['lookup_table']['c_phi'] = []
-            return_dict['lookup_table']['c_x'] = []
-            return_dict['lookup_table']['c_y'] = []
-            return_dict['lookup_table']['c_aa'] = []
-            return_dict['lookup_table']['c_phiphi'] = []
-            return_dict['lookup_table']['c_aphi'] = []
-            return_dict['lookup_table']['c_thetatheta'] = []
+                                       'universe': {}}
+    elif input_dict['lookup_table'] == 'input':
+        inst.flux_star = input_dict['lt_in']['flux_star']
+        inst.instrumental_parameters()
 
     # create mask returning only unique stars
     universes = np.unique(
@@ -521,15 +480,54 @@ def multiprocessing_runner(input_dict: dict):
     )
 
     for nuniverse in universes:
-        inst.z = input_dict['catalog'][np.logical_and(
-            input_dict['catalog'].nstar == input_dict['nstar'],
-            input_dict['catalog'].nuniverse == nuniverse
-        )].z.iloc[0]
+        if input_dict['lookup_table'] != 'input':
+            inst.z = input_dict['catalog'][np.logical_and(
+                input_dict['catalog'].nstar == input_dict['nstar'],
+                input_dict['catalog'].nuniverse == nuniverse
+            )].z.iloc[0]
 
-        # redo calculation for exozodi
-        inst.create_exozodi()
-        inst.sensitivity_coefficients(exozodi_only=True)
-        inst.fundamental_noise(exozodi_only=True)
+            # redo calculation for exozodi
+            inst.create_exozodi()
+            inst.sensitivity_coefficients(exozodi_only=True)
+            inst.fundamental_noise(exozodi_only=True)
+
+        if input_dict['lookup_table'] == 'output':
+            return_dict['lookup_table']['universe'][nuniverse] = {'c_a': inst.c_a,
+                                                                  'c_phi': inst.c_phi,
+                                                                  'c_x': inst.c_x,
+                                                                  'c_y': inst.c_y,
+                                                                  'c_aa': inst.c_aa,
+                                                                  'c_phiphi': inst.c_phiphi,
+                                                                  'c_aphi': inst.c_aphi,
+                                                                  'c_thetatheta':
+                                                                      inst.c_thetatheta}
+
+            copy_params = ['pn_sgl', 'pn_ez', 'pn_lz', 'pn_dc', 'pn_tbd', 'pn_tbpm', 'pn_ag_ht',
+                           'pn_ag_cld', 'pn_ag_wht']
+            for param in copy_params:
+                return_dict['lookup_table']['universe'][nuniverse][param] = (
+                    inst.photon_rates_nchop[param]
+                )
+
+            return_dict['lookup_table']['universe'][nuniverse]['planet'] = {}
+
+        # load parameters from lookup table
+        elif input_dict['lookup_table'] == 'input':
+            inst.c_a = input_dict['lt_in']['universe'][nuniverse]['c_a']
+            inst.c_phi = input_dict['lt_in']['universe'][nuniverse]['c_phi']
+            inst.c_x = input_dict['lt_in']['universe'][nuniverse]['c_x']
+            inst.c_y = input_dict['lt_in']['universe'][nuniverse]['c_y']
+            inst.c_aa = input_dict['lt_in']['universe'][nuniverse]['c_aa']
+            inst.c_phiphi = input_dict['lt_in']['universe'][nuniverse]['c_phiphi']
+            inst.c_aphi = input_dict['lt_in']['universe'][nuniverse]['c_aphi']
+            inst.c_thetatheta = input_dict['lt_in']['universe'][nuniverse]['c_thetatheta']
+
+            copy_params = ['pn_sgl', 'pn_ez', 'pn_lz', 'pn_dc', 'pn_tbd', 'pn_tbpm', 'pn_ag_ht',
+                           'pn_ag_cld', 'pn_ag_wht']
+            for param in copy_params:
+                inst.photon_rates_nchop[param] = input_dict['lt_in']['universe'][nuniverse][
+                    param
+                ]
 
         # go through all planets for the chosen star
         for _, n_p in enumerate(np.argwhere(
@@ -538,79 +536,49 @@ def multiprocessing_runner(input_dict: dict):
 
             # ----- must be repeated for every planet -----
 
-            # adjust the temporal sampling rate to the baseline and planet separation
-            inst.n_sampling_rot = adjust_sampling(
-                angsep=input_dict['catalog']['angsep'].iloc[n_p],
-                baseline=input_dict['bl'],
-                baseline_ratio=input_dict['ratio'],
-                n_sampling_multiplier=input_dict['n_sampling_multiplier'],
-                wl_min=input_dict['wl_min']
-            )
+            if input_dict['lookup_table'] != 'input':
+                # adjust the temporal sampling rate to the baseline and planet separation
+                inst.n_sampling_rot = adjust_sampling(
+                    angsep=input_dict['catalog']['angsep'].iloc[n_p],
+                    baseline=input_dict['bl'],
+                    baseline_ratio=input_dict['ratio'],
+                    n_sampling_multiplier=input_dict['n_sampling_multiplier'],
+                    wl_min=input_dict['wl_min']
+                )
 
-            inst.temp_planet = input_dict['catalog']['temp_p'].iloc[n_p]
-            inst.radius_planet = input_dict['catalog']['radius_p'].iloc[n_p]
-            inst.separation_planet = (input_dict['catalog']['angsep'].iloc[n_p]
-                                      * input_dict['catalog']['distance_s'].iloc[n_p])
+                inst.temp_planet = input_dict['catalog']['temp_p'].iloc[n_p]
+                inst.radius_planet = input_dict['catalog']['radius_p'].iloc[n_p]
+                inst.separation_planet = (input_dict['catalog']['angsep'].iloc[n_p]
+                                          * input_dict['catalog']['distance_s'].iloc[n_p])
 
-            # create the planet signal and template function
-            inst.create_planet(force=True)
-            inst.planet_signal()
+                # create the planet signal and template function
+                inst.create_planet(force=True)
+                inst.planet_signal()
 
             # create lookup table for planets if requested
             if input_dict['lookup_table'] == 'output':
-                return_dict['lookup_table']['id'].append(input_dict['catalog']['id'].iloc[n_p])
                 if inst.chopping == 'chop':
-                    return_dict['lookup_table']['planet_template_chop'].append(
-                        inst.planet_template_chop
-                    )
-                    return_dict['lookup_table']['c_phi'].append(inst.c_phi)
-                    return_dict['lookup_table']['c_aphi'].append(inst.c_aphi)
-                    return_dict['lookup_table']['c_aa'].append(inst.c_aa)
-                    return_dict['lookup_table']['c_phiphi'].append(inst.c_phiphi)
-
-                    # other parameters needed to calculate sn_chop
-                    # return_dict['lookup_table']['pn'].append(inst.photon_rates_chop['pn'])
-
+                    return_dict['lookup_table']['universe'][nuniverse]['planet'][
+                        input_dict['catalog']['id'].iloc[n_p]
+                    ] = {'planet_template_chop': inst.planet_template_chop}
                 else:
-                    return_dict['lookup_table']['planet_template_nchop'].append(
-                        inst.planet_template_nchop
-                    )
-                    return_dict['lookup_table']['c_a'].append(inst.c_a)
-                    return_dict['lookup_table']['c_phi'].append(inst.c_phi)
-                    return_dict['lookup_table']['c_x'].append(inst.c_x)
-                    return_dict['lookup_table']['c_y'].append(inst.c_y)
-                    return_dict['lookup_table']['c_aa'].append(inst.c_aa)
-                    return_dict['lookup_table']['c_phiphi'].append(inst.c_phiphi)
-                    return_dict['lookup_table']['c_aphi'].append(inst.c_aphi)
-                    return_dict['lookup_table']['c_thetatheta'].append(inst.c_thetatheta)
+                    return_dict['lookup_table']['universe'][nuniverse]['planet'][
+                        input_dict['catalog']['id'].iloc[n_p]
+                    ] = {'planet_template_nchop': inst.planet_template_nchop}
 
-                    # other parameters needed to calculate sn_nchop
-                    # return_dict['lookup_table']['pn'].append(inst.photon_rates_nchop['pn'])
-
-                # other parameters needed to calculate sn_(n)chop
-                return_dict['lookup_table']['pn_sgl'].append(inst.photon_rates_nchop['pn_sgl'])
-                return_dict['lookup_table']['pn_ez'].append(inst.photon_rates_nchop['pn_ez'])
-                return_dict['lookup_table']['pn_lz'].append(inst.photon_rates_nchop['pn_lz'])
-
-                return_dict['lookup_table']['pn_dc'].append(inst.photon_rates_nchop['pn_dc'])
-                return_dict['lookup_table']['pn_tbd'].append(inst.photon_rates_nchop['pn_tbd'])
-                return_dict['lookup_table']['pn_tbpm'].append(
-                    inst.photon_rates_nchop['pn_tbpm']
-                )
-
-                return_dict['lookup_table']['pn_ag_ht'].append(
-                    inst.photon_rates_nchop['pn_ag_ht']
-                )
-                return_dict['lookup_table']['pn_ag_cld'].append(
-                    inst.photon_rates_nchop['pn_ag_cld']
-                )
-                return_dict['lookup_table']['pn_ag_wht'].append(
-                    inst.photon_rates_nchop['pn_ag_wht']
-                )
-
-            elif input_dict['lookup_table'] == 'input':
-                pass
             else:
+                # load planet template from lookup table if requested
+                if input_dict['lookup_table'] == 'input':
+                    if inst.chopping == 'nchop':
+                        inst.planet_template_nchop = input_dict['lt_in']['universe'][nuniverse][
+                            'planet'
+                        ][input_dict['catalog']['id'].iloc[n_p]]['planet_template_nchop']
+
+                    else:
+                        inst.planet_template_chop = input_dict['lt_in']['universe'][nuniverse][
+                            'planet'
+                        ][input_dict['catalog']['id'].iloc[n_p]]['planet_template_chop']
+
                 if (inst.chopping == 'nchop'):
                     inst.sn_nchop()
                 else:
@@ -653,4 +621,3 @@ def multiprocessing_runner(input_dict: dict):
     return_dict['nstar'] = input_dict['nstar']
 
     return return_dict
-
