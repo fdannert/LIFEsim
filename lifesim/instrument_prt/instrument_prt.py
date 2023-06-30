@@ -332,7 +332,7 @@ class InstrumentPrt(InstrumentModule):
             pink_noise_co=10000,  # cutoff frequency for the pink noise spectra
             n_cpu=1,  # number of cores used in the simulation
             rms_mode='lay',  # mode for rms values, 'lay', 'static', 'wavelength'
-            agnostic_mode=False,  # derive instrumental photon noise from agnostic mode
+            agnostic_mode=True,  # derive instrumental photon noise from agnostic mode
             eps_cold=0.,  # scaling constant for cold agnostic photon noise spectrum
             eps_hot=0.,  # scaling constant for hot agnostic photon noise spectrum
             eps_white=0.,  # scaling constant white agnostic photon noise spectrum
