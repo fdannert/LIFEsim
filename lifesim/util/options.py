@@ -73,7 +73,9 @@ class Options(object):
 
         self.other = {'image_size': 0,
                       'wl_optimal': 0.,
-                      'n_plugins': 0}
+                      'n_plugins': 0,
+                      'output_path': None,
+                      'output_filename': None}
 
         self.models = {'localzodi': '',
                        'habitable': ''}

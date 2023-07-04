@@ -453,8 +453,7 @@ class Data(object):
             raise ValueError('Data can not be overwritten in safe mode')
         self.catalog[name] = data
 
-    def export_catalog(self,
-                       output_path: str):
+    def export_catalog(self):
         """
         Save the catalog to an file in the hdf-format.
 
@@ -470,8 +469,12 @@ class Data(object):
         """
         if self.catalog is None:
             raise ValueError('No catalog found')
+
         self.str_to_obj(reverse=False)
-        self.catalog.to_hdf(path_or_buf=output_path, key='catalog', mode='w')
+        self.catalog.to_hdf(path_or_buf=self.options.other['output_path']
+                                        + self.options.other['output_filename'] + '_catalog.hdf5',
+                            key='catalog',
+                            mode='w')
         self.str_to_obj(reverse=True)
         print('Catalog saved')
 

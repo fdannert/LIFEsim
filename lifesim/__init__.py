@@ -1,3 +1,5 @@
+__version__ = '0.2.26'
+
 from lifesim.core.core import Module, Bus
 
 from lifesim.instrument.instrument import Instrument
