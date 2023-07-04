@@ -12,6 +12,8 @@ bus.data.options.set_scenario('baseline')
 
 # set options manually
 bus.data.options.set_manual(diameter=4.)
+bus.data.options.set_manual(output_path='path/')
+bus.data.options.set_manual(output_filename='run_name')
 
 # ---------- Downloading the P-Pop catalog ----------
 
@@ -76,11 +78,11 @@ opt.ahgs()
 
 # ---------- Saving the Results ----------
 
-bus.data.export_catalog(output_path='path/filename.hdf5')
+bus.save()
 
 
 # ---------- Reading the Results ----------
 # import a previously saved catalog
 bus_read = lifesim.Bus()
-bus_read.data.options.set_scenario('baseline')
+bus_read.build_from_config('path/run_name.yaml')
 bus_read.data.import_catalog(input_path='path/filename.hdf5')
