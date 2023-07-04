@@ -291,9 +291,11 @@ class Instrument(InstrumentModule):
                 n_u = np.where(np.logical_and(self.data.catalog.nstar == nstar,
                                               self.data.catalog.nuniverse == nuniverse))[0][0]
 
-                noise_bg_universe_temp = noise_bg_universe * self.data.catalog.z.iloc[n_u] / self.data.catalog.z.iloc[n]
+                noise_bg_universe_temp = (noise_bg_universe * self.data.catalog.z.iloc[n_u]
+                                          / self.data.catalog.z.iloc[n])
 
-                noise_bg = (noise_bg_star + noise_bg_universe_temp) * integration_time * self.data.inst['eff_tot'] * 2
+                noise_bg = ((noise_bg_star + noise_bg_universe_temp)
+                            * integration_time * self.data.inst['eff_tot'] * 2)
 
                 # go through all planets for the chosen star
                 for _, n_p in enumerate(np.argwhere(
@@ -301,12 +303,13 @@ class Instrument(InstrumentModule):
                                        self.data.catalog.nuniverse.to_numpy() == nuniverse))[:, 0]):
 
                     # calculate the photon flux originating from the planet
-                    flux_planet_thermal = black_body(mode='planet',
-                                                     bins=self.data.inst['wl_bins'],
-                                                     width=self.data.inst['wl_bin_widths'],
-                                                     temp=self.data.catalog['temp_p'].iloc[n_p],
-                                                     radius=self.data.catalog['radius_p'].iloc[n_p],
-                                                     distance=self.data.catalog['distance_s'].iloc[n_p]
+                    flux_planet_thermal = black_body(
+                        mode='planet',
+                        bins=self.data.inst['wl_bins'],
+                        width=self.data.inst['wl_bin_widths'],
+                        temp=self.data.catalog['temp_p'].iloc[n_p],
+                        radius=self.data.catalog['radius_p'].iloc[n_p],
+                        distance=self.data.catalog['distance_s'].iloc[n_p]
                                                      )
 
                     # calculate the transmission efficiency of the planets separation
@@ -341,12 +344,16 @@ class Instrument(InstrumentModule):
                              * integration_time
                              * self.data.inst['eff_tot']
                              * self.data.inst['telescope_area']])
-                        self.data.catalog['photon_rate_planet'].iat[n_p] = (flux_planet
-                                                                            / integration_time
-                                                                            / self.data.inst['eff_tot']).sum()
-                        self.data.catalog['photon_rate_noise'].iat[n_p] = (noise
-                                                                           / integration_time
-                                                                           / self.data.inst['eff_tot']).sum()
+                        self.data.catalog['photon_rate_planet'].iat[n_p] = (
+                                flux_planet
+                                / integration_time
+                                / self.data.inst['eff_tot']
+                        ).sum()
+                        self.data.catalog['photon_rate_noise'].iat[n_p] = (
+                                noise
+                                / integration_time
+                                / self.data.inst['eff_tot']
+                        ).sum()
 
     # TODO: fix units in documentation
     def get_spectrum(self,
@@ -566,7 +573,8 @@ class Instrument(InstrumentModule):
         else:
             noise_bg_universe = noise_bg_list_star
 
-        noise_bg = (noise_bg_star + noise_bg_universe) * integration_time * self.data.inst['eff_tot'] * 2
+        noise_bg = ((noise_bg_star + noise_bg_universe)
+                    * integration_time * self.data.inst['eff_tot'] * 2)
 
         # Add up the noise and caluclate the SNR
         noise = (noise_bg + noise_planet)
@@ -735,7 +743,8 @@ class Instrument(InstrumentModule):
         else:
             noise_bg_universe = noise_bg_list_star
 
-        noise_bg = (noise_bg_star + noise_bg_universe) * integration_time / phi_n * self.data.inst['eff_tot'] * 2
+        noise_bg = ((noise_bg_star + noise_bg_universe)
+                    * integration_time / phi_n * self.data.inst['eff_tot'] * 2)
 
         noise = (noise_bg[:, np.newaxis] + noise_planet)
 
@@ -751,7 +760,9 @@ class Instrument(InstrumentModule):
 def multiprocessing_runner(input_dict: dict):
     # create mask returning only unique stars
     universes = np.unique(
-        input_dict['catalog'].nuniverse[input_dict['catalog'].nstar == input_dict['nstar']], return_index=False)
+        input_dict['catalog'].nuniverse[input_dict['catalog'].nstar == input_dict['nstar']],
+        return_index=False
+    )
 
     # get transmission map
     _, _, self.data.inst['t_map'], _, _ = self.run_socket(s_name='transmission',
