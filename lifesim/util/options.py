@@ -75,7 +75,8 @@ class Options(object):
                       'wl_optimal': 0.,
                       'n_plugins': 0,
                       'output_path': None,
-                      'output_filename': None}
+                      'output_filename': None,
+                      'multiplanet': False}
 
         self.models = {'localzodi': '',
                        'habitable': ''}
@@ -111,6 +112,7 @@ class Options(object):
         self.other['image_size'] = 256  # TODO: or 512?
         self.other['wl_optimal'] = 15
         self.other['n_plugins'] = 5
+        self.other['multiplanet'] = True
 
         self.models['localzodi'] = 'darwinsim'
         self.models['habitable'] = 'MS'

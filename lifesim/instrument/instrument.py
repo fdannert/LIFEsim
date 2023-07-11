@@ -297,6 +297,10 @@ class Instrument(InstrumentModule):
                 noise_bg = ((noise_bg_star + noise_bg_universe_temp)
                             * integration_time * self.data.inst['eff_tot'] * 2)
 
+                if self.data.options.other['multiplanet']:
+                    flux_planet_list = []
+                    noise_planet_list = []
+
                 # go through all planets for the chosen star
                 for _, n_p in enumerate(np.argwhere(
                         np.logical_and(self.data.catalog.nstar.to_numpy() == nstar,
@@ -332,7 +336,11 @@ class Instrument(InstrumentModule):
 
                     # Add up the noise and caluclate the SNR
                     noise = noise_bg + noise_planet
-                    self.data.catalog.snr_1h.iat[n_p] = np.sqrt((flux_planet ** 2 / noise).sum())
+                    if not self.data.options.other['multiplanet']:
+                        self.data.catalog.snr_1h.iat[n_p] = np.sqrt((flux_planet ** 2 / noise).sum())
+                    else:
+                        flux_planet_list.append(flux_planet)
+                        noise_planet_list.append(noise_planet)
 
                     # save baseline
                     self.data.catalog['baseline'].iat[n_p] = self.data.inst['bl']
@@ -354,6 +362,18 @@ class Instrument(InstrumentModule):
                                 / integration_time
                                 / self.data.inst['eff_tot']
                         ).sum()
+
+                if self.data.options.other['multiplanet']:
+                    noise_planet_list = np.array(noise_planet_list)
+                    noise_multiplanet = np.sum(noise_planet_list, axis=0)
+
+                    # calculate SNR for every planet
+                    for j, n_p in enumerate(np.argwhere(
+                            np.logical_and(self.data.catalog.nstar.to_numpy() == nstar,
+                                           self.data.catalog.nuniverse.to_numpy() == nuniverse))[:, 0]):
+                        noise = noise_bg + noise_multiplanet
+                        self.data.catalog.snr_1h.iat[n_p] = np.sqrt((flux_planet_list[j] ** 2 / noise).sum())
+
 
     # TODO: fix units in documentation
     def get_spectrum(self,
