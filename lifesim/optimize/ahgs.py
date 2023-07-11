@@ -152,10 +152,13 @@ class AhgsModule(SlopeModule):
                         (self.data.optm['sum_detected'] / self.data.optm['num_universe'])
                         > np.array(list(self.data.options.optimization['limit'].values())),
                         np.invert(self.data.optm['hit_limit']))):
+                print('\n')
                 print('HIT LIMIT, RECOUNTING -------------------')
                 self.data.optm['hit_limit'] = ((self.data.optm['sum_detected']
                                                 / (self.data.optm['num_universe']))
-                                               >= self.data.options.optimization['limit'][1][:])
+                                               >= np.array(
+                            list(self.data.options.optimization['limit'].values())
+                        ))
                 obs = np.zeros((stars.shape[0], np.max(n))) + np.inf
 
                 # fill the observation time array
