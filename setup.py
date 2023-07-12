@@ -38,7 +38,7 @@ setup(
                       'pandas>=1.5.3',
                       'PyQt5==5.15.4',
                       'tqdm>=4.64.1',
-                      'tables>=3.8.0'
+                      'tables>=3.8.0',
                       'GitPython>=3.1.32'],
     license='GPLv3',
     zip_safe=False,
