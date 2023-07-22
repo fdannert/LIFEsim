@@ -96,6 +96,8 @@ class TransmissionMap(TransmissionModule):
         elif null_depth is None:
             null_depth = 0
 
+        delta = (-1 + np.sqrt(1 + 8 * null_depth)) / 2
+
         if direct_mode:
             alpha = d_alpha
             beta = d_beta
@@ -135,9 +137,9 @@ class TransmissionMap(TransmissionModule):
         # transmission map of mode 3
         # TODO: EXTREMELY IMPORTANT: null depth only implemented from tm3, needs to be done for all
         if 'tm3' in map_selection:
-            tm3 = ((np.sin(2 * np.pi * L * alpha / wl_bins) ** 2 * (1 - null_depth) + null_depth)
+            tm3 = ((np.sin(2 * np.pi * L * alpha / wl_bins) ** 2 * (1 - delta) + delta)
                    * (np.cos(2 * self.data.options.array['ratio'] * np.pi * L * beta / wl_bins
-                             - np.pi / 4) ** 2 * (1 - null_depth) + null_depth))
+                             - np.pi / 4) ** 2 * (1 - delta) + delta))
 
         # transmission map of mode 4
         if 'tm4' in map_selection:
