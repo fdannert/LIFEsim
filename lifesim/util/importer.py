@@ -35,7 +35,7 @@ class SpectrumImporter(object):
     def to_counts(self):
         if u.kg in self.y_data.unit.decompose().bases:
             if u.m in self.x_data.unit.bases:
-                self.y_data = self.y_data / (c.c * u.m / u.s * c.h * u.J * u.s  / self.x_data)
+                self.y_data = self.y_data / (c.c * u.m / u.s * c.h * u.J * u.s  / self.x_data) * u.ph
             else:
                 self.y_data = self.y_data / (c.h * self.x_data)
             self.y_data = self.y_data.decompose()
