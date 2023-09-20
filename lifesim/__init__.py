@@ -1,4 +1,4 @@
-__version__ = '0.2.29'
+__version__ = '0.2.31'
 
 from lifesim.core.core import Module, Bus
 
