@@ -9,8 +9,8 @@ import pandas as pd
 import xarray as xr
 
 from lifesim.core.modules import InstrumentModule
-import inlifesim as ils
-from lifesim.instrument.instrument import Instrument
+from inlifesim.instrument import Instrument
+#from lifesim.instrument.instrument import Instrument
 from lifesim.util.habitable import single_habitable_zone
 from lifesim.instrument.instrument import adjust_sampling
 
@@ -294,7 +294,7 @@ class InstrumentPrt(InstrumentModule):
 
         print('Sampling rate: ', self.data.inst['n_sampling_rot'])
 
-        self.inst_prt = ils.Instrument(
+        self.inst_prt = Instrument(
             # ----- static parameters -----
             wl_bins=self.data.inst['wl_bins'],  # wavelength bins center position in m
             wl_bin_widths=self.data.inst['wl_bin_widths'],  # wavelength bin widhts in m
