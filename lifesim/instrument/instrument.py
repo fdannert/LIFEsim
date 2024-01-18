@@ -599,7 +599,9 @@ class Instrument(InstrumentModule):
                    angsep: float,  # in arcsec
                    flux_planet_spectrum: list,  # in ph m-3 s-1 over m
                    integration_time: float,  # in s
-                   phi_n: int = 360):
+                   phi_n: int = 360,
+                   angle_p: float = 0.  # in radians
+                   ):
         """
         Calculate the signal-to-noise ratio per spectral bin of a given spectrum of a single
         planet.
@@ -619,6 +621,8 @@ class Instrument(InstrumentModule):
             observed system is z-times as high as in the solar system.
         angsep : float
             Angular separation between the observed star and the observed exoplanet in [arcsec].
+        angle_p: float
+            Parallactic angle of the planet in [rad].
         flux_planet_spectrum : list
             Spectrum of the planet. In the first element of the list `flux_planet_spectrum[0]`, the
             wavelength bins of the spectrum must be given in [m]. In the second element
@@ -665,6 +669,7 @@ class Instrument(InstrumentModule):
         self.data.single['lat'] = lat_s
         self.data.single['z'] = z
         self.data.single['angsep'] = angsep
+        self.data.single['angle_p'] = angle_p
 
         # calculate the habitable zone of the specified star
         s_in, s_out, l_sun, \
@@ -695,6 +700,11 @@ class Instrument(InstrumentModule):
                                                 method='transmission_curve',
                                                 angsep=angsep,
                                                 phi_n=phi_n)
+
+        # rotate the transmission curves to the parallactic angle of the planet
+        # TODO: This is only an approximation, fix to exact solution.
+        curve_chop = np.roll(curve_chop, axis=-1, shift=int(self.data.single['angle_p']/(2*np.pi)*curve_chop.shape[-1]))
+        curve_tm4 = np.roll(curve_tm4, axis=-1, shift=int(self.data.single['angle_p']/(2*np.pi)*curve_tm4.shape[-1]))
 
         # calculate the signal and photon noise flux received from the planet per time bin
         flux_planet = (flux_planet_spectrum[:, np.newaxis]

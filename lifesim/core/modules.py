@@ -198,3 +198,30 @@ class SlopeModule(Module):
         Run the aHGS algorithm.
         """
         pass
+
+class ExtractionModule(Module):
+    '''
+    Module for extracting planetary parameters from an existing catalog that has already
+    run through a simulation
+    '''
+
+    def __init__(self,
+                 name: str):
+        super().__init__(name=name)
+        self.add_socket(s_name='transmission',
+                        s_type=TransmissionModule,
+                        s_number=1)
+        self.add_socket(s_name='instrument',
+                        s_type=InstrumentModule,
+                        s_number=1)
+
+    @abc.abstractmethod
+    def single_spectrum_extraction(self):
+        """
+        The single_spectrum_extraction function should return the extracted parameters
+        like spectra, snr, sigma, position
+        parameters r (radial) and phi (azimuthal), planet radius, planet temperature (and
+        potentially additional ones)
+        """
+
+    pass
