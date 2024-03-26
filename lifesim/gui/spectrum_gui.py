@@ -754,7 +754,7 @@ class Frame(QDialog):
         if self.r_spec is not None:
             np.savetxt(fname=self.save.filepath.text(),
                        X=np.array([self.r_spec[0], self.r_spec[1], self.flux_p]).T,
-                       header='Wavelength [m]   SNR per bin for 1h  Input flux')
+                       header='Wavelength [m]   SNR per bin  Input flux')
 
     def change_visibility(self):
         if self.spec_kind.currentText() == 'additive':
