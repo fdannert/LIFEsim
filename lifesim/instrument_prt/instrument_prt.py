@@ -251,15 +251,18 @@ class InstrumentPrt(InstrumentModule):
         # calculate the habitable zone of the specified star
         s_in, s_out, l_sun, \
         hz_in, hz_out, \
-        hz_center = single_habitable_zone(model=self.data.options.models['habitable'],
-                                          temp_s=temp_s,
-                                          radius_s=radius_s)
+            hz_center = single_habitable_zone(
+            model=self.data.options.models['habitable'],
+            temp_s=temp_s,
+            radius_s=radius_s
+        )
 
-        flux_planet_spectrum_input = flux_planet_spectrum
-        flux_planet_spectrum = spectres(new_wavs=self.data.inst['wl_bin_edges'],
-                                        spec_wavs=flux_planet_spectrum[0].value,
-                                        spec_fluxes=flux_planet_spectrum[1].value,
-                                        edge_mode=True)
+        flux_planet_spectrum = spectres(
+            new_wavs=self.data.inst['wl_bin_edges'],
+            spec_wavs=flux_planet_spectrum[0].value,
+            spec_fluxes=flux_planet_spectrum[1].value,
+            edge_mode=True
+        )
 
         flux_planet_spectrum *= self.data.inst['wl_bin_widths']
 
@@ -279,14 +282,16 @@ class InstrumentPrt(InstrumentModule):
                             hz_center=hz_center,
                             distance_s=distance_s)
 
-        col_pos = np.array(((-self.data.inst['bl'] / 2,
-                             -self.data.inst['bl'] * self.data.options.array['ratio'] / 2),
-                            (-self.data.inst['bl'] / 2,
-                             self.data.inst['bl'] * self.data.options.array['ratio'] / 2),
-                            (self.data.inst['bl'] / 2,
-                             -self.data.inst['bl'] * self.data.options.array['ratio'] / 2),
-                            (self.data.inst['bl'] / 2,
-                             self.data.inst['bl'] * self.data.options.array['ratio'] / 2)))
+        col_pos = np.array((
+            (-self.data.inst['bl'] / 2,
+             -self.data.inst['bl'] * self.data.options.array['ratio'] / 2),
+            (-self.data.inst['bl'] / 2,
+             self.data.inst['bl'] * self.data.options.array['ratio'] / 2),
+            (self.data.inst['bl'] / 2,
+             -self.data.inst['bl'] * self.data.options.array['ratio'] / 2),
+            (self.data.inst['bl'] / 2,
+             self.data.inst['bl'] * self.data.options.array['ratio'] / 2)
+        ))
 
         self.run_socket(s_name='instrument',
                         method='adjust_sampling_rate',
@@ -296,57 +301,48 @@ class InstrumentPrt(InstrumentModule):
 
         self.inst_prt = Instrument(
             # ----- static parameters -----
-            wl_bins=self.data.inst['wl_bins'],  # wavelength bins center position in m
-            wl_bin_widths=self.data.inst['wl_bin_widths'],  # wavelength bin widhts in m
+            wl_bins=self.data.inst['wl_bins'],
+            # wavelength bins center position in m
+            wl_bin_widths=self.data.inst['wl_bin_widths'],
+            # wavelength bin widhts in m
             integration_time=integration_time,
             image_size=self.data.inst['image_size'],
             # size of image used to simulate exozodi in pix
             diameter_ap=self.data.options.array['diameter'],
             # diameter of the primary mirrors in m
             flux_division=self.data.options.array['flux_division'],
-            # division of the flux between the primary mirrors, e.g. in baseline case
-            # [0.25, 0.25, 0.25, 0.25]
-            throughput=self.data.options.array['throughput']*self.data.options.array['quantum_eff'],
+            # division of the flux between the primary mirrors, e.g. in
+            # baseline case [0.25, 0.25, 0.25, 0.25]
+            throughput=self.data.options.array['throughput']
+                       *self.data.options.array['quantum_eff'],
             # fraction of light that is sustained through the optical train
             phase_response=self.data.options.array['phase_response'],
             # phase response of each collector arm in rad
             phase_response_chop=self.data.options.array['phase_response_chop'],
             # phase response of each collector arm in the chopped state in rad
-            t_rot=self.data.options.array['t_rot'],  # rotation period of the array in seconds
-            chopping=self.data.options.array['chopping'],
-            # run calculation with or without chopping, 'chop', 'nchop', 'both'
-            pix_per_wl=self.data.options.array['pix_per_wl'],
-            # pixels on detector used per wavelength channel
+            t_rot=self.data.options.array['t_rot'],
+            # rotation period of the array in seconds
             n_sampling_rot=self.data.inst['n_sampling_rot'],
             # number of sampling points per array rotation
-            detector_dark_current='manual',
-            # detector type, 'MIRI' or 'manual'. Specify dark_current_pix in 'manual'
-            dark_current_pix=1e-4,  # detector dark current in electrons s-1 px-1
-            detector_thermal='MIRI',  # detector type, 'MIRI'
-            det_temp=11.,  # temperature of the detector environment in K
-            magnification=15.73,  # telescope magnification
-            f_number=20.21,  # telescope f-number, i.e. ratio of focal length to aperture size
-            secondary_primary_ratio=0.114,  # ratio of secondary to primary mirror sizes
-            primary_emissivity=0.,  # emissivity epsilon of the primary mirror
-            primary_temp=0.,  # temperature of the primary mirror in K
-            pink_noise_co=10000,  # cutoff frequency for the pink noise spectra
+            d_a_co=self.data.options.array['d_a_co'],
+            d_phi_co=self.data.options.array['d_phi_co'],
+            d_pol_co=self.data.options.array['d_pol_co'],
+            d_x_co=self.data.options.array['d_x_co'],
+            d_y_co=self.data.options.array['d_y_co'],
             n_cpu=1,  # number of cores used in the simulation
-            rms_mode='lay',  # mode for rms values, 'lay', 'static', 'wavelength'
-            agnostic_mode=True,  # derive instrumental photon noise from agnostic mode
-            eps_cold=0.,  # scaling constant for cold agnostic photon noise spectrum
-            eps_hot=0.,  # scaling constant for hot agnostic photon noise spectrum
-            eps_white=0.,  # scaling constant white agnostic photon noise spectrum
-            agnostic_spacecraft_temp=0.,  # cold-side spacecraft temperature in the
-            # agnostic case
+            rms_mode='lay',
+            # mode for rms values, 'lay', 'static', 'wavelength'
             n_sampling_max=self.data.options.other['n_sampling_max'],
             # largest fourier mode used in noise sampling
-            d_a_rms=None,  # relative amplitude error rms
-            d_phi_rms=None,  # phase error rms
-            d_pol_rms=None,  # polarization error rms
-            d_x_rms=None,  # collector position rms, x-direction
-            d_y_rms=None,  # collector position rms, y-direction
-            wl_resolution=200,  # number of wavelength bins simulated for the thermal background
-            flux_planet=flux_planet_spectrum,  # substitute flux input in ph m-2 s-1
+            d_a_rms=self.data.options.array['d_a_rms'],
+            # relative amplitude error rms
+            d_phi_rms=self.data.options.array['d_phi_rms'],  # phase error rms
+            d_pol_rms=self.data.options.array['d_pol_rms'],
+            # polarization error rms
+            d_x_rms=self.data.options.array['d_x_rms'],
+            # collector position rms, x-direction
+            d_y_rms=self.data.options.array['d_y_rms'],
+            # collector position rms, y-direction
             simultaneous_chopping=True,
             # ----- parameters change with star -----
             dist_star=distance_s,  # distance to the target system in pc
@@ -355,22 +351,21 @@ class InstrumentPrt(InstrumentModule):
             lat_star=lat_s,  # ecliptic latitude of the target star
             l_sun=l_sun,  # stellar luminosity in solar luminosities
             z=z,
-            # zodi level: the exozodi dust is z-times denser than the localzodi dust
+            # zodi level: the exozodi dust is z-times denser than the
+            # localzodi dust
             col_pos=col_pos,  # collector position in m
             # ----- parameters change with planet -----
             temp_planet=0.,  # planet temperature in Kelvin
             radius_planet=0.,  # planet radius in earth radii
             separation_planet=angsep * distance_s,
             # separation of target planet from host star in AU
+            flux_planet=flux_planet_spectrum,
+            # substitute flux input in ph m-2 s-1
         )
 
         if run:
             self.inst_prt.run()
-
-            if self.data.options.array['chopping'] == 'nchop':
-                return self.inst_prt.photon_rates_nchop
-            else:
-                return self.inst_prt.photon_rates_chop
+            return self.inst_prt.photon_rates_chop
 
 def multiprocessing_runner(input_dict: dict):
     # TODO: Correct treatment of quantum efficiency
