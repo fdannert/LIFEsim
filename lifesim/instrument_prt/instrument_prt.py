@@ -330,7 +330,7 @@ class InstrumentPrt(InstrumentModule):
             d_x_co=self.data.options.array['d_x_co'],
             d_y_co=self.data.options.array['d_y_co'],
             n_cpu=1,  # number of cores used in the simulation
-            rms_mode='lay',
+            rms_mode=self.data.options.array['rms_mode'],
             # mode for rms values, 'lay', 'static', 'wavelength'
             n_sampling_max=self.data.options.other['n_sampling_max'],
             # largest fourier mode used in noise sampling
