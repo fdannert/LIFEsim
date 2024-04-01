@@ -242,6 +242,7 @@ class InstrumentPrt(InstrumentModule):
                      integration_time: float,  # in s
                      exposure_time: float, # in s
                      n_rot: int,
+                     hyperrot_noise: str,
                      pbar: bool = None,
                      baseline_to_planet: bool = False,
                      baseline: float = None,
@@ -252,9 +253,16 @@ class InstrumentPrt(InstrumentModule):
                      n_draws: int = int(1e2),
                      n_draws_per_run: int = int(1e1),
                      get_single_bracewell: bool = False,
+                     wl_bin: Union[np.ndarray, type(None)] = None,
+                     wl_bin_width: Union[np.ndarray, type(None)] = None,
+                     verbose=True
                      ):
 
         # TODO: Implement baseline_to_planet option
+
+        if wl_bin is not None:
+            self.data.inst['wl_bins'] = np.array([wl_bin])
+            self.data.inst['wl_bin_widths'] = np.array([wl_bin_width])
 
         # calculate the habitable zone of the specified star
         s_in, s_out, l_sun, \
@@ -276,6 +284,10 @@ class InstrumentPrt(InstrumentModule):
 
         self.run_socket(s_name='instrument',
                         method='apply_options')
+
+        if wl_bin is not None:
+            self.data.inst['wl_bins'] = np.array([wl_bin])
+            self.data.inst['wl_bin_widths'] = np.array([wl_bin_width])
 
         if baseline is not None:
             # set baseline manually
@@ -312,8 +324,6 @@ class InstrumentPrt(InstrumentModule):
                         method='adjust_sampling_rate',
                         angsep=angsep)
 
-        print('Sampling rate: ', self.data.inst['n_sampling_rot'])
-
         if single_bw and (self.data.inst['wl_bins'].shape[0] > 1):
             null = []
             for i in range(self.data.inst['wl_bins'].shape[0]):
@@ -334,6 +344,7 @@ class InstrumentPrt(InstrumentModule):
                     n_rot=n_rot,
                     # number of array rotations
                     get_single_bracewell=get_single_bracewell,
+                    hyperrot_noise=hyperrot_noise,
                     image_size=self.data.inst['image_size'],
                     # size of image used to simulate exozodi in pix
                     diameter_ap=self.data.options.array['diameter'],
@@ -371,7 +382,7 @@ class InstrumentPrt(InstrumentModule):
                     draw_samples=draw_samples,
                     n_draws=n_draws,
                     n_draws_per_run=n_draws_per_run,
-                    verbose=True,
+                    verbose=verbose,
                     # ----- parameters change with star -----
                     dist_star=distance_s,  # distance to the target system in pc
                     radius_star=radius_s,  # radius of the star in stellar radii
@@ -408,7 +419,12 @@ class InstrumentPrt(InstrumentModule):
                 # wavelength bins center position in m
                 wl_bin_widths=self.data.inst['wl_bin_widths'],
                 # wavelength bin widhts in m
-                integration_time=integration_time,
+                t_total=integration_time,
+                # total integration time in s
+                t_exp=exposure_time,
+                # time of a single exposure in s
+                n_rot=n_rot,
+                # number of array rotations
                 image_size=self.data.inst['image_size'],
                 # size of image used to simulate exozodi in pix
                 diameter_ap=self.data.options.array['diameter'],
@@ -416,6 +432,7 @@ class InstrumentPrt(InstrumentModule):
                 flux_division=self.data.options.array['flux_division'],
                 # division of the flux between the primary mirrors, e.g. in
                 # baseline case [0.25, 0.25, 0.25, 0.25]
+                hyperrot_noise=hyperrot_noise,
                 throughput=self.data.options.array['throughput']
                            *self.data.options.array['quantum_eff'],
                 # fraction of light that is sustained through the optical train
@@ -423,10 +440,6 @@ class InstrumentPrt(InstrumentModule):
                 # phase response of each collector arm in rad
                 phase_response_chop=self.data.options.array['phase_response_chop'],
                 # phase response of each collector arm in the chopped state in rad
-                t_rot=self.data.options.array['t_rot'],
-                # rotation period of the array in seconds
-                n_sampling_rot=self.data.inst['n_sampling_rot'],
-                # number of sampling points per array rotation
                 d_a_co=self.data.options.array['d_a_co'],
                 d_phi_co=self.data.options.array['d_phi_co'],
                 d_pol_co=self.data.options.array['d_pol_co'],
@@ -450,7 +463,7 @@ class InstrumentPrt(InstrumentModule):
                 draw_samples=draw_samples,
                 n_draws=n_draws,
                 n_draws_per_run=n_draws_per_run,
-                verbose=True,
+                verbose=verbose,
                 # ----- parameters change with star -----
                 dist_star=distance_s,  # distance to the target system in pc
                 radius_star=radius_s,  # radius of the star in stellar radii
