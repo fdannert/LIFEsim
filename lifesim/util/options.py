@@ -188,6 +188,12 @@ class Options(object):
             self.array['agn_phot_cold'] = 0.947
             self.array['agn_spacecraft_temp'] = 50.
 
+            self.array['d_a_co'] = 10e3
+            self.array['d_phi_co'] = 10e3
+            self.array['d_pol_co'] = 10e3
+            self.array['d_x_co'] = 0.64e-3
+            self.array['d_y_co'] = 0.64e-3
+
             self.array['rms_mode'] = 'wavelength'
         elif case == 'lay':
             self.array['rms_mode'] = 'lay'

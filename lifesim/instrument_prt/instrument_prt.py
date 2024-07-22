@@ -255,7 +255,7 @@ class InstrumentPrt(InstrumentModule):
                      get_single_bracewell: bool = False,
                      wl_bin: Union[np.ndarray, type(None)] = None,
                      wl_bin_width: Union[np.ndarray, type(None)] = None,
-                     verbose=True
+                     verbose: bool = True
                      ):
 
         # TODO: Implement baseline_to_planet option
