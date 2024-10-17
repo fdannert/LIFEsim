@@ -255,7 +255,8 @@ class InstrumentPrt(InstrumentModule):
                      get_single_bracewell: bool = False,
                      wl_bin: Union[np.ndarray, type(None)] = None,
                      wl_bin_width: Union[np.ndarray, type(None)] = None,
-                     verbose: bool = True
+                     verbose: bool = True,
+                     instrumental_source: Union[str, type(None)] = 'None'
                      ):
 
         # TODO: Implement baseline_to_planet option
@@ -263,6 +264,10 @@ class InstrumentPrt(InstrumentModule):
         if wl_bin is not None:
             self.data.inst['wl_bins'] = np.array([wl_bin])
             self.data.inst['wl_bin_widths'] = np.array([wl_bin_width])
+            self.data.inst['wl_bin_edges'] = np.array((
+                wl_bin - wl_bin_width / 2,
+                wl_bin + wl_bin_width / 2
+            ))
 
         # calculate the habitable zone of the specified star
         s_in, s_out, l_sun, \
@@ -400,8 +405,10 @@ class InstrumentPrt(InstrumentModule):
                     # separation of target planet from host star in AU
                     flux_planet=fp_spec,
                     # substitute flux input in ph m-2 s-1
+                    instrumental_source=instrumental_source,
                 )
                 self.inst_prt.run()
+                print(instrumental_source)
 
                 null.append({'pn_timeseries': self.inst_prt.time_samples['pn_timeseries'],
                              'sys_timeseries': self.inst_prt.time_samples['sys_timeseries'],
