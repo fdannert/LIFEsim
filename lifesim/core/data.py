@@ -44,7 +44,8 @@ class Data(object):
 
     def catalog_from_ppop(self,
                           input_path: str,
-                          overwrite: bool = False):
+                          overwrite: bool = False,
+                          lat_lon_given: bool = False):
         """
         Read the contents of the P-Pop output file (in .txt or .fits format) to a catalog. Note that reading catalogs
         in .fits format is significantly faster.
@@ -133,6 +134,8 @@ class Data(object):
             ra = []  # deg
             dec = []  # deg
             name_s = []
+            lat = []
+            lon = []
 
             nlines = len(table_lines)
 
@@ -172,6 +175,9 @@ class Data(object):
             col_stype = np.where(np.array(tempLine) == 'Stype')[0][0]
             col_ra = np.where(np.array(tempLine) == 'RA')[0][0]
             col_dec = np.where(np.array(tempLine) == 'Dec')[0][0]
+            if lat_lon_given:
+                col_lat = np.where(np.array(tempLine) == 'lGal')[0][0]
+                col_lon = np.where(np.array(tempLine) == 'bGal')[0][0]
 
             if get_name:
                 col_name_s = np.where(np.array(tempLine) == 'name')[0][0]
@@ -211,6 +217,9 @@ class Data(object):
                 stype += [str(tempLine[col_stype])]
                 ra += [float(tempLine[col_ra])]  # deg
                 dec += [float(tempLine[col_dec])]  # deg
+                if lat_lon_given:
+                    lat += [float(tempLine[col_lat])]
+                    lon += [float(tempLine[col_lon])]
 
                 if get_name:
                     name_s += [str(tempLine[col_name_s])]
@@ -256,6 +265,9 @@ class Data(object):
             self.catalog['dec'] = np.array(dec)
             self.catalog['id'] = np.arange(0, len(dec), 1)
             self.catalog['name_s'] = pd.Series(name_s, dtype=pd.StringDtype())
+            if lat_lon_given:
+                self.catalog['lat'] = np.array(lat)
+                self.catalog['lon'] = np.array(lon)
 
         # check the format of the input file
         elif input_path[-5:] == '.fits':
@@ -341,10 +353,11 @@ class Data(object):
 
         # TODO: why is this commented out? AFAIK P-Pop uses equitorial coordinates
         # transform from equitorial to ecliptic coordinates
-        coord = SkyCoord(self.catalog.ra, self.catalog.dec, frame='icrs', unit='deg')
-        coord_ec = coord.transform_to(BarycentricMeanEcliptic())
-        self.catalog['lon'] = np.array(coord_ec.lon.radian)
-        self.catalog['lat'] = np.array(coord_ec.lat.radian)
+        if not lat_lon_given:
+            coord = SkyCoord(self.catalog.ra, self.catalog.dec, frame='icrs', unit='deg')
+            coord_ec = coord.transform_to(BarycentricMeanEcliptic())
+            self.catalog['lon'] = np.array(coord_ec.lon.radian)
+            self.catalog['lat'] = np.array(coord_ec.lat.radian)
 
         # add the inner/ outer edges and centers of the habitable zone
         s_in = np.zeros_like(self.catalog.nstar, dtype=float)
