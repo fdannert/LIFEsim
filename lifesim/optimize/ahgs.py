@@ -6,6 +6,12 @@ class AhgsModule(SlopeModule):
     def __init__(self,
                  name: str):
         super().__init__(name=name)
+        self.t_series = []
+        self.yield_series = {'A': [],
+                             'F': [],
+                             'G': [],
+                             'K': [],
+                             'M': []}
 
     def obs_array_star(self, nstar):
         mask = self.data.catalog.nstar == nstar
@@ -120,13 +126,19 @@ class AhgsModule(SlopeModule):
 
             out_string = ''
             for key in self.data.options.optimization['limit'].keys():
-                out_string += (key + ': '
-                               + str((self.data.optm['sum_detected'] / self.data.optm['num_universe'])[
+                temp_yield = (self.data.optm['sum_detected'] / self.data.optm['num_universe'])[
                                          np.where(np.array(list(self.data.options.optimization['limit'].keys()))
-                                                  == key)][0])
+                                                  == key)][0]
+                out_string += (key + ': '
+                               + str(temp_yield)
                                + '  ')
+                self.yield_series[key].append(temp_yield)
+
             out_string += ('-  (' + str(np.round(tot_time/60/60/24/365.25, 1)) + ' / '
                            + str(np.round(obs_time/60/60/24/365.25, 1)) + ') yrs observed')
+
+            self.t_series.append(tot_time)
+
             print('\r' + out_string, end='')
 
             if np.any(
