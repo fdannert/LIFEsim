@@ -831,7 +831,7 @@ def adjust_sampling(angsep: float,
         Optimal temporal sampling rate of the simulation.
     """
     return int(np.max((
-        2 * np.pi * baseline * baseline_ratio * angsep * np.pi / 180 / 3600* n_sampling_multiplier
+        2 * np.pi * baseline * baseline_ratio * angsep * np.pi / 180 / 3600 * n_sampling_multiplier
         / wl_min / 1e-6, 360
     )))
 

@@ -70,6 +70,7 @@ class Options(object):
                       'ratio': 0.,
                       't_slew': 0.,
                       't_efficiency': 0.,
+                      't_exp': 0.,
                       'rms_mode': '',
                       'd_a_rms': 0.,
                       'd_phi_rms': 0.,
@@ -81,6 +82,12 @@ class Options(object):
                       'd_pol_co': 0.,
                       'd_x_co': 0.,
                       'd_y_co': 0.,
+                      'd_a_period_bin': None,
+                      'd_phi_period_bin': None,
+                      'd_pol_period_bin': None,
+                      'd_x_period_bin': None,
+                      'd_y_period_bin': None,
+                      'hyperrot_noise': 'zero',
                       'agn_phot_white': 0.,
                       'agn_phot_hot': 0.,
                       'agn_phot_cold': 0.,
@@ -96,7 +103,8 @@ class Options(object):
                       'output_path': None,
                       'output_filename': None,
                       'large_file': False,
-                      'pickle_mode': False}
+                      'pickle_mode': False,
+                      'zodi_reference': 10}
 
         self.models = {'localzodi': '',
                        'habitable': ''}
@@ -129,6 +137,7 @@ class Options(object):
         self.array['bl_max'] = 100.
         self.array['ratio'] = 6.
         self.array['t_slew'] = 10. * 60. * 60.
+        self.array['t_exp'] = 600.,
         self.array['t_efficiency'] = 0.8
         self.array['flux_division'] = np.array((0.25, 0.25, 0.25, 0.25))
         self.array['phase_response'] = np.array((0, np.pi / 2, np.pi, 3 * np.pi / 2))
@@ -193,6 +202,13 @@ class Options(object):
             self.array['d_pol_co'] = 10e3
             self.array['d_x_co'] = 0.64e-3
             self.array['d_y_co'] = 0.64e-3
+            self.array['hyperrot_noise'] = 'zero'
+
+            self.array['d_a_period_bin'] = None
+            self.array['d_phi_period_bin'] = None
+            self.array['d_pol_period_bin'] = None
+            self.array['d_x_period_bin'] = None
+            self.array['d_y_period_bin'] = None
 
             self.array['rms_mode'] = 'wavelength'
         elif case == 'lay':
