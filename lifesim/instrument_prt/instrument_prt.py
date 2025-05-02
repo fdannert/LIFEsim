@@ -7,12 +7,14 @@ from tqdm import tqdm
 from spectres import spectres
 import pandas as pd
 import xarray as xr
+import h5py
 
 from lifesim.core.modules import InstrumentModule
 from inlifesim.observatory import Instrument
 #from lifesim.instrument.instrument import Instrument
 from lifesim.util.habitable import single_habitable_zone
 from lifesim.instrument.instrument import adjust_sampling
+from lifesim.core.data import save_to_hdf5, load_from_hdf5
 
 
 class InstrumentPrt(InstrumentModule):
@@ -101,8 +103,21 @@ class InstrumentPrt(InstrumentModule):
             self.data.noise_catalog = {}
 
         # load lookup table
+        # if lookup_table.split(':')[0] == 'input':
+        #     lookup_table_in = pd.read_hdf(lookup_table.split(':')[1]).to_dict()
+        # Load lookup table
         if lookup_table.split(':')[0] == 'input':
-            lookup_table_in = pd.read_hdf(lookup_table.split(':')[1]).to_dict()
+            # lookup_table_in = []
+            #
+            # if lookup_table.split(':')[0] == 'input':
+            #     with h5py.File(lookup_table.split(':')[1], "r") as h5file:
+            #         for group_name in h5file.keys():
+            #             group = h5file[group_name]
+            #             lookup_table_in.append({"lookup_table": load_from_hdf5(group)})
+            with h5py.File(
+                    lookup_table.split(':')[1],
+                    'r') as h5file:
+                lookup_table_in = load_from_hdf5(h5file)
 
         # create mask returning only unique stars
         _, temp = np.unique(self.data.catalog.nstar, return_index=True)
@@ -212,7 +227,7 @@ class InstrumentPrt(InstrumentModule):
             print('\nRunning in multiprocessing...')
             pool = mp.Pool(self.data.options.other['n_cpu'])
             output_dict_list = []
-            for result in tqdm(pool.imap_unordered(multiprocessing_runner, input_dict_list),
+            for result in tqdm(pool.map(multiprocessing_runner, input_dict_list),
                                total=len(input_dict_list)):
                 output_dict_list.append(result)
 
@@ -223,12 +238,26 @@ class InstrumentPrt(InstrumentModule):
 
         # if lookup table is in output mode, collect all lookup data and save it to a file
         if lookup_table.split(':')[0] == 'output':
-            lookup_table_out = pd.DataFrame.from_dict(
-                {output_dict['lookup_table']['nstar']:output_dict['lookup_table']
-                                for output_dict in output_dict_list}
-            )
-            lookup_table_out.to_hdf(lookup_table.split(':')[1],
-                                    key='lookup_table', mode='a')
+            # lookup_table_out = pd.DataFrame.from_dict(
+            #     {output_dict['lookup_table']['nstar']:output_dict['lookup_table']
+            #                     for output_dict in output_dict_list}
+            # )
+            # lookup_table_out.to_hdf(lookup_table.split(':')[1],
+            #                         key='lookup_table', mode='a')
+
+            # with h5py.File(lookup_table.split(':')[1], "w") as h5file:
+            #     for i, output_dict in enumerate(output_dict_list):
+            #         lt_out = output_dict['lookup_table']
+            #         nstar = lt_out['nstar']
+            #
+            #
+            #         group = h5file.create_group(f"entry_{i}")  # Create a group for each entry
+            #         save_to_hdf5(group, output_dict["lookup_table"])  # Save the "lookup_table" contents
+
+            with h5py.File(
+                    lookup_table.split(':')[1],
+                    'w') as h5file:
+                save_to_hdf5(output_dict_list, h5file)
 
         if safe_mode:
             for output_dict in output_dict_list:

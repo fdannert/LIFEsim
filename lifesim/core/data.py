@@ -1,13 +1,14 @@
 import sys
 import warnings
 import time
+from copy import deepcopy
 
 import numpy as np
 import xarray as xr
 import pandas as pd
 from astropy.io import fits
 from tqdm import tqdm
-import pickle
+import h5py
 
 from astropy.coordinates import SkyCoord, BarycentricMeanEcliptic
 
@@ -711,3 +712,129 @@ class Data(object):
             for key in list(set(self.catalog.keys()[np.where(self.catalog.dtypes == 'object')])
                             & {'name_s', 'stype'}):
                 self.catalog[key] = self.catalog[key].astype(pd.StringDtype())
+
+def clean_dtypes(dtable):
+    dtable = deepcopy(dtable)
+    for item, value in dtable.items():
+        if isinstance(value, np.int64):
+            dtable[item] = int(value)
+        elif isinstance(value, np.float64):
+            dtable[item] = float(value)
+        elif isinstance(value, dict):
+            dtable[item] = clean_dtypes(value)
+        elif isinstance(value, list):
+            if not isinstance(value[0], dict):
+                dtable[item] = np.array(value)
+            else:
+                odict = {k: [] for k in value[0].keys()}
+                for v in value:
+                    for k, v in v.items():
+                        odict[k].append(list(v))
+                for k, v in odict.items():
+                    odict[k] = np.array(v)
+                dtable[item] = odict
+        elif isinstance(value, pd.Series):
+            dtable[item] = value.to_numpy()
+        elif value is None:
+            dtable[item] = 'None'
+    return dtable
+
+def save_nested_dicts(data, h5file, path="/"):
+    for key, value in data.items():
+        # Define the full path for the key
+        key_path = f"{path}{key}"
+
+        if isinstance(value, dict):
+            # Create a group if the value is a nested dictionary
+            group = h5file.create_group(key_path)
+            # Recursively save the nested dictionary
+            save_nested_dicts(value, h5file, path=key_path + "/")
+        else:
+            # Create a dataset for non-dictionary values
+            if isinstance(value, str):
+                # Strings must be encoded as fixed-length in HDF5
+                dt = h5py.string_dtype(encoding='utf-8')
+                h5file.create_dataset(key_path, data=value, dtype=dt)
+            elif isinstance(value, list):
+                # Convert lists to numpy arrays
+                h5file.create_dataset(key_path, data=np.array(value))
+            else:
+                # Scalars such as integers and floats
+                h5file.create_dataset(key_path, data=value)
+
+def save_to_hdf5(data, h5file):
+    for value in tqdm(data):
+        # Define the full path for the key
+        key_path = str(value['nstar'])
+        value = clean_dtypes(value['lookup_table'])
+
+        save_nested_dicts(value, h5file, path=key_path + "/")
+
+def load_nested_dicts(h5file, path="/"):
+    """
+    Recursively load data from an HDF5 file into the original nested format.
+
+    :param h5file: The opened h5py File object to read from.
+    :param path: The current path to start reading from.
+    :return: A nested dictionary representing the loaded HDF5 data.
+    """
+    data = {}
+    for key in h5file[path].keys():
+        # Full path to the current key
+        key_path = f"{path}{key}"
+        if isinstance(h5file[key_path], h5py.Group):
+            # If the key corresponds to a group, recursively load it
+            data[key] = load_nested_dicts(h5file, path=key_path + "/")
+        elif isinstance(h5file[key_path], h5py.Dataset):
+            # If the key corresponds to a dataset, read its value and process
+            dataset = h5file[key_path]
+            if dataset.dtype == h5py.string_dtype(encoding='utf-8'):
+                # Decode string values
+                data[key] = dataset[()].decode('utf-8')
+            else:
+                # Load the dataset as a numpy array or scalar
+                data[key] = dataset[()]
+                # If it's a scalar array, cast it to a Python scalar
+                if isinstance(data[key], np.ndarray) and data[key].shape == ():
+                    data[key] = data[key].item()
+    return data
+
+
+def postprocess_loaded_data(data, key:str = 'None'):
+    """
+    Postprocess the loaded data to convert arrays back into their original forms (e.g., lists or dicts).
+
+    :param data: The nested dictionary loaded from HDF5.
+    :return: The postprocessed nested dictionary.
+    """
+    if isinstance(data, dict):
+        processed_data = {}
+        if np.all(np.char.isdigit(list(data.keys()))):
+            processed_data = {int(k): postprocess_loaded_data(value) for k, value in data.items()}
+        elif np.isin(key, ['grad_n_coeff', 'hess_n_coeff', 'grad_n_coeff_chop', 'hess_n_coeff_chop']):
+            keys = list(data.keys())
+            odict = []
+            for i in range(data[keys[0]].shape[0]):
+                odict.append({k: data[k][i] for k in keys})
+            processed_data = odict
+        else:
+            for key, value in data.items():
+                processed_data[key] = postprocess_loaded_data(value, key=key)
+        return processed_data
+    else:
+        # Return scalars and other data types as they are
+        return data
+
+
+def load_from_hdf5(h5file, path="/"):
+    """
+    Load all data from an HDF5 file, recursively reconstruct the original nested structure.
+
+    :param h5file: The opened h5py File object to read from.
+    :param path: The base path to start loading from.
+    :return: The reconstructed nested data.
+    """
+    # First load the raw nested data
+    raw_data = load_nested_dicts(h5file, path=path)
+    # Postprocess to reshape or clean the data
+    return postprocess_loaded_data(raw_data)
