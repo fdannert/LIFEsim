@@ -8,13 +8,15 @@ from spectres import spectres
 import pandas as pd
 import xarray as xr
 import h5py
+from joblib import Parallel, delayed, parallel_config
+from joblib_progress import joblib_progress
 
 from lifesim.core.modules import InstrumentModule
 from inlifesim.observatory import Instrument
 #from lifesim.instrument.instrument import Instrument
 from lifesim.util.habitable import single_habitable_zone
 from lifesim.instrument.instrument import adjust_sampling
-from lifesim.core.data import save_to_hdf5, load_from_hdf5
+from lifesim.core.data import save_to_hdf5, load_from_hdf5, invert_coefficients
 
 
 class InstrumentPrt(InstrumentModule):
@@ -225,11 +227,37 @@ class InstrumentPrt(InstrumentModule):
 
         else:
             print('\nRunning in multiprocessing...')
-            pool = mp.Pool(self.data.options.other['n_cpu'])
-            output_dict_list = []
-            for result in tqdm(pool.map(multiprocessing_runner, input_dict_list),
-                               total=len(input_dict_list)):
-                output_dict_list.append(result)
+            with parallel_config(
+                    backend="loky", inner_max_num_threads=1
+            ), joblib_progress(
+                description="Running stars in parallel ...",
+                total=int(len(input_dict_list)),
+            ):
+                output_dict_list = Parallel(n_jobs=self.data.options.other['n_cpu'])(
+                    delayed(multiprocessing_runner)(
+                        input_dict=input_dict
+                    )
+                    for input_dict in input_dict_list
+                )
+            # pool = mp.Pool(self.data.options.other['n_cpu'])
+            # output_dict_list = []
+            # for result in tqdm(pool.map(multiprocessing_runner, input_dict_list),
+            #                    total=len(input_dict_list)):
+            #     output_dict_list.append(result)
+
+        # with parallel_config(
+        #         backend="loky", inner_max_num_threads=1
+        # ), joblib_progress(
+        #     description="Calculating time series ...",
+        #     total=int(self.n_draws / self.n_draws_per_run),
+        # ):
+        #     results = Parallel(n_jobs=self.n_cpu)(
+        #         delayed(draw_sample)(
+        #             params=params,
+        #             return_variables=self.time_samples_return_values,
+        #         )
+        #         for _ in range(int(self.n_draws / self.n_draws_per_run))
+        #     )
 
         self.data.catalog = pd.concat([output_dict['catalog'] for output_dict in output_dict_list])
         # if safe_mode:
@@ -674,14 +702,12 @@ def multiprocessing_runner(input_dict: dict):
         #     inst.pn_thermal_primary_mirror()
 
     if input_dict['lookup_table'] == 'output':
-        return_dict['lookup_table'] = {'nstar': input_dict['nstar'],
+        return_dict['lookup_table'] = {'nstar': int(input_dict['nstar']),
                                        'A': inst.A,
                                        'wl_bins': inst.wl_bins,
                                        'num_a': inst.num_a,
                                        'rms_mode': inst.rms_mode,
                                        'n_sampling_total': inst.n_sampling_total,
-                                       'harmonic_number_n_cutoff': inst.harmonic_number_n_cutoff,
-                                       'rms_period_bins': inst.rms_period_bins,
                                        't_total': inst.t_total,
                                        'n_rot': inst.n_rot,
                                        'flux_star': inst.flux_star,
@@ -712,25 +738,27 @@ def multiprocessing_runner(input_dict: dict):
             # inst.fundamental_noise(exozodi_only=True)
 
         if input_dict['lookup_table'] == 'output':
-            return_dict['lookup_table']['universe'][nuniverse] = {'grad_n_coeff': inst.grad_n_coeff,
-                                                                  'hess_n_coeff': inst.hess_n_coeff,
-                                                                  'grad_n_coeff_chop': inst.grad_n_coeff_chop,
-                                                                  'hess_n_coeff_chop': inst.hess_n_coeff_chop}
+            return_dict['lookup_table']['universe'][nuniverse] = {
+                'grad_n_coeff': invert_coefficients(inst.grad_n_coeff),
+                'hess_n_coeff': invert_coefficients(inst.hess_n_coeff),
+                'grad_n_coeff_chop': invert_coefficients(inst.grad_n_coeff_chop),
+                'hess_n_coeff_chop': invert_coefficients(inst.hess_n_coeff_chop)
+            }
 
             copy_params = ['pn_sgl', 'pn_ez', 'pn_lz']
             for param in copy_params:
                 return_dict['lookup_table']['universe'][nuniverse][param] = (
-                    inst.photon_rates_nchop[param]
+                    inst.photon_rates_nchop[param].to_numpy()
                 )
 
             return_dict['lookup_table']['universe'][nuniverse]['planet'] = {}
 
         # load parameters from lookup table
         elif input_dict['lookup_table'] == 'input':
-            inst.grad_n_coeff = input_dict['lt_in']['universe'][nuniverse]['grad_n_coeff']
-            inst.hess_n_coeff = input_dict['lt_in']['universe'][nuniverse]['hess_n_coeff']
-            inst.grad_n_coeff_chop = input_dict['lt_in']['universe'][nuniverse]['grad_n_coeff_chop']
-            inst.hess_n_coeff_chop = input_dict['lt_in']['universe'][nuniverse]['hess_n_coeff_chop']
+            inst.grad_n_coeff = invert_coefficients(input_dict['lt_in']['universe'][nuniverse]['grad_n_coeff'])
+            inst.hess_n_coeff = invert_coefficients(input_dict['lt_in']['universe'][nuniverse]['hess_n_coeff'])
+            inst.grad_n_coeff_chop = invert_coefficients(input_dict['lt_in']['universe'][nuniverse]['grad_n_coeff_chop'])
+            inst.hess_n_coeff_chop = invert_coefficients(input_dict['lt_in']['universe'][nuniverse]['hess_n_coeff_chop'])
 
             copy_params = ['pn_sgl', 'pn_ez', 'pn_lz']
             for param in copy_params:
@@ -782,8 +810,8 @@ def multiprocessing_runner(input_dict: dict):
                      't_exp': inst.t_exp,
                      'n_sampling_total': inst.n_sampling_total,
                      'n_sampling_rot': inst.n_sampling_rot,
-                     'signal_nchop': inst.photon_rates_nchop['signal'],
-                     'signal_chop': inst.photon_rates_chop['signal'],}
+                     'signal_nchop': inst.photon_rates_nchop['signal'].to_numpy(),
+                     'signal_chop': inst.photon_rates_chop['signal'].to_numpy(),}
 
             else:
                 # load planet template from lookup table if requested

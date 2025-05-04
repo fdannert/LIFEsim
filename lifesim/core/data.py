@@ -713,31 +713,62 @@ class Data(object):
                             & {'name_s', 'stype'}):
                 self.catalog[key] = self.catalog[key].astype(pd.StringDtype())
 
-def clean_dtypes(dtable):
-    dtable = deepcopy(dtable)
-    for item, value in dtable.items():
-        if isinstance(value, np.int64):
-            dtable[item] = int(value)
-        elif isinstance(value, np.float64):
-            dtable[item] = float(value)
-        elif isinstance(value, dict):
-            dtable[item] = clean_dtypes(value)
-        elif isinstance(value, list):
-            if not isinstance(value[0], dict):
-                dtable[item] = np.array(value)
-            else:
-                odict = {k: [] for k in value[0].keys()}
-                for v in value:
-                    for k, v in v.items():
-                        odict[k].append(list(v))
-                for k, v in odict.items():
-                    odict[k] = np.array(v)
-                dtable[item] = odict
-        elif isinstance(value, pd.Series):
-            dtable[item] = value.to_numpy()
-        elif value is None:
-            dtable[item] = 'None'
-    return dtable
+# def clean_dtypes(dtable):
+#     dtable = deepcopy(dtable)
+#     for item, value in dtable.items():
+#         if isinstance(value, np.int64):
+#             dtable[item] = int(value)
+#         elif isinstance(value, np.float64):
+#             dtable[item] = float(value)
+#         elif isinstance(value, dict):
+#             dtable[item] = clean_dtypes(value)
+#         elif isinstance(value, list):
+#             if not isinstance(value[0], dict):
+#                 dtable[item] = np.array(value)
+#             else:
+#                 odict = {k: [] for k in value[0].keys()}
+#                 for v in value:
+#                     for k, v in v.items():
+#                         odict[k].append(list(v))
+#                 for k, v in odict.items():
+#                     odict[k] = np.array(v)
+#                 dtable[item] = odict
+#         elif isinstance(value, pd.Series):
+#             dtable[item] = value.to_numpy()
+#         elif value is None:
+#             dtable[item] = 'None'
+#     return dtable
+#
+# def save_nested_dicts(data, h5file, path="/"):
+#     for key, value in data.items():
+#         # Define the full path for the key
+#         key_path = f"{path}{key}"
+#
+#         if isinstance(value, dict):
+#             # Create a group if the value is a nested dictionary
+#             group = h5file.create_group(key_path)
+#             # Recursively save the nested dictionary
+#             save_nested_dicts(value, h5file, path=key_path + "/")
+#         else:
+#             # Create a dataset for non-dictionary values
+#             if isinstance(value, str):
+#                 # Strings must be encoded as fixed-length in HDF5
+#                 dt = h5py.string_dtype(encoding='utf-8')
+#                 h5file.create_dataset(key_path, data=value, dtype=dt)
+#             elif isinstance(value, list):
+#                 # Convert lists to numpy arrays
+#                 h5file.create_dataset(key_path, data=np.array(value))
+#             else:
+#                 # Scalars such as integers and floats
+#                 h5file.create_dataset(key_path, data=value)
+#
+# def save_to_hdf5(data, h5file):
+#     for value in tqdm(data):
+#         # Define the full path for the key
+#         key_path = str(value['nstar'])
+#         value = clean_dtypes(value['lookup_table'])
+#
+#         save_nested_dicts(value, h5file, path=key_path + "/")
 
 def save_nested_dicts(data, h5file, path="/"):
     for key, value in data.items():
@@ -746,7 +777,7 @@ def save_nested_dicts(data, h5file, path="/"):
 
         if isinstance(value, dict):
             # Create a group if the value is a nested dictionary
-            group = h5file.create_group(key_path)
+            _ = h5file.create_group(key_path)
             # Recursively save the nested dictionary
             save_nested_dicts(value, h5file, path=key_path + "/")
         else:
@@ -764,11 +795,7 @@ def save_nested_dicts(data, h5file, path="/"):
 
 def save_to_hdf5(data, h5file):
     for value in tqdm(data):
-        # Define the full path for the key
-        key_path = str(value['nstar'])
-        value = clean_dtypes(value['lookup_table'])
-
-        save_nested_dicts(value, h5file, path=key_path + "/")
+        save_nested_dicts(value['lookup_table'], h5file, path=str(value['nstar']) + "/")
 
 def load_nested_dicts(h5file, path="/"):
     """
@@ -811,12 +838,12 @@ def postprocess_loaded_data(data, key:str = 'None'):
         processed_data = {}
         if np.all(np.char.isdigit(list(data.keys()))):
             processed_data = {int(k): postprocess_loaded_data(value) for k, value in data.items()}
-        elif np.isin(key, ['grad_n_coeff', 'hess_n_coeff', 'grad_n_coeff_chop', 'hess_n_coeff_chop']):
-            keys = list(data.keys())
-            odict = []
-            for i in range(data[keys[0]].shape[0]):
-                odict.append({k: data[k][i] for k in keys})
-            processed_data = odict
+        # elif np.isin(key, ['grad_n_coeff', 'hess_n_coeff', 'grad_n_coeff_chop', 'hess_n_coeff_chop']):
+        #     keys = list(data.keys())
+        #     odict = []
+        #     for i in range(data[keys[0]].shape[0]):
+        #         odict.append({k: data[k][i] for k in keys})
+        #     processed_data = odict
         else:
             for key, value in data.items():
                 processed_data[key] = postprocess_loaded_data(value, key=key)
@@ -838,3 +865,18 @@ def load_from_hdf5(h5file, path="/"):
     raw_data = load_nested_dicts(h5file, path=path)
     # Postprocess to reshape or clean the data
     return postprocess_loaded_data(raw_data)
+
+def invert_coefficients(value):
+    if isinstance(value, list):
+        # Optimize: Use a dictionary comprehension and NumPy for vectorization
+        keys = value[0].keys()
+        odict = {k: np.array([v[k] for v in value]) for k in keys}
+        return odict
+
+    elif isinstance(value, dict):
+        # Optimize: Avoid redundant dictionary calls
+        keys = value.keys()
+        odict = [{k: value[k][i] for k in keys} for i in range(next(iter(value.values())).shape[0])]
+        return odict
+
+    return None
