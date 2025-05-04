@@ -234,8 +234,8 @@ class InstrumentPrt(InstrumentModule):
                 total=int(len(input_dict_list)),
             ):
                 output_dict_list = Parallel(n_jobs=self.data.options.other['n_cpu'])(
-                    delayed(multiprocessing_runner)(
-                        input_dict=input_dict
+                    delayed(safe_function)(
+                        input_dict
                     )
                     for input_dict in input_dict_list
                 )
@@ -266,12 +266,12 @@ class InstrumentPrt(InstrumentModule):
 
         # if lookup table is in output mode, collect all lookup data and save it to a file
         if lookup_table.split(':')[0] == 'output':
-            # lookup_table_out = pd.DataFrame.from_dict(
-            #     {output_dict['lookup_table']['nstar']:output_dict['lookup_table']
-            #                     for output_dict in output_dict_list}
-            # )
-            # lookup_table_out.to_hdf(lookup_table.split(':')[1],
-            #                         key='lookup_table', mode='a')
+            lookup_table_out = pd.DataFrame.from_dict(
+                {output_dict['lookup_table']['nstar']:output_dict['lookup_table']
+                                for output_dict in output_dict_list}
+            )
+            lookup_table_out.to_hdf(lookup_table.split(':')[1],
+                                    key='lookup_table', mode='a')
 
             # with h5py.File(lookup_table.split(':')[1], "w") as h5file:
             #     for i, output_dict in enumerate(output_dict_list):
@@ -282,10 +282,10 @@ class InstrumentPrt(InstrumentModule):
             #         group = h5file.create_group(f"entry_{i}")  # Create a group for each entry
             #         save_to_hdf5(group, output_dict["lookup_table"])  # Save the "lookup_table" contents
 
-            with h5py.File(
-                    lookup_table.split(':')[1],
-                    'w') as h5file:
-                save_to_hdf5(output_dict_list, h5file)
+            # with h5py.File(
+            #         lookup_table.split(':')[1],
+            #         'w') as h5file:
+            #     save_to_hdf5(output_dict_list, h5file)
 
         if safe_mode:
             for output_dict in output_dict_list:
@@ -896,3 +896,13 @@ def multiprocessing_runner(input_dict: dict):
     return_dict['nstar'] = input_dict['nstar']
 
     return return_dict
+
+def safe_function(arg):
+    print(f"Processing: {arg}")  # Log input data
+    try:
+        result = multiprocessing_runner(arg)
+        return result
+    except Exception as e:
+        print(f"Worker failed with input {arg['nstar']} and error: {e}")
+        return None
+
