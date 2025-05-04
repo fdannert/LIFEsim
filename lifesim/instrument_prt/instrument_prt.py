@@ -227,15 +227,25 @@ class InstrumentPrt(InstrumentModule):
 
         else:
             print('\nRunning in multiprocessing...')
+            # try:
+            #     with parallel_config(
+            #             backend="loky", inner_max_num_threads=1
+            #     ), joblib_progress(
+            #         description="Running stars in parallel ...",
+            #         total=int(len(input_dict_list)),
+            #     ):
+            #         output_dict_list = Parallel(n_jobs=self.data.options.other['n_cpu'],
+            #                                     verbose=10)(
+            #             delayed(safe_function)(
+            #                 input_dict
+            #             )
+            #             for input_dict in input_dict_list
+            #         )
             try:
                 with parallel_config(
                         backend="loky", inner_max_num_threads=1
-                ), joblib_progress(
-                    description="Running stars in parallel ...",
-                    total=int(len(input_dict_list)),
                 ):
-                    output_dict_list = Parallel(n_jobs=self.data.options.other['n_cpu'],
-                                                verbose=10)(
+                    output_dict_list = Parallel(n_jobs=self.data.options.other['n_cpu'])(
                         delayed(safe_function)(
                             input_dict
                         )
@@ -904,9 +914,8 @@ def multiprocessing_runner(input_dict: dict):
 
 def safe_function(arg):
     try:
-        print(f"Started {arg['nstar']}")
         result = multiprocessing_runner(arg)
-        print(f"Finished {arg['nstar']}")
+        print(f"{arg['nstar']}")
         return result
     except Exception as e:
         print(f"Worker failed with input {arg['nstar']} and error: {e}")
