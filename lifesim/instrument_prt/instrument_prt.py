@@ -903,9 +903,10 @@ def multiprocessing_runner(input_dict: dict):
     return return_dict
 
 def safe_function(arg):
-    print(f"Workering on {arg['nstar']}")
     try:
+        print(f"Started {arg['nstar']}")
         result = multiprocessing_runner(arg)
+        print(f"Finished {arg['nstar']}")
         return result
     except Exception as e:
         print(f"Worker failed with input {arg['nstar']} and error: {e}")
