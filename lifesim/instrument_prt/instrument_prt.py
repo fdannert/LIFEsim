@@ -898,7 +898,6 @@ def multiprocessing_runner(input_dict: dict):
     return return_dict
 
 def safe_function(arg):
-    print(f"Processing: {arg}")  # Log input data
     try:
         result = multiprocessing_runner(arg)
         return result
