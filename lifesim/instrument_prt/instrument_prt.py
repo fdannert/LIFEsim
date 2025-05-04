@@ -233,7 +233,8 @@ class InstrumentPrt(InstrumentModule):
                 description="Running stars in parallel ...",
                 total=int(len(input_dict_list)),
             ):
-                output_dict_list = Parallel(n_jobs=self.data.options.other['n_cpu'])(
+                output_dict_list = Parallel(n_jobs=self.data.options.other['n_cpu'],
+                                            verbose=10)(
                     delayed(safe_function)(
                         input_dict
                     )
