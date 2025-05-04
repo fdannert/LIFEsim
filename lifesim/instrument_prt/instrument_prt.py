@@ -242,15 +242,13 @@ class InstrumentPrt(InstrumentModule):
             #             for input_dict in input_dict_list
             #         )
             try:
-                with parallel_config(
-                        backend="loky", inner_max_num_threads=1
-                ):
-                    output_dict_list = Parallel(n_jobs=self.data.options.other['n_cpu'])(
-                        delayed(safe_function)(
-                            input_dict
-                        )
-                        for input_dict in input_dict_list
+
+                output_dict_list = Parallel(n_jobs=self.data.options.other['n_cpu'])(
+                    delayed(safe_function)(
+                        input_dict
                     )
+                    for input_dict in input_dict_list
+                )
             except Exception as e:
                 print(f"Parallel execution failed: {e}")
 
