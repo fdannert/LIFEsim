@@ -1,4 +1,5 @@
 import sys
+import os
 import warnings
 import time
 from copy import deepcopy
@@ -713,159 +714,6 @@ class Data(object):
                             & {'name_s', 'stype'}):
                 self.catalog[key] = self.catalog[key].astype(pd.StringDtype())
 
-# def clean_dtypes(dtable):
-#     dtable = deepcopy(dtable)
-#     for item, value in dtable.items():
-#         if isinstance(value, np.int64):
-#             dtable[item] = int(value)
-#         elif isinstance(value, np.float64):
-#             dtable[item] = float(value)
-#         elif isinstance(value, dict):
-#             dtable[item] = clean_dtypes(value)
-#         elif isinstance(value, list):
-#             if not isinstance(value[0], dict):
-#                 dtable[item] = np.array(value)
-#             else:
-#                 odict = {k: [] for k in value[0].keys()}
-#                 for v in value:
-#                     for k, v in v.items():
-#                         odict[k].append(list(v))
-#                 for k, v in odict.items():
-#                     odict[k] = np.array(v)
-#                 dtable[item] = odict
-#         elif isinstance(value, pd.Series):
-#             dtable[item] = value.to_numpy()
-#         elif value is None:
-#             dtable[item] = 'None'
-#     return dtable
-#
-# def save_nested_dicts(data, h5file, path="/"):
-#     for key, value in data.items():
-#         # Define the full path for the key
-#         key_path = f"{path}{key}"
-#
-#         if isinstance(value, dict):
-#             # Create a group if the value is a nested dictionary
-#             group = h5file.create_group(key_path)
-#             # Recursively save the nested dictionary
-#             save_nested_dicts(value, h5file, path=key_path + "/")
-#         else:
-#             # Create a dataset for non-dictionary values
-#             if isinstance(value, str):
-#                 # Strings must be encoded as fixed-length in HDF5
-#                 dt = h5py.string_dtype(encoding='utf-8')
-#                 h5file.create_dataset(key_path, data=value, dtype=dt)
-#             elif isinstance(value, list):
-#                 # Convert lists to numpy arrays
-#                 h5file.create_dataset(key_path, data=np.array(value))
-#             else:
-#                 # Scalars such as integers and floats
-#                 h5file.create_dataset(key_path, data=value)
-#
-# def save_to_hdf5(data, h5file):
-#     for value in tqdm(data):
-#         # Define the full path for the key
-#         key_path = str(value['nstar'])
-#         value = clean_dtypes(value['lookup_table'])
-#
-#         save_nested_dicts(value, h5file, path=key_path + "/")
-
-def save_nested_dicts(data, h5file, path="/"):
-    for key, value in data.items():
-        # Define the full path for the key
-        key_path = f"{path}{key}"
-
-        if isinstance(value, dict):
-            # Create a group if the value is a nested dictionary
-            _ = h5file.create_group(key_path)
-            # Recursively save the nested dictionary
-            save_nested_dicts(value, h5file, path=key_path + "/")
-        else:
-            # Create a dataset for non-dictionary values
-            if isinstance(value, str):
-                # Strings must be encoded as fixed-length in HDF5
-                dt = h5py.string_dtype(encoding='utf-8')
-                h5file.create_dataset(key_path, data=value, dtype=dt)
-            elif isinstance(value, list):
-                # Convert lists to numpy arrays
-                h5file.create_dataset(key_path, data=np.array(value))
-            else:
-                # Scalars such as integers and floats
-                h5file.create_dataset(key_path, data=value)
-
-def save_to_hdf5(data, h5file):
-    for value in tqdm(data):
-        save_nested_dicts(value['lookup_table'], h5file, path=str(value['nstar']) + "/")
-
-def load_nested_dicts(h5file, path="/"):
-    """
-    Recursively load data from an HDF5 file into the original nested format.
-
-    :param h5file: The opened h5py File object to read from.
-    :param path: The current path to start reading from.
-    :return: A nested dictionary representing the loaded HDF5 data.
-    """
-    data = {}
-    for key in h5file[path].keys():
-        # Full path to the current key
-        key_path = f"{path}{key}"
-        if isinstance(h5file[key_path], h5py.Group):
-            # If the key corresponds to a group, recursively load it
-            data[key] = load_nested_dicts(h5file, path=key_path + "/")
-        elif isinstance(h5file[key_path], h5py.Dataset):
-            # If the key corresponds to a dataset, read its value and process
-            dataset = h5file[key_path]
-            if dataset.dtype == h5py.string_dtype(encoding='utf-8'):
-                # Decode string values
-                data[key] = dataset[()].decode('utf-8')
-            else:
-                # Load the dataset as a numpy array or scalar
-                data[key] = dataset[()]
-                # If it's a scalar array, cast it to a Python scalar
-                if isinstance(data[key], np.ndarray) and data[key].shape == ():
-                    data[key] = data[key].item()
-    return data
-
-
-def postprocess_loaded_data(data, key:str = 'None'):
-    """
-    Postprocess the loaded data to convert arrays back into their original forms (e.g., lists or dicts).
-
-    :param data: The nested dictionary loaded from HDF5.
-    :return: The postprocessed nested dictionary.
-    """
-    if isinstance(data, dict):
-        processed_data = {}
-        if np.all(np.char.isdigit(list(data.keys()))):
-            processed_data = {int(k): postprocess_loaded_data(value) for k, value in data.items()}
-        # elif np.isin(key, ['grad_n_coeff', 'hess_n_coeff', 'grad_n_coeff_chop', 'hess_n_coeff_chop']):
-        #     keys = list(data.keys())
-        #     odict = []
-        #     for i in range(data[keys[0]].shape[0]):
-        #         odict.append({k: data[k][i] for k in keys})
-        #     processed_data = odict
-        else:
-            for key, value in data.items():
-                processed_data[key] = postprocess_loaded_data(value, key=key)
-        return processed_data
-    else:
-        # Return scalars and other data types as they are
-        return data
-
-
-def load_from_hdf5(h5file, path="/"):
-    """
-    Load all data from an HDF5 file, recursively reconstruct the original nested structure.
-
-    :param h5file: The opened h5py File object to read from.
-    :param path: The base path to start loading from.
-    :return: The reconstructed nested data.
-    """
-    # First load the raw nested data
-    raw_data = load_nested_dicts(h5file, path=path)
-    # Postprocess to reshape or clean the data
-    return postprocess_loaded_data(raw_data)
-
 def invert_coefficients(value):
     if isinstance(value, list):
         # Optimize: Use a dictionary comprehension and NumPy for vectorization
@@ -880,3 +728,132 @@ def invert_coefficients(value):
         return odict
 
     return None
+
+def write_lookup_to_hdf5(lookup_data, path, nstar):
+    """
+    Writes a lookup dictionary to an HDF5 file.
+
+    Parameters:
+        lookup_data (dict): Dictionary containing the data to write.
+        path (str): Path to the output folder.
+        nstar (str or int): Identifier for the output file.
+    """
+    filename = os.path.join(path, f"lookup_table_{nstar}.hdf5")
+
+    # Keys that require special handling for lists of lists
+    nested_keys = {'planet_template_chop', 'signal_chop', 'signal_nchop'}
+
+    with h5py.File(filename, 'w') as hdf_file:
+        for key, value in lookup_data.items():
+            if isinstance(value, np.ndarray):
+                if value.dtype.kind == 'U':  # Check if it's a Unicode string array
+                    value_as_bytes = value.astype('S')  # Convert to fixed-length ASCII string
+                    hdf_file.create_dataset(key, data=value_as_bytes)
+                else:
+                    hdf_file.create_dataset(key, data=value)
+
+            elif isinstance(value, int):
+                hdf_file.attrs[key] = value
+
+            elif isinstance(value, list):
+                if key in nested_keys:
+                    # Handle lists of lists of numpy arrays
+                    list_of_lists_group = hdf_file.create_group(key)
+                    for i, sublist in enumerate(value):
+                        if sublist:  # Only create subgroup if sublist is not empty
+                            sublist_group = list_of_lists_group.create_group(f'sublist_{i}')
+                            for j, array in enumerate(sublist):
+                                if isinstance(array, np.ndarray):
+                                    if array.dtype.kind == 'U':  # Check for Unicode string arrays
+                                        array = array.astype('S')
+                                    sublist_group.create_dataset(f'array_{j:04}', data=array)
+                                else:
+                                    raise ValueError(f"Unsupported type in sublist for key '{key}': {type(array)}")
+                else:
+                    # Handle flat lists of numpy arrays
+                    list_group = hdf_file.create_group(key)
+                    for i, array in enumerate(value):
+                        if isinstance(array, np.ndarray):
+                            if array.dtype.kind == 'U':  # Check for Unicode string arrays
+                                array = array.astype('S')
+                            list_group.create_dataset(f'array_{i}', data=array)
+                        else:
+                            raise ValueError(f"Unsupported type in list for key '{key}': {type(array)}")
+            else:
+                raise ValueError(f"Unsupported type for key '{key}': {type(value)}")
+
+
+def read_lookup_from_hdf5(path, nstar):
+    """
+    Reads a lookup dictionary from an HDF5 file.
+
+    Parameters:
+        path (str): Path to the HDF5 file to read from.
+        nstar (str or int): Identifier used in the file name.
+
+    Returns:
+        dict: The reconstructed lookup dictionary.
+    """
+    filename = os.path.join(path, f"lookup_table_{nstar}.hdf5")
+    data_dict = {}
+
+    # Keys that require special handling for lists of lists
+    nested_keys = {'planet_template_chop', 'signal_chop', 'signal_nchop'}
+
+    with h5py.File(filename, 'r') as hdf_file:
+        # Load attributes (e.g., integers)
+        for key, value in hdf_file.attrs.items():
+            data_dict[key] = value
+
+        # Load datasets and groups
+        for key in hdf_file:
+            if isinstance(hdf_file[key], h5py.Dataset):
+                # Get the dataset
+                dataset = hdf_file[key]
+                if dataset.shape == ():  # If it's scalar
+                    dataset = dataset[()]  # Read as scalar value
+                else:
+                    dataset = dataset[:]  # Read normally
+                # Convert fixed-length ASCII strings back to Unicode, if necessary
+                if dataset.dtype.kind == 'S':  # Fixed-length ASCII string
+                    dataset = dataset.astype(str)
+                data_dict[key] = dataset
+
+            elif isinstance(hdf_file[key], h5py.Group):
+                group = hdf_file[key]
+                if key in nested_keys:
+                    # Handle nested lists (lists of lists of numpy arrays)
+                    list_of_lists = []
+                    for sublist_key in sorted(group):  # Sort to ensure consistent order
+                        sublist_group = group[sublist_key]
+                        sublist = []
+                        for array_key in sorted(sublist_group):  # Sort to ensure consistent order
+                            dataset = sublist_group[array_key]
+                            if dataset.shape == ():  # If it's scalar
+                                array = dataset[()]  # Read as scalar
+                            else:
+                                array = dataset[:]  # Read normally
+                            # Convert fixed-length ASCII strings back to Unicode
+                            if array.dtype.kind == 'S':  # Fixed-length ASCII string
+                                array = array.astype(str)
+                            sublist.append(array)
+                        list_of_lists.append(sublist)
+                    data_dict[key] = list_of_lists
+                else:
+                    # Handle flat lists of numpy arrays
+                    list_data = []
+                    for array_key in sorted(group):  # Sort to ensure consistent order
+                        dataset = group[array_key]
+                        if dataset.shape == ():  # If it's scalar
+                            array = dataset[()]  # Read as scalar
+                        else:
+                            array = dataset[:]  # Read normally
+                        # Convert fixed-length ASCII strings back to Unicode
+                        if array.dtype.kind == 'S':  # Fixed-length ASCII string
+                            array = array.astype(str)
+                        list_data.append(array)
+                    data_dict[key] = list_data
+            else:
+                raise ValueError(f"Unsupported group type in HDF5 for key '{key}'")
+
+    return data_dict

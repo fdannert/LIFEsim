@@ -1,6 +1,7 @@
 import multiprocessing as mp
 from copy import deepcopy
 from typing import Union
+import os
 
 import numpy as np
 from tqdm import tqdm
@@ -16,7 +17,7 @@ from inlifesim.observatory import Instrument
 #from lifesim.instrument.instrument import Instrument
 from lifesim.util.habitable import single_habitable_zone
 from lifesim.instrument.instrument import adjust_sampling
-from lifesim.core.data import save_to_hdf5, load_from_hdf5, invert_coefficients
+from lifesim.core.data import invert_coefficients, write_lookup_to_hdf5, read_lookup_from_hdf5
 
 
 class InstrumentPrt(InstrumentModule):
@@ -61,7 +62,7 @@ class InstrumentPrt(InstrumentModule):
 
     def get_snr(self,
                 safe_mode:bool = True,
-                lookup_table:str = 'none'):
+                lookup_table:str = 'none:none'):
         '''
         Calculate the SNR for all stars in the catalog.
         Parameters
@@ -79,6 +80,12 @@ class InstrumentPrt(InstrumentModule):
 
         if safe_mode and (lookup_table.split(':')[0] == 'output'):
             raise ValueError('Save mode cannot be used when creating a lookup table.')
+
+        if (lookup_table.split(':')[0] == 'output'):
+            if not os.path.exists(lookup_table.split(':')[1]):
+                # Create the directory
+                os.makedirs(lookup_table.split(':')[1])
+                print(f"Directory '{lookup_table.split(':')[1]}' was successfully created.")
 
         # currently, the choice of integration time here is arbitrary. Since the background limited
         # case is assumed, the SNR scales with sqrt(integration time) and through this, the SNR
@@ -108,18 +115,18 @@ class InstrumentPrt(InstrumentModule):
         # if lookup_table.split(':')[0] == 'input':
         #     lookup_table_in = pd.read_hdf(lookup_table.split(':')[1]).to_dict()
         # Load lookup table
-        if lookup_table.split(':')[0] == 'input':
-            # lookup_table_in = []
-            #
-            # if lookup_table.split(':')[0] == 'input':
-            #     with h5py.File(lookup_table.split(':')[1], "r") as h5file:
-            #         for group_name in h5file.keys():
-            #             group = h5file[group_name]
-            #             lookup_table_in.append({"lookup_table": load_from_hdf5(group)})
-            with h5py.File(
-                    lookup_table.split(':')[1],
-                    'r') as h5file:
-                lookup_table_in = load_from_hdf5(h5file)
+        # if lookup_table.split(':')[0] == 'input':
+        #     # lookup_table_in = []
+        #     #
+        #     # if lookup_table.split(':')[0] == 'input':
+        #     #     with h5py.File(lookup_table.split(':')[1], "r") as h5file:
+        #     #         for group_name in h5file.keys():
+        #     #             group = h5file[group_name]
+        #     #             lookup_table_in.append({"lookup_table": load_from_hdf5(group)})
+        #     with h5py.File(
+        #             lookup_table.split(':')[1],
+        #             'r') as h5file:
+        #         lookup_table_in = load_from_hdf5(h5file)
 
         # create mask returning only unique stars
         _, temp = np.unique(self.data.catalog.nstar, return_index=True)
@@ -150,10 +157,10 @@ class InstrumentPrt(InstrumentModule):
             self.run_socket(s_name='instrument',
                             method='adjust_image_size')
 
-            if lookup_table.split(':')[0] == 'input':
-                lt_in = lookup_table_in[nstar]
-            else:
-                lt_in = None
+            # if lookup_table.split(':')[0] == 'input':
+            #     lt_in = lookup_table_in[nstar]
+            # else:
+            #     lt_in = None
 
             # create single input dictionary
 
@@ -203,7 +210,8 @@ class InstrumentPrt(InstrumentModule):
                           'rms_mode': self.data.options.array['rms_mode'],
                           'hyperrot_noise': self.data.options.array['hyperrot_noise'],
                           'lookup_table': lookup_table.split(':')[0],
-                          'lt_in': lt_in,
+                          # 'lt_in': lt_in,
+                          'path_lookup_table': lookup_table.split(':')[1],
                           }
 
             # if safe_mode:
@@ -227,30 +235,31 @@ class InstrumentPrt(InstrumentModule):
 
         else:
             print('\nRunning in multiprocessing...')
-            # try:
-            #     with parallel_config(
-            #             backend="loky", inner_max_num_threads=1
-            #     ), joblib_progress(
-            #         description="Running stars in parallel ...",
-            #         total=int(len(input_dict_list)),
-            #     ):
-            #         output_dict_list = Parallel(n_jobs=self.data.options.other['n_cpu'],
-            #                                     verbose=10)(
-            #             delayed(safe_function)(
-            #                 input_dict
-            #             )
-            #             for input_dict in input_dict_list
-            #         )
-            try:
 
+            with parallel_config(
+                    backend="loky", inner_max_num_threads=1
+            ), joblib_progress(
+                description="Running stars in parallel ...",
+                total=int(len(input_dict_list)),
+            ):
                 output_dict_list = Parallel(n_jobs=self.data.options.other['n_cpu'])(
                     delayed(safe_function)(
                         input_dict
                     )
                     for input_dict in input_dict_list
                 )
-            except Exception as e:
-                print(f"Parallel execution failed: {e}")
+            # try:
+            #     with parallel_config(
+            #             backend="loky", inner_max_num_threads=1
+            #     ):
+            #         output_dict_list = Parallel(n_jobs=self.data.options.other['n_cpu'])(
+            #             delayed(safe_function)(
+            #                 input_dict
+            #             )
+            #             for input_dict in input_dict_list
+            #         )
+            # except Exception as e:
+            #     print(f"Parallel execution failed: {e}")
 
             # pool = mp.Pool(self.data.options.other['n_cpu'])
             # output_dict_list = []
@@ -278,13 +287,13 @@ class InstrumentPrt(InstrumentModule):
         #     output_dict_list])
 
         # if lookup table is in output mode, collect all lookup data and save it to a file
-        if lookup_table.split(':')[0] == 'output':
-            lookup_table_out = pd.DataFrame.from_dict(
-                {output_dict['lookup_table']['nstar']:output_dict['lookup_table']
-                                for output_dict in output_dict_list}
-            )
-            lookup_table_out.to_hdf(lookup_table.split(':')[1],
-                                    key='lookup_table', mode='a')
+        # if lookup_table.split(':')[0] == 'output':
+        #     lookup_table_out = pd.DataFrame.from_dict(
+        #         {output_dict['lookup_table']['nstar']:output_dict['lookup_table']
+        #                         for output_dict in output_dict_list}
+        #     )
+        #     lookup_table_out.to_hdf(lookup_table.split(':')[1],
+        #                             key='lookup_table', mode='a')
 
             # with h5py.File(lookup_table.split(':')[1], "w") as h5file:
             #     for i, output_dict in enumerate(output_dict_list):
@@ -714,28 +723,54 @@ def multiprocessing_runner(input_dict: dict):
         #     inst.pn_thermal_background_detector()
         #     inst.pn_thermal_primary_mirror()
 
-    if input_dict['lookup_table'] == 'output':
-        return_dict['lookup_table'] = {'nstar': int(input_dict['nstar']),
-                                       'A': inst.A,
-                                       'wl_bins': inst.wl_bins,
-                                       'num_a': inst.num_a,
-                                       'rms_mode': inst.rms_mode,
-                                       'n_sampling_total': inst.n_sampling_total,
-                                       't_total': inst.t_total,
-                                       'n_rot': inst.n_rot,
-                                       'flux_star': inst.flux_star,
-                                       'universe': {}}
-    elif input_dict['lookup_table'] == 'input':
-        inst.flux_star = input_dict['lt_in']['flux_star']
-        inst.instrumental_parameters()
-
     # create mask returning only unique stars
     universes = np.unique(
         input_dict['catalog'].nuniverse[input_dict['catalog'].nstar == input_dict['nstar']],
         return_index=False
     )
 
-    for nuniverse in universes:
+    if input_dict['lookup_table'] == 'output':
+        # return_dict['lookup_table'] = {'nstar': int(input_dict['nstar']),
+        #                                'A': inst.A,
+        #                                'wl_bins': inst.wl_bins,
+        #                                'num_a': inst.num_a,
+        #                                'rms_mode': inst.rms_mode,
+        #                                'n_sampling_total': inst.n_sampling_total,
+        #                                't_total': inst.t_total,
+        #                                'n_rot': inst.n_rot,
+        #                                'flux_star': inst.flux_star,
+        #                                'universe': {}}
+
+        n_planet_max = np.max(np.unique(input_dict['catalog']['nuniverse'], return_counts=True)[1])
+
+        lookup_table = {'nstar': int(input_dict['nstar']),
+                        'flux_star': inst.flux_star,
+                        'grad_coeff_key': np.array(['a', 'phi', 'x', 'y']),
+                        'hess_coeff_key': np.array(['aa', 'aphi', 'phiphi']),
+                        'grad_n_coeff': np.zeros((len(universes), 4, len(inst.wl_bins), 4)),
+                        'grad_n_coeff_chop': np.zeros((len(universes), 4, len(inst.wl_bins), 4)),
+                        'hess_n_coeff': np.zeros((len(universes), 3, len(inst.wl_bins), 4, 4)),
+                        'hess_n_coeff_chop': np.zeros((len(universes), 3,  len(inst.wl_bins), 4, 4)),
+                        'pn_sgl': np.zeros((len(universes), len(inst.wl_bins))),
+                        'pn_ez': np.zeros((len(universes), len(inst.wl_bins))),
+                        'pn_lz': np.zeros((len(universes), len(inst.wl_bins))),
+                        'universe_keys': np.zeros(len(universes)),
+                        't_exp': np.zeros((len(universes), n_planet_max)),
+                        'n_sampling_total': np.zeros((len(universes), n_planet_max)),
+                        'n_sampling_rot': np.zeros((len(universes), n_planet_max)),
+                        'planet_template_chop': [[] for _ in range(n_planet_max)],
+                        'signal_chop': [[] for _ in range(n_planet_max)],
+                        'signal_nchop': [[] for _ in range(n_planet_max)],
+                        }
+
+    elif input_dict['lookup_table'] == 'input':
+        lookup_table = read_lookup_from_hdf5(path=input_dict['path_lookup_table'],
+                                             nstar=input_dict['nstar'])
+
+        inst.flux_star = lookup_table['flux_star']
+        inst.instrumental_parameters()
+
+    for idx_u, nuniverse in enumerate(universes):
         if input_dict['lookup_table'] != 'input':
             inst.z = input_dict['catalog'][np.logical_and(
                 input_dict['catalog'].nstar == input_dict['nstar'],
@@ -751,41 +786,66 @@ def multiprocessing_runner(input_dict: dict):
             # inst.fundamental_noise(exozodi_only=True)
 
         if input_dict['lookup_table'] == 'output':
-            return_dict['lookup_table']['universe'][nuniverse] = {
-                'grad_n_coeff': invert_coefficients(inst.grad_n_coeff),
-                'hess_n_coeff': invert_coefficients(inst.hess_n_coeff),
-                'grad_n_coeff_chop': invert_coefficients(inst.grad_n_coeff_chop),
-                'hess_n_coeff_chop': invert_coefficients(inst.hess_n_coeff_chop)
-            }
+            lookup_table['universe_keys'][idx_u] = nuniverse
+
+            save_to_key(source=inst.grad_n_coeff,
+                        target=lookup_table['grad_n_coeff'],
+                        keymap=lookup_table['grad_coeff_key'],
+                        idx_u=idx_u)
+
+            save_to_key(source=inst.grad_n_coeff_chop,
+                        target=lookup_table['grad_n_coeff_chop'],
+                        keymap=lookup_table['grad_coeff_key'],
+                        idx_u=idx_u)
+
+            save_to_key(source=inst.hess_n_coeff,
+                        target=lookup_table['hess_n_coeff'],
+                        keymap=lookup_table['hess_coeff_key'],
+                        idx_u=idx_u)
+
+            save_to_key(source=inst.hess_n_coeff_chop,
+                        target=lookup_table['hess_n_coeff_chop'],
+                        keymap=lookup_table['hess_coeff_key'],
+                        idx_u=idx_u)
 
             copy_params = ['pn_sgl', 'pn_ez', 'pn_lz']
             for param in copy_params:
-                return_dict['lookup_table']['universe'][nuniverse][param] = (
+                lookup_table[param][idx_u] = (
                     inst.photon_rates_nchop[param].to_numpy()
                 )
 
-            return_dict['lookup_table']['universe'][nuniverse]['planet'] = {}
-
         # load parameters from lookup table
         elif input_dict['lookup_table'] == 'input':
-            inst.grad_n_coeff = invert_coefficients(input_dict['lt_in']['universe'][nuniverse]['grad_n_coeff'])
-            inst.hess_n_coeff = invert_coefficients(input_dict['lt_in']['universe'][nuniverse]['hess_n_coeff'])
-            inst.grad_n_coeff_chop = invert_coefficients(input_dict['lt_in']['universe'][nuniverse]['grad_n_coeff_chop'])
-            inst.hess_n_coeff_chop = invert_coefficients(input_dict['lt_in']['universe'][nuniverse]['hess_n_coeff_chop'])
+            inst.grad_n_coeff = get_from_key(source=lookup_table['grad_n_coeff'],
+                                             keymap=lookup_table['grad_coeff_key'],
+                                             idx_u=idx_u)
+
+            inst.hess_n_coeff = get_from_key(source=lookup_table['hess_n_coeff'],
+                                             keymap=lookup_table['hess_coeff_key'],
+                                             idx_u=idx_u)
+
+            inst.grad_n_coeff_chop = get_from_key(source=lookup_table['grad_n_coeff_chop'],
+                                             keymap=lookup_table['grad_coeff_key'],
+                                             idx_u=idx_u)
+
+            inst.hess_n_coeff_chop = get_from_key(source=lookup_table['hess_n_coeff_chop'],
+                                             keymap=lookup_table['hess_coeff_key'],
+                                             idx_u=idx_u)
 
             copy_params = ['pn_sgl', 'pn_ez', 'pn_lz']
             for param in copy_params:
-                inst.photon_rates_nchop[param] = input_dict['lt_in']['universe'][nuniverse][
-                    param
-                ]
+                inst.photon_rates_nchop[param] = lookup_table[param][idx_u]
+
+        if input_dict['lookup_table'] == 'output':
+            num_planet = np.sum(np.logical_and(input_dict['catalog'].nstar.to_numpy() == input_dict['nstar'],
+                                   input_dict['catalog'].nuniverse.to_numpy() == nuniverse))
 
         # go through all planets for the chosen star
-        for _, n_p in enumerate(np.argwhere(
+        for idx_p, n_p in enumerate(np.argwhere(
                 np.logical_and(input_dict['catalog'].nstar.to_numpy() == input_dict['nstar'],
                                input_dict['catalog'].nuniverse.to_numpy() == nuniverse))[:, 0]):
 
             # ----- must be repeated for every planet -----
-
             if input_dict['lookup_table'] != 'input':
                 # adjust the temporal sampling rate to the baseline and planet separation
                 n_sampling_rot = adjust_sampling(
@@ -817,41 +877,51 @@ def multiprocessing_runner(input_dict: dict):
 
             # create lookup table for planets if requested
             if input_dict['lookup_table'] == 'output':
-                return_dict['lookup_table']['universe'][nuniverse]['planet'][
-                    input_dict['catalog']['id'].iloc[n_p]
-                ] = {'planet_template_chop': inst.planet_template_chop,
-                     't_exp': inst.t_exp,
-                     'n_sampling_total': inst.n_sampling_total,
-                     'n_sampling_rot': inst.n_sampling_rot,
-                     'signal_nchop': inst.photon_rates_nchop['signal'].to_numpy(),
-                     'signal_chop': inst.photon_rates_chop['signal'].to_numpy(),}
+                # return_dict['lookup_table']['universe'][nuniverse]['planet'][
+                #     input_dict['catalog']['id'].iloc[n_p]
+                # ] = {'planet_template_chop': inst.planet_template_chop,
+                #      't_exp': inst.t_exp,
+                #      'n_sampling_total': inst.n_sampling_total,
+                #      'n_sampling_rot': inst.n_sampling_rot,
+                #      'signal_nchop': inst.photon_rates_nchop['signal'].to_numpy(),
+                #      'signal_chop': inst.photon_rates_chop['signal'].to_numpy(),}
 
-            else:
-                # load planet template from lookup table if requested
-                if input_dict['lookup_table'] == 'input':
-                    inst.planet_template_chop = input_dict['lt_in']['universe'][nuniverse][
-                        'planet'
-                    ][input_dict['catalog']['id'].iloc[n_p]]['planet_template_chop']
+                lookup_table['t_exp'][idx_u, idx_p] = inst.t_exp
+                lookup_table['n_sampling_total'][idx_u, idx_p] = inst.n_sampling_total
+                lookup_table['n_sampling_rot'][idx_u, idx_p] = inst.n_sampling_rot
+                lookup_table['planet_template_chop'][idx_p].append(inst.planet_template_chop)
+                lookup_table['signal_chop'][idx_p].append(inst.photon_rates_chop['signal'].to_numpy())
+                lookup_table['signal_nchop'][idx_p].append(inst.photon_rates_nchop['signal'].to_numpy())
 
-                    inst.t_exp = input_dict['lt_in']['universe'][nuniverse][
-                        'planet'
-                    ][input_dict['catalog']['id'].iloc[n_p]]['t_exp']
+            elif input_dict['lookup_table'] == 'input':
+                inst.planet_template_chop = lookup_table['planet_template_chop'][idx_p][idx_u]
+                #     = input_dict['lt_in']['universe'][nuniverse][
+                #     'planet'
+                # ][input_dict['catalog']['id'].iloc[n_p]]['planet_template_chop']
+                inst.t_exp = lookup_table['t_exp'][idx_u, idx_p]
+                #     = input_dict['lt_in']['universe'][nuniverse][
+                #     'planet'
+                # ][input_dict['catalog']['id'].iloc[n_p]]['t_exp']
 
-                    inst.n_sampling_total = input_dict['lt_in']['universe'][nuniverse][
-                        'planet'
-                    ][input_dict['catalog']['id'].iloc[n_p]]['n_sampling_total']
+                inst.n_sampling_total = lookup_table['n_sampling_total'][idx_u, idx_p]
+                #     = input_dict['lt_in']['universe'][nuniverse][
+                #     'planet'
+                # ][input_dict['catalog']['id'].iloc[n_p]]['n_sampling_total']
 
-                    inst.n_sampling_rot = input_dict['lt_in']['universe'][nuniverse][
-                        'planet'
-                    ][input_dict['catalog']['id'].iloc[n_p]]['n_sampling_rot']
+                inst.n_sampling_rot = lookup_table['n_sampling_rot'][idx_u, idx_p]
+                #     = input_dict['lt_in']['universe'][nuniverse][
+                #     'planet'
+                # ][input_dict['catalog']['id'].iloc[n_p]]['n_sampling_rot']
 
-                    inst.photon_rates_nchop['signal'] = input_dict['lt_in']['universe'][nuniverse][
-                        'planet'
-                    ][input_dict['catalog']['id'].iloc[n_p]]['signal_nchop']
+                inst.photon_rates_nchop['signal'] = lookup_table['signal_nchop'][idx_p][idx_u]
+                #     = input_dict['lt_in']['universe'][nuniverse][
+                #     'planet'
+                # ][input_dict['catalog']['id'].iloc[n_p]]['signal_nchop']
 
-                    inst.photon_rates_chop['signal'] = input_dict['lt_in']['universe'][nuniverse][
-                        'planet'
-                    ][input_dict['catalog']['id'].iloc[n_p]]['signal_chop']
+                inst.photon_rates_chop['signal'] = lookup_table['signal_chop'][idx_p][idx_u]
+                #     = input_dict['lt_in']['universe'][nuniverse][
+                #     'planet'
+                # ][input_dict['catalog']['id'].iloc[n_p]]['signal_chop']
 
 
                 # if (inst.chopping == 'nchop'):
@@ -859,54 +929,66 @@ def multiprocessing_runner(input_dict: dict):
                 # else:
                 #     inst.sn_chop()
 
-                inst.run(run_method=['systematic'])
+            inst.run(run_method=['systematic'])
 
-                # save baseline
-                input_dict['catalog']['baseline'].iat[n_p] = deepcopy(input_dict['baseline'])
+            # save baseline
+            input_dict['catalog']['baseline'].iat[n_p] = deepcopy(input_dict['baseline'])
 
-                # save sampling rates
-                input_dict['catalog']['n_sampling_rot'].iat[n_p] = deepcopy(inst.n_sampling_rot)
-                input_dict['catalog']['image_size'].iat[n_p] = deepcopy(inst.image_size)
-
-
-                input_dict['catalog'].t_rot.iat[n_p] = deepcopy(input_dict['integration_time'])
-                input_dict['catalog'].t_exp.iat[n_p] = deepcopy(inst.t_exp)
-                input_dict['catalog'].signal.iat[n_p] = inst.photon_rates_chop['signal'].sum()
-                input_dict['catalog'].photon_noise.iat[n_p] = (
-                    np.sqrt((inst.photon_rates_chop['pn'] ** 2).sum()))
-                input_dict['catalog'].systematic_noise.iat[n_p] = (
-                    np.sqrt((inst.photon_rates_chop['sn'] ** 2).sum()))
-
-                input_dict['catalog'].fundamental_snr_1h.iat[n_p] = np.sqrt(
-                    np.sum(
-                        (inst.photon_rates_chop['signal'] / inst.photon_rates_chop['fundamental'])**2
-                    )
-                ) * np.sqrt(60 * 60 / input_dict['t_rot'])
-
-                input_dict['catalog'].pn_ez.iat[n_p] = np.sqrt(np.sum(inst.photon_rates_chop['pn_ez'] ** 2))
-                input_dict['catalog'].pn_lz.iat[n_p] = np.sqrt(np.sum(inst.photon_rates_chop['pn_lz'] ** 2))
-                input_dict['catalog'].pn_sgl.iat[n_p] = np.sqrt(np.sum(inst.photon_rates_chop['pn_sgl'] ** 2))
-
-                input_dict['catalog'].snr_1h.at[n_p] = np.sqrt(
-                    np.sum(
-                        (inst.photon_rates_chop['signal'] / inst.photon_rates_chop['noise'])**2
-                    )
-                ) * np.sqrt(60 * 60 / input_dict['t_rot'])
+            # save sampling rates
+            input_dict['catalog']['n_sampling_rot'].iat[n_p] = deepcopy(inst.n_sampling_rot)
+            input_dict['catalog']['image_size'].iat[n_p] = deepcopy(inst.image_size)
 
 
+            input_dict['catalog'].t_rot.iat[n_p] = deepcopy(input_dict['integration_time'])
+            input_dict['catalog'].t_exp.iat[n_p] = deepcopy(inst.t_exp)
+            input_dict['catalog'].signal.iat[n_p] = inst.photon_rates_chop['signal'].sum()
+            input_dict['catalog'].photon_noise.iat[n_p] = (
+                np.sqrt((inst.photon_rates_chop['pn'] ** 2).sum()))
+            input_dict['catalog'].systematic_noise.iat[n_p] = (
+                np.sqrt((inst.photon_rates_chop['sn'] ** 2).sum()))
 
-                if input_dict['safe_mode']:
-                    # if (inst.chopping == 'nchop'):
-                    #     return_dict['noise_catalog'][str(input_dict['catalog'].id.iat[n_p])] = (
-                    #         deepcopy(inst.photon_rates_nchop)
-                    #     )
-                    # else:
-                    return_dict['noise_catalog'][str(input_dict['catalog'].id.iat[n_p])] = (
-                        deepcopy(inst.photon_rates_chop)
-                    )
+            input_dict['catalog'].fundamental_snr_1h.iat[n_p] = np.sqrt(
+                np.sum(
+                    (inst.photon_rates_chop['signal'] / inst.photon_rates_chop['fundamental'])**2
+                )
+            ) * np.sqrt(60 * 60 / input_dict['t_rot'])
+
+            input_dict['catalog'].pn_ez.iat[n_p] = np.sqrt(np.sum(inst.photon_rates_chop['pn_ez'] ** 2))
+            input_dict['catalog'].pn_lz.iat[n_p] = np.sqrt(np.sum(inst.photon_rates_chop['pn_lz'] ** 2))
+            input_dict['catalog'].pn_sgl.iat[n_p] = np.sqrt(np.sum(inst.photon_rates_chop['pn_sgl'] ** 2))
+
+            input_dict['catalog'].snr_1h.at[n_p] = np.sqrt(
+                np.sum(
+                    (inst.photon_rates_chop['signal'] / inst.photon_rates_chop['noise'])**2
+                )
+            ) * np.sqrt(60 * 60 / input_dict['t_rot'])
+
+
+
+            if input_dict['safe_mode']:
+                # if (inst.chopping == 'nchop'):
+                #     return_dict['noise_catalog'][str(input_dict['catalog'].id.iat[n_p])] = (
+                #         deepcopy(inst.photon_rates_nchop)
+                #     )
+                # else:
+                return_dict['noise_catalog'][str(input_dict['catalog'].id.iat[n_p])] = (
+                    deepcopy(inst.photon_rates_chop)
+                )
+
+        if input_dict['lookup_table'] == 'output':
+            if idx_p < n_planet_max - 1:
+                for idx_p in range(idx_p + 1, n_planet_max):
+                    lookup_table['planet_template_chop'][idx_p].append(np.array((np.nan)))
+                    lookup_table['signal_chop'][idx_p].append(np.array((np.nan)))
+                    lookup_table['signal_nchop'][idx_p].append(np.array((np.nan)))
 
     return_dict['catalog'] = input_dict['catalog']
     return_dict['nstar'] = input_dict['nstar']
+
+    if input_dict['lookup_table'] == 'output':
+        write_lookup_to_hdf5(lookup_data=lookup_table,
+                             path=input_dict['path_lookup_table'],
+                             nstar=input_dict['nstar'],)
 
     return return_dict
 
@@ -919,3 +1001,15 @@ def safe_function(arg):
         print(f"Worker failed with input {arg['nstar']} and error: {e}")
         return None
 
+def save_to_key(source, target, keymap, idx_u):
+    gnc_temp = invert_coefficients(source)
+    for k in gnc_temp.keys():
+        idx_k = np.argwhere(keymap == k)
+        target[idx_u, idx_k] = gnc_temp[k]
+
+def get_from_key(source, keymap, idx_u):
+    gnc_temp = {}
+    for i, k in enumerate(keymap):
+        gnc_temp[k] = source[idx_u, i]
+
+    return invert_coefficients(gnc_temp)
