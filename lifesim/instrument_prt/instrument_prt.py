@@ -327,6 +327,8 @@ class InstrumentPrt(InstrumentModule):
         # if safe_mode:
         #     store.close()
 
+    def get_spectrum(self):
+        pass
     # def get_spectrum(self):
     #     inst = Instrument(
     #         wl_bins=self.data.inst['wl_bins'],  # wavelength bins center position in m
