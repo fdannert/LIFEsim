@@ -636,73 +636,6 @@ class InstrumentPrt(InstrumentModule):
     #             return self.inst_prt.photon_rates_chop
 
 def multiprocessing_runner(input_dict: dict):
-    # TODO: Correct treatment of quantum efficiency
-    # inst = ils.Instrument(
-    #     # ----- static parameters -----
-    #     wl_bins=input_dict['wl_bins'],  # wavelength bins center position in m
-    #     wl_bin_widths=input_dict['wl_bin_widths'],  # wavelength bin widhts in m
-    #     integration_time=input_dict['integration_time'],
-    #     image_size=input_dict['image_size'],  # size of image used to simulate exozodi in pix
-    #     diameter_ap=input_dict['diameter_ap'],  # diameter of the primary mirrors in m
-    #     flux_division=input_dict['flux_division'],
-    #     # division of the flux between the primary mirrors, e.g. in baseline case
-    #     # [0.25, 0.25, 0.25, 0.25]
-    #     throughput=input_dict['throughput'],
-    #     # fraction of light that is sustained through the optical train
-    #     phase_response=input_dict['phase_response'],  # phase response of each collector arm in rad
-    #     phase_response_chop=input_dict['phase_response_chop'],
-    #     # phase response of each collector arm in the chopped state in rad
-    #     t_rot=input_dict['t_rot'],  # rotation period of the array in seconds
-    #     chopping=input_dict['chopping'],
-    #     # run calculation with or without chopping, 'chop', 'nchop', 'both'
-    #     pix_per_wl=input_dict['pix_per_wl'],  # pixels on detector used per wavelength channel
-    #     n_sampling_rot=360,
-    #     # number of sampling points per array rotation
-    #     detector_dark_current='manual',
-    #     # detector type, 'MIRI' or 'manual'. Specify dark_current_pix in 'manual'
-    #     dark_current_pix=0.,  # detector dark current in electrons s-1 px-1
-    #     detector_thermal='MIRI',  # detector type, 'MIRI'
-    #     det_temp=0.,  # temperature of the detector environment in K
-    #     magnification=15.73,  # tele# scope magnification
-    #     f_number=20.21,  # telescope f-number, i.e. ratio of focal length to aperture size
-    #     secondary_primary_ratio=0.114,  # ratio of secondary to primary mirror sizes
-    #     primary_emissivity=0.,  # emissivity epsilon of the primary mirror
-    #     primary_temp=0.,  # temperature of the primary mirror in K
-    #     pink_noise_co=10000,  # cutoff frequency for the pink noise spectra
-    #     n_cpu=1,  # number of cores used in the simulation
-    #     rms_mode=input_dict['rms_mode'],  # mode for rms values, 'lay', 'static', 'wavelength'
-    #     agnostic_mode=True,  # derive instrumental photon noise from agnostic mode
-    #     eps_cold=input_dict['agn_phot_cold'],
-    #     # scaling constant for cold agnostic photon noise spectrum
-    #     eps_hot=input_dict['agn_phot_hot'],
-    #     # scaling constant for hot agnostic photon noise spectrum
-    #     eps_white=input_dict['agn_phot_white'],
-    #     # scaling constant white agnostic photon noise spectrum
-    #     agnostic_spacecraft_temp=input_dict['agn_spacecraft_temp'],
-    #     # cold-side spacecraft temperature in the agnostic case
-    #     n_sampling_max=10000,  # largest fourier mode used in noise sampling
-    #     d_a_rms=input_dict['d_a_rms'],  # relative amplitude error rms
-    #     d_phi_rms=input_dict['d_phi_rms'],  # phase error rms
-    #     d_pol_rms=input_dict['d_pol_rms'],  # polarization error rms
-    #     d_x_rms=input_dict['d_x_rms'],  # collector position rms, x-direction
-    #     d_y_rms=input_dict['d_y_rms'],  # collector position rms, y-direction
-    #     wl_resolution=200,  # number of wavelength bins simulated for the thermal background
-    #     flux_planet=None,  # substitute flux input in ph m-2 s-1
-    #     simultaneous_chopping=True,
-    #     # ----- parameters change with star -----
-    #     dist_star=input_dict['catalog'].distance_s.iloc[0],  # distance to the target system in pc
-    #     radius_star=input_dict['catalog'].radius_s.iloc[0],  # radius of the star in stellar radii
-    #     temp_star=input_dict['catalog'].temp_s.iloc[0],  # temperature of the host star in Kelvin
-    #     lat_star=input_dict['catalog'].lat.iloc[0],  # ecliptic latitude of the target star
-    #     l_sun=input_dict['catalog'].l_sun.iloc[0],  # stellar luminosity in solar luminosities
-    #     z=input_dict['catalog'].z.iloc[0],
-    #     # zodi level: the exozodi dust is z-times denser than the localzodi dust
-    #     col_pos=input_dict['col_pos'],  # collector position in m
-    #     # ----- parameters change with planet -----
-    #     temp_planet=0.,  # planet temperature in Kelvin
-    #     radius_planet=0.,  # planet radius in earth radii
-    #     separation_planet=0.,  # separation of target planet from host star in AU
-    # )
     inst = Instrument(
         wl_bins=input_dict['wl_bins'],  # wavelength bins center position in m
         wl_bin_widths=input_dict['wl_bin_widths'],  # wavelength bin widths in m
@@ -752,19 +685,6 @@ def multiprocessing_runner(input_dict: dict):
         inst.run(run_method=['star'])
 
         b_ez = deepcopy(inst.b_ez)
-        # inst.instrumental_parameters()
-        # inst.create_star()
-        # inst.create_localzodi()
-        # inst.create_exozodi()
-        # inst.sensitivity_coefficients()
-        # inst.fundamental_noise()
-        #
-        # if inst.agnostic_mode:
-        #     inst.pn_agnostic()
-        # else:
-        #     inst.pn_dark_current()
-        #     inst.pn_thermal_background_detector()
-        #     inst.pn_thermal_primary_mirror()
 
     # create mask returning only unique stars
     universes = np.unique(
@@ -773,17 +693,6 @@ def multiprocessing_runner(input_dict: dict):
     )
 
     if input_dict['lookup_table'] == 'output':
-        # return_dict['lookup_table'] = {'nstar': int(input_dict['nstar']),
-        #                                'A': inst.A,
-        #                                'wl_bins': inst.wl_bins,
-        #                                'num_a': inst.num_a,
-        #                                'rms_mode': inst.rms_mode,
-        #                                'n_sampling_total': inst.n_sampling_total,
-        #                                't_total': inst.t_total,
-        #                                'n_rot': inst.n_rot,
-        #                                'flux_star': inst.flux_star,
-        #                                'universe': {}}
-
         n_planet_max = np.max(np.unique(input_dict['catalog']['nuniverse'], return_counts=True)[1])
 
         lookup_table = {'nstar': int(input_dict['nstar']),
@@ -824,9 +733,6 @@ def multiprocessing_runner(input_dict: dict):
 
             # redo calculation for exozodi
             inst.run(run_method=['exozodi'])
-            # inst.create_exozodi()
-            # inst.sensitivity_coefficients(exozodi_only=True)
-            # inst.fundamental_noise(exozodi_only=True)
 
         if input_dict['lookup_table'] == 'output':
             lookup_table['universe_keys'][idx_u] = nuniverse
@@ -915,20 +821,9 @@ def multiprocessing_runner(input_dict: dict):
                 # create the planet signal and template function
 
                 inst.run(run_method=['planet'])
-                # inst.create_planet(force=True)
-                # inst.planet_signal()
 
             # create lookup table for planets if requested
             if input_dict['lookup_table'] == 'output':
-                # return_dict['lookup_table']['universe'][nuniverse]['planet'][
-                #     input_dict['catalog']['id'].iloc[n_p]
-                # ] = {'planet_template_chop': inst.planet_template_chop,
-                #      't_exp': inst.t_exp,
-                #      'n_sampling_total': inst.n_sampling_total,
-                #      'n_sampling_rot': inst.n_sampling_rot,
-                #      'signal_nchop': inst.photon_rates_nchop['signal'].to_numpy(),
-                #      'signal_chop': inst.photon_rates_chop['signal'].to_numpy(),}
-
                 lookup_table['t_exp'][idx_u, idx_p] = inst.t_exp
                 lookup_table['n_sampling_total'][idx_u, idx_p] = inst.n_sampling_total
                 lookup_table['n_sampling_rot'][idx_u, idx_p] = inst.n_sampling_rot
@@ -937,40 +832,13 @@ def multiprocessing_runner(input_dict: dict):
                 lookup_table['signal_nchop'][idx_p].append(inst.photon_rates_nchop['signal'].to_numpy())
 
             elif input_dict['lookup_table'] == 'input':
-                inst.planet_template_chop = lookup_table['planet_template_chop'][idx_p][idx_u]
-                #     = input_dict['lt_in']['universe'][nuniverse][
-                #     'planet'
-                # ][input_dict['catalog']['id'].iloc[n_p]]['planet_template_chop']
                 inst.t_exp = lookup_table['t_exp'][idx_u, idx_p]
-                #     = input_dict['lt_in']['universe'][nuniverse][
-                #     'planet'
-                # ][input_dict['catalog']['id'].iloc[n_p]]['t_exp']
-
                 inst.n_sampling_total = lookup_table['n_sampling_total'][idx_u, idx_p]
-                #     = input_dict['lt_in']['universe'][nuniverse][
-                #     'planet'
-                # ][input_dict['catalog']['id'].iloc[n_p]]['n_sampling_total']
-
                 inst.n_sampling_rot = lookup_table['n_sampling_rot'][idx_u, idx_p]
-                #     = input_dict['lt_in']['universe'][nuniverse][
-                #     'planet'
-                # ][input_dict['catalog']['id'].iloc[n_p]]['n_sampling_rot']
 
+                inst.planet_template_chop = lookup_table['planet_template_chop'][idx_p][idx_u]
                 inst.photon_rates_nchop['signal'] = lookup_table['signal_nchop'][idx_p][idx_u]
-                #     = input_dict['lt_in']['universe'][nuniverse][
-                #     'planet'
-                # ][input_dict['catalog']['id'].iloc[n_p]]['signal_nchop']
-
                 inst.photon_rates_chop['signal'] = lookup_table['signal_chop'][idx_p][idx_u]
-                #     = input_dict['lt_in']['universe'][nuniverse][
-                #     'planet'
-                # ][input_dict['catalog']['id'].iloc[n_p]]['signal_chop']
-
-
-                # if (inst.chopping == 'nchop'):
-                #     inst.sn_nchop()
-                # else:
-                #     inst.sn_chop()
 
             inst.run(run_method=['systematic'])
 
@@ -1000,7 +868,7 @@ def multiprocessing_runner(input_dict: dict):
             input_dict['catalog'].pn_lz.iat[n_p] = np.sqrt(np.sum(inst.photon_rates_chop['pn_lz'] ** 2))
             input_dict['catalog'].pn_sgl.iat[n_p] = np.sqrt(np.sum(inst.photon_rates_chop['pn_sgl'] ** 2))
 
-            input_dict['catalog'].snr_1h.at[n_p] = np.sqrt(
+            input_dict['catalog'].snr_1h.iat[n_p] = np.sqrt(
                 np.sum(
                     (inst.photon_rates_chop['signal'] / inst.photon_rates_chop['noise'])**2
                 )
