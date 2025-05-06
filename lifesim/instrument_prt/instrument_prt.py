@@ -243,69 +243,11 @@ class InstrumentPrt(InstrumentModule):
                 total=int(len(input_dict_list)),
             ):
                 output_dict_list = Parallel(n_jobs=self.data.options.other['n_cpu'])(
-                    delayed(multiprocessing_runner)(input_dict=input_dict)
+                    delayed(debug_workers)(input_dict=input_dict)
                     for input_dict in input_dict_list
                 )
-            # try:
-            #     with parallel_config(
-            #             backend="loky", inner_max_num_threads=1
-            #     ):
-            #         output_dict_list = Parallel(n_jobs=self.data.options.other['n_cpu'])(
-            #             delayed(safe_function)(
-            #                 input_dict
-            #             )
-            #             for input_dict in input_dict_list
-            #         )
-            # except Exception as e:
-            #     print(f"Parallel execution failed: {e}")
-
-            # pool = mp.Pool(self.data.options.other['n_cpu'])
-            # output_dict_list = []
-            # for result in tqdm(pool.map(multiprocessing_runner, input_dict_list),
-            #                    total=len(input_dict_list)):
-            #     output_dict_list.append(result)
-
-        # with parallel_config(
-        #         backend="loky", inner_max_num_threads=1
-        # ), joblib_progress(
-        #     description="Calculating time series ...",
-        #     total=int(self.n_draws / self.n_draws_per_run),
-        # ):
-        #     results = Parallel(n_jobs=self.n_cpu)(
-        #         delayed(draw_sample)(
-        #             params=params,
-        #             return_variables=self.time_samples_return_values,
-        #         )
-        #         for _ in range(int(self.n_draws / self.n_draws_per_run))
-        #     )
 
         self.data.catalog = pd.concat([output_dict['catalog'] for output_dict in output_dict_list])
-        # if safe_mode:
-        #     self.data.noise_catalog = pd.concat([output_dict['noise_catalog'] for output_dict in
-        #     output_dict_list])
-
-        # if lookup table is in output mode, collect all lookup data and save it to a file
-        # if lookup_table.split(':')[0] == 'output':
-        #     lookup_table_out = pd.DataFrame.from_dict(
-        #         {output_dict['lookup_table']['nstar']:output_dict['lookup_table']
-        #                         for output_dict in output_dict_list}
-        #     )
-        #     lookup_table_out.to_hdf(lookup_table.split(':')[1],
-        #                             key='lookup_table', mode='a')
-
-            # with h5py.File(lookup_table.split(':')[1], "w") as h5file:
-            #     for i, output_dict in enumerate(output_dict_list):
-            #         lt_out = output_dict['lookup_table']
-            #         nstar = lt_out['nstar']
-            #
-            #
-            #         group = h5file.create_group(f"entry_{i}")  # Create a group for each entry
-            #         save_to_hdf5(group, output_dict["lookup_table"])  # Save the "lookup_table" contents
-
-            # with h5py.File(
-            #         lookup_table.split(':')[1],
-            #         'w') as h5file:
-            #     save_to_hdf5(output_dict_list, h5file)
 
         if safe_mode:
             for output_dict in output_dict_list:
@@ -902,6 +844,14 @@ def multiprocessing_runner(input_dict: dict):
                              nstar=input_dict['nstar'],)
 
     return return_dict
+
+def debug_workers(input_dict):
+    try:
+        return multiprocessing_runner(input_dict=input_dict)
+    except Exception as e:
+        print('An error occured in the worker process:', str(input_dict['nstar']))
+        print(e)
+        return e
 
 def save_to_key(source, target, keymap, idx_u):
     gnc_temp = invert_coefficients(source)
