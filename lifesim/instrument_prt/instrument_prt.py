@@ -171,7 +171,7 @@ class InstrumentPrt(InstrumentModule):
                           'wl_bin_widths': self.data.inst['wl_bin_widths'],
                           'wl_min': self.data.options.array['wl_min'],
                           'integration_time': integration_time,
-                          'image_size': np.min((self.data.inst['image_size'], self.data.option.optimization['image_size_limit'])),
+                          'image_size': np.min((self.data.inst['image_size'], self.data.options.optimization['image_size_limit'])),
                           'diameter_ap': self.data.options.array['diameter'],
                           'flux_division': self.data.options.array['flux_division'],
                           'throughput': self.data.options.array['throughput']
