@@ -783,8 +783,14 @@ def multiprocessing_runner(input_dict: dict):
                 inst.planet_template_chop = lookup_table['planet_template_chop'][idx_p][idx_u]
                 inst.photon_rates_nchop['signal'] = lookup_table['signal_nchop'][idx_p][idx_u]
                 inst.photon_rates_chop['signal'] = lookup_table['signal_chop'][idx_p][idx_u]
+            try:
+                inst.run(run_method=['systematic'])
+            except:
+                print('nstar: ', input_dict['nstar'])
+                print('idx_p ', idx_p)
+                print('idx_u: ', idx_u)
+                raise ValueError('STOPTOOPSOPOTOPSOOTPTOP')
 
-            inst.run(run_method=['systematic'])
 
             # save baseline
             input_dict['catalog']['baseline'].iat[n_p] = deepcopy(input_dict['baseline'])
