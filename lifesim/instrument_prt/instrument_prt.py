@@ -245,28 +245,31 @@ class InstrumentPrt(InstrumentModule):
                 description="Running stars in parallel ...",
                 total=int(len(input_dict_list)),
             ):
-                output_dict_list = Parallel(n_jobs=self.data.options.other['n_cpu'], verbose=40)(
+                output_dict_list = Parallel(n_jobs=self.data.options.other['n_cpu'])(
                     delayed(multiprocessing_runner)(input_dict=input_dict)
-                    for input_dict in input_dict_list
+                    for input_dict in input_dict_list[:100]
                 )
 
-        # Perform concatenation in chunks
-        chunk_size = 10  # Adjust chunk size as per your data size
-        catalog_chunks = [
-            output_dict_list[i:i + chunk_size]
-            for i in range(0, len(output_dict_list), chunk_size)
-        ]
+            print('Multiprocessing completed, collect results ', end='')
+        # # Perform concatenation in chunks
+        # chunk_size = 10  # Adjust chunk size as per your data size
+        # catalog_chunks = [
+        #     output_dict_list[i:i + chunk_size]
+        #     for i in range(0, len(output_dict_list), chunk_size)
+        # ]
+        #
+        # # Parallel concatenation of smaller chunks
+        # partial_catalogs = Parallel(n_jobs=10)(
+        #     delayed(pd.concat)([output_dict['catalog'] for output_dict in chunk])
+        #     for chunk in catalog_chunks
+        # )
+        #
+        # # Final concatenation (much smaller)
+        # self.data.catalog = pd.concat(partial_catalogs)
 
-        # Parallel concatenation of smaller chunks
-        partial_catalogs = Parallel(n_jobs=10)(
-            delayed(pd.concat)([output_dict['catalog'] for output_dict in chunk])
-            for chunk in catalog_chunks
-        )
+        self.data.catalog = pd.concat([output_dict['catalog'] for output_dict in output_dict_list])
 
-        # Final concatenation (much smaller)
-        self.data.catalog = pd.concat(partial_catalogs)
-
-        # self.data.catalog = pd.concat([output_dict['catalog'] for output_dict in output_dict_list])
+        print('[Done]')
 
         if safe_mode:
             for output_dict in output_dict_list:
