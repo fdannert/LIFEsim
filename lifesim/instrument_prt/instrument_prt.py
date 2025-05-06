@@ -245,7 +245,7 @@ class InstrumentPrt(InstrumentModule):
                 total=int(len(input_dict_list)),
             ):
                 output_dict_list = Parallel(n_jobs=self.data.options.other['n_cpu'])(
-                    delayed(debug_workers)(input_dict=input_dict)
+                    delayed(multiprocessing_runner)(input_dict=input_dict)
                     for input_dict in input_dict_list
                 )
 
