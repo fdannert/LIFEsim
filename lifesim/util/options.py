@@ -114,7 +114,8 @@ class Options(object):
                              'limit': None,
                              'habitable': False,
                              't_search': 0.,
-                             'instrumental_opt': False}
+                             'instrumental_opt': False,
+                             'image_size_limit': 512,}
 
     def set_scenario(self,
                      case: str):

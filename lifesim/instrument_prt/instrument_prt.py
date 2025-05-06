@@ -171,7 +171,7 @@ class InstrumentPrt(InstrumentModule):
                           'wl_bin_widths': self.data.inst['wl_bin_widths'],
                           'wl_min': self.data.options.array['wl_min'],
                           'integration_time': integration_time,
-                          'image_size': self.data.inst['image_size'],
+                          'image_size': np.min((self.data.inst['image_size'], self.data.option.optimization['image_size_limit'])),
                           'diameter_ap': self.data.options.array['diameter'],
                           'flux_division': self.data.options.array['flux_division'],
                           'throughput': self.data.options.array['throughput']
@@ -243,9 +243,9 @@ class InstrumentPrt(InstrumentModule):
 
         else:
             print('\nRunning in multiprocessing...')
-            #
-            # if os.path.exists(os.path.join(self.data.options.other['output_path'], 'execution_times.npy')):
-            #     ex_time = np.load(os.path.join(self.data.options.other['output_path'], 'execution_times.npy'))
+
+            if os.path.exists(os.path.join(self.data.options.other['output_path'], 'execution_times.npy')):
+                ex_time = np.load(os.path.join(self.data.options.other['output_path'], 'execution_times.npy'))
 
 
             with parallel_config(
@@ -262,33 +262,19 @@ class InstrumentPrt(InstrumentModule):
                 )
 
             print('Multiprocessing completed, collect results ', end='')
-        # # Perform concatenation in chunks
-        # chunk_size = 10  # Adjust chunk size as per your data size
-        # catalog_chunks = [
-        #     output_dict_list[i:i + chunk_size]
-        #     for i in range(0, len(output_dict_list), chunk_size)
-        # ]
-        #
-        # # Parallel concatenation of smaller chunks
-        # partial_catalogs = Parallel(n_jobs=10)(
-        #     delayed(pd.concat)([output_dict['catalog'] for output_dict in chunk])
-        #     for chunk in catalog_chunks
-        # )
-        #
-        # # Final concatenation (much smaller)
-        # self.data.catalog = pd.concat(partial_catalogs)
-        # self.ex_time = np.zeros((len(input_dict_list), 2))
-        # for i, output_dict in enumerate(output_dict_list):
-        #     self.ex_time[i, 1] = output_dict['execution_time']
-        #     try:
-        #         self.ex_time[i, 0] = output_dict['nstar']
-        #     except:
-        #         self.ex_time[i, 0] = -1
-        #
-        # if lookup_table.split(':')[0] == 'output':
-        #     np.save(os.path.join(lookup_table.split(':')[1], f"execution_times.npy"), self.ex_time)
 
-        # self.data.catalog = pd.concat([output_dict['catalog'] for output_dict in output_dict_list])
+            self.ex_time = np.zeros((len(input_dict_list), 2))
+            for i, output_dict in enumerate(output_dict_list):
+                self.ex_time[i, 1] = output_dict['execution_time']
+                try:
+                    self.ex_time[i, 0] = output_dict['nstar']
+                except:
+                    self.ex_time[i, 0] = -1
+
+            if lookup_table.split(':')[0] == 'output':
+                np.save(os.path.join(lookup_table.split(':')[1], f"execution_times.npy"), self.ex_time)
+
+
             self.data.catalog = pd.concat([
                 output_dict_list[np.argwhere(execution_order==i)[0][0]]['catalog']
                 for i in range(len(output_dict_list))
