@@ -212,7 +212,7 @@ class InstrumentPrt(InstrumentModule):
                           'hyperrot_noise': self.data.options.array['hyperrot_noise'],
                           'lookup_table': lookup_table.split(':')[0],
                           # 'lt_in': lt_in,
-                          'path_lookup_table': lookup_table.split(':')[1],
+                          'path_lookup_table': lookup_table.split(':')[1]
                           }
 
             # if safe_mode:
@@ -223,6 +223,10 @@ class InstrumentPrt(InstrumentModule):
 
         self.data.catalog = None
 
+        # prioritise order by image size
+        image_size = np.array([[i, idl['nstar'], idl['image_size']] for i, idl in enumerate(input_dict_list)])
+        execution_order = image_size[image_size[:, 2].argsort()[::-1]][:, 0]
+
         # if safe_mode:
         #     store = pd.HDFStore(self.data.options.other['output_path']
         #                         + self.data.options.other['output_filename'] + '.hdf5')
@@ -231,11 +235,18 @@ class InstrumentPrt(InstrumentModule):
 
         if self.data.options.other['n_cpu'] == 1:
             print('\nRunning in single processing...')
+            # input_dict_list.reverse()
             for input_dict in tqdm(input_dict_list):
                 output_dict_list.append(multiprocessing_runner(input_dict=input_dict))
 
+            self.data.catalog = pd.concat([output_dict['catalog'] for output_dict in output_dict_list])
+
         else:
             print('\nRunning in multiprocessing...')
+            #
+            # if os.path.exists(os.path.join(self.data.options.other['output_path'], 'execution_times.npy')):
+            #     ex_time = np.load(os.path.join(self.data.options.other['output_path'], 'execution_times.npy'))
+
 
             with parallel_config(
                 backend="loky",
@@ -246,8 +257,8 @@ class InstrumentPrt(InstrumentModule):
                 total=int(len(input_dict_list)),
             ):
                 output_dict_list = Parallel(n_jobs=self.data.options.other['n_cpu'])(
-                    delayed(multiprocessing_runner)(input_dict=input_dict)
-                    for input_dict in input_dict_list[:100]
+                    delayed(multiprocessing_runner)(input_dict=input_dict_list[ex_idx])
+                    for ex_idx in execution_order
                 )
 
             print('Multiprocessing completed, collect results ', end='')
@@ -266,8 +277,22 @@ class InstrumentPrt(InstrumentModule):
         #
         # # Final concatenation (much smaller)
         # self.data.catalog = pd.concat(partial_catalogs)
+        # self.ex_time = np.zeros((len(input_dict_list), 2))
+        # for i, output_dict in enumerate(output_dict_list):
+        #     self.ex_time[i, 1] = output_dict['execution_time']
+        #     try:
+        #         self.ex_time[i, 0] = output_dict['nstar']
+        #     except:
+        #         self.ex_time[i, 0] = -1
+        #
+        # if lookup_table.split(':')[0] == 'output':
+        #     np.save(os.path.join(lookup_table.split(':')[1], f"execution_times.npy"), self.ex_time)
 
-        self.data.catalog = pd.concat([output_dict['catalog'] for output_dict in output_dict_list])
+        # self.data.catalog = pd.concat([output_dict['catalog'] for output_dict in output_dict_list])
+            self.data.catalog = pd.concat([
+                output_dict_list[np.argwhere(execution_order==i)[0][0]]['catalog']
+                for i in range(len(output_dict_list))
+            ])
 
         print('[Done]')
 
@@ -600,6 +625,8 @@ class InstrumentPrt(InstrumentModule):
     #             return self.inst_prt.photon_rates_chop
 
 def multiprocessing_runner(input_dict: dict):
+    t = time.time()
+
     inst = Instrument(
         wl_bins=input_dict['wl_bins'],  # wavelength bins center position in m
         wl_bin_widths=input_dict['wl_bin_widths'],  # wavelength bin widths in m
@@ -642,7 +669,9 @@ def multiprocessing_runner(input_dict: dict):
         d_y_period_bin=input_dict['d_y_period_bin'],  # NEW: position periodic error in binning mode, y-direction
         simultaneous_chopping=True)
 
-    return_dict = {'noise_catalog': {}}
+    return_dict = {'noise_catalog': {},
+                   'execution_time': 0.,
+                   'nstar': input_dict['nstar']}
 
     if input_dict['lookup_table'] != 'input':
         # ----- same for every star -----
@@ -865,6 +894,7 @@ def multiprocessing_runner(input_dict: dict):
                              path=input_dict['path_lookup_table'],
                              nstar=input_dict['nstar'],)
 
+    return_dict['execution_time'] = time.time() - t
     return return_dict
 
 def debug_workers(input_dict):
