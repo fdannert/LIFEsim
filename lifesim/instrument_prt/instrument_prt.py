@@ -787,7 +787,7 @@ def multiprocessing_runner(input_dict: dict):
             try:
                 inst.run(run_method=['systematic'])
             except:
-                print(nuniverse, n_p)
+                print(idx_p, idx_u)
 
             # save baseline
             input_dict['catalog']['baseline'].iat[n_p] = deepcopy(input_dict['baseline'])
