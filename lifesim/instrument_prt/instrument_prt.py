@@ -2,6 +2,7 @@ import multiprocessing as mp
 from copy import deepcopy
 from typing import Union
 import os
+import time
 
 import numpy as np
 from tqdm import tqdm
@@ -244,7 +245,7 @@ class InstrumentPrt(InstrumentModule):
                 description="Running stars in parallel ...",
                 total=int(len(input_dict_list)),
             ):
-                output_dict_list = Parallel(n_jobs=self.data.options.other['n_cpu'])(
+                output_dict_list = Parallel(n_jobs=self.data.options.other['n_cpu'], verbose=40)(
                     delayed(multiprocessing_runner)(input_dict=input_dict)
                     for input_dict in input_dict_list
                 )
