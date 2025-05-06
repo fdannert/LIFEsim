@@ -237,8 +237,9 @@ class InstrumentPrt(InstrumentModule):
             print('\nRunning in multiprocessing...')
 
             with parallel_config(
-                    backend="multiprocessing",
+                    # backend="loky",
                     # inner_max_num_threads=1
+                backend='multiprocessing',
             ), joblib_progress(
                 description="Running stars in parallel ...",
                 total=int(len(input_dict_list)),
@@ -783,7 +784,10 @@ def multiprocessing_runner(input_dict: dict):
                 inst.photon_rates_nchop['signal'] = lookup_table['signal_nchop'][idx_p][idx_u]
                 inst.photon_rates_chop['signal'] = lookup_table['signal_chop'][idx_p][idx_u]
 
-            inst.run(run_method=['systematic'])
+            try:
+                inst.run(run_method=['systematic'])
+            except:
+                print(nuniverse, n_p)
 
             # save baseline
             input_dict['catalog']['baseline'].iat[n_p] = deepcopy(input_dict['baseline'])
