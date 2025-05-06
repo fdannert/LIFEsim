@@ -237,7 +237,7 @@ class InstrumentPrt(InstrumentModule):
             print('\nRunning in multiprocessing...')
 
             with parallel_config(
-                    backend="loky", inner_max_num_threads=1
+                    backend="multiprocessing", inner_max_num_threads=1
             ), joblib_progress(
                 description="Running stars in parallel ...",
                 total=int(len(input_dict_list)),
