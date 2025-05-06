@@ -761,7 +761,7 @@ def write_lookup_to_hdf5(lookup_data, path, nstar):
                     list_of_lists_group = hdf_file.create_group(key)
                     for i, sublist in enumerate(value):
                         if sublist:  # Only create subgroup if sublist is not empty
-                            sublist_group = list_of_lists_group.create_group(f'sublist_{i}')
+                            sublist_group = list_of_lists_group.create_group(f'sublist_{i:04}')
                             for j, array in enumerate(sublist):
                                 if isinstance(array, np.ndarray):
                                     if array.dtype.kind == 'U':  # Check for Unicode string arrays
@@ -776,7 +776,7 @@ def write_lookup_to_hdf5(lookup_data, path, nstar):
                         if isinstance(array, np.ndarray):
                             if array.dtype.kind == 'U':  # Check for Unicode string arrays
                                 array = array.astype('S')
-                            list_group.create_dataset(f'array_{i}', data=array)
+                            list_group.create_dataset(f'array_{i:05}', data=array)
                         else:
                             raise ValueError(f"Unsupported type in list for key '{key}': {type(array)}")
             else:

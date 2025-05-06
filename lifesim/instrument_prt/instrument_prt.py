@@ -237,9 +237,9 @@ class InstrumentPrt(InstrumentModule):
             print('\nRunning in multiprocessing...')
 
             with parallel_config(
-                    # backend="loky",
-                    # inner_max_num_threads=1
-                backend='multiprocessing',
+                backend="loky",
+                inner_max_num_threads=1
+                # backend='multiprocessing',
             ), joblib_progress(
                 description="Running stars in parallel ...",
                 total=int(len(input_dict_list)),
@@ -249,7 +249,23 @@ class InstrumentPrt(InstrumentModule):
                     for input_dict in input_dict_list
                 )
 
-        self.data.catalog = pd.concat([output_dict['catalog'] for output_dict in output_dict_list])
+        # Perform concatenation in chunks
+        chunk_size = 10  # Adjust chunk size as per your data size
+        catalog_chunks = [
+            output_dict_list[i:i + chunk_size]
+            for i in range(0, len(output_dict_list), chunk_size)
+        ]
+
+        # Parallel concatenation of smaller chunks
+        partial_catalogs = Parallel(n_jobs=10)(
+            delayed(pd.concat)([output_dict['catalog'] for output_dict in chunk])
+            for chunk in catalog_chunks
+        )
+
+        # Final concatenation (much smaller)
+        self.data.catalog = pd.concat(partial_catalogs)
+
+        # self.data.catalog = pd.concat([output_dict['catalog'] for output_dict in output_dict_list])
 
         if safe_mode:
             for output_dict in output_dict_list:
@@ -783,14 +799,8 @@ def multiprocessing_runner(input_dict: dict):
                 inst.planet_template_chop = lookup_table['planet_template_chop'][idx_p][idx_u]
                 inst.photon_rates_nchop['signal'] = lookup_table['signal_nchop'][idx_p][idx_u]
                 inst.photon_rates_chop['signal'] = lookup_table['signal_chop'][idx_p][idx_u]
-            try:
-                inst.run(run_method=['systematic'])
-            except:
-                print('nstar: ', input_dict['nstar'])
-                print('idx_p ', idx_p)
-                print('idx_u: ', idx_u)
-                raise ValueError('STOPTOOPSOPOTOPSOOTPTOP')
 
+            inst.run(run_method=['systematic'])
 
             # save baseline
             input_dict['catalog']['baseline'].iat[n_p] = deepcopy(input_dict['baseline'])
