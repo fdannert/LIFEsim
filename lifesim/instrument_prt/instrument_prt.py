@@ -112,23 +112,6 @@ class InstrumentPrt(InstrumentModule):
         if safe_mode:
             self.data.noise_catalog = {}
 
-        # load lookup table
-        # if lookup_table.split(':')[0] == 'input':
-        #     lookup_table_in = pd.read_hdf(lookup_table.split(':')[1]).to_dict()
-        # Load lookup table
-        # if lookup_table.split(':')[0] == 'input':
-        #     # lookup_table_in = []
-        #     #
-        #     # if lookup_table.split(':')[0] == 'input':
-        #     #     with h5py.File(lookup_table.split(':')[1], "r") as h5file:
-        #     #         for group_name in h5file.keys():
-        #     #             group = h5file[group_name]
-        #     #             lookup_table_in.append({"lookup_table": load_from_hdf5(group)})
-        #     with h5py.File(
-        #             lookup_table.split(':')[1],
-        #             'r') as h5file:
-        #         lookup_table_in = load_from_hdf5(h5file)
-
         # create mask returning only unique stars
         _, temp = np.unique(self.data.catalog.nstar, return_index=True)
         star_mask = np.zeros_like(self.data.catalog.nstar, dtype=bool)
@@ -157,11 +140,6 @@ class InstrumentPrt(InstrumentModule):
 
             self.run_socket(s_name='instrument',
                             method='adjust_image_size')
-
-            # if lookup_table.split(':')[0] == 'input':
-            #     lt_in = lookup_table_in[nstar]
-            # else:
-            #     lt_in = None
 
             # create single input dictionary
 
@@ -223,9 +201,9 @@ class InstrumentPrt(InstrumentModule):
 
         self.data.catalog = None
 
-        # prioritise order by image size
-        image_size = np.array([[i, idl['nstar'], idl['image_size']] for i, idl in enumerate(input_dict_list)])
-        execution_order = image_size[image_size[:, 2].argsort()[::-1]][:, 0]
+        # # prioritise order by image size
+        # image_size = np.array([[i, idl['nstar'], idl['image_size']] for i, idl in enumerate(input_dict_list)])
+        # execution_order = image_size[image_size[:, 2].argsort()[::-1]][:, 0]
 
         # if safe_mode:
         #     store = pd.HDFStore(self.data.options.other['output_path']
@@ -246,7 +224,11 @@ class InstrumentPrt(InstrumentModule):
 
             if os.path.exists(os.path.join(self.data.options.other['output_path'], 'execution_times.npy')):
                 ex_time = np.load(os.path.join(self.data.options.other['output_path'], 'execution_times.npy'))
+                ex_time = ex_time[ex_time[:, 1].argsort()[::-1]]
 
+                nstar_list = [od['nstar'] for od in input_dict_list]
+
+                execution_order = [np.argwhere(nstar_list == nstar)[0][0] for nstar in ex_time[:, 0]]
 
             with parallel_config(
                 backend="loky",
