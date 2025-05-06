@@ -222,13 +222,17 @@ class InstrumentPrt(InstrumentModule):
         else:
             print('\nRunning in multiprocessing...')
 
-            if os.path.exists(os.path.join(self.data.options.other['output_path'], 'execution_times.npy')):
-                ex_time = np.load(os.path.join(self.data.options.other['output_path'], 'execution_times.npy'))
+            if os.path.exists(os.path.join(lookup_table.split(':')[1], 'execution_times.npy')):
+                ex_time = np.load(os.path.join(lookup_table.split(':')[1], 'execution_times.npy'))
                 ex_time = ex_time[ex_time[:, 1].argsort()[::-1]]
 
                 nstar_list = [od['nstar'] for od in input_dict_list]
 
-                execution_order = [np.argwhere(nstar_list == nstar)[0][0] for nstar in ex_time[:, 0]]
+                execution_order = np.array([np.argwhere(nstar_list == nstar)[0][0] for nstar in ex_time[:, 0]])
+
+                print('Running in optimized execution order...')
+            else:
+                execution_order = np.arange(len(input_dict_list))
 
             with parallel_config(
                 backend="loky",
