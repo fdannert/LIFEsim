@@ -787,6 +787,7 @@ def multiprocessing_runner(input_dict: dict):
             try:
                 inst.run(run_method=['systematic'])
             except:
+                print(inst.planet_template_chop[0, :])
                 print(idx_p, idx_u)
 
             # save baseline
