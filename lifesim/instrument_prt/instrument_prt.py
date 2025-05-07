@@ -245,7 +245,7 @@ class InstrumentPrt(InstrumentModule):
                     for id in nstar_runs:
                         idict = deepcopy(input_dict)
                         idict['run_id'] = int(id)
-                        idict['catalog'] = self.data.catalog[np.isin(self.data.catalog, run_list[id][1])]
+                        idict['catalog'] = self.data.catalog[np.isin(self.data.catalog.id, run_list[id][1])]
                         input_dict_list.append(idict)
 
             else:
