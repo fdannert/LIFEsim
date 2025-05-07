@@ -3,6 +3,7 @@ from copy import deepcopy
 from typing import Union
 import os
 import time
+import yaml
 
 import numpy as np
 from tqdm import tqdm
@@ -12,6 +13,7 @@ import xarray as xr
 import h5py
 from joblib import Parallel, delayed, parallel_config
 from joblib_progress import joblib_progress
+from scipy.stats import median_abs_deviation as mad
 
 from lifesim.core.modules import InstrumentModule
 from inlifesim.observatory import Instrument
@@ -63,7 +65,8 @@ class InstrumentPrt(InstrumentModule):
 
     def get_snr(self,
                 safe_mode:bool = True,
-                lookup_table:str = 'none:none'):
+                lookup_table:str = 'none:none',
+                execution_opt_factor:int = 0):
         '''
         Calculate the SNR for all stars in the catalog.
         Parameters
@@ -87,6 +90,26 @@ class InstrumentPrt(InstrumentModule):
                 # Create the directory
                 os.makedirs(lookup_table.split(':')[1])
                 print(f"Directory '{lookup_table.split(':')[1]}' was successfully created.")
+
+        if execution_opt_factor > 0:
+            if not os.path.exists(os.path.join(lookup_table.split(':')[1], 'execution_times.npy')):
+                raise ValueError('Execution times are not available, run the simulation without optimization.')
+
+            ex_time = np.load(os.path.join(lookup_table.split(':')[1], 'execution_times.npy'))
+
+            t_threshold = np.median(ex_time[:, 1]) + execution_opt_factor * mad(ex_time[:, 1])
+            split = np.ceil(ex_time[:, 1] / t_threshold).astype(int)
+
+            ex_time = np.hstack((ex_time, split.reshape(-1, 1)))
+
+        if (lookup_table.split(':')[0] == 'input'):
+            with open(os.path.join(lookup_table.split(':')[1], 'run_list.yaml'), 'r') as file:
+                run_list = yaml.safe_load(file)
+            star_run_id = np.array([[id,run_list[id][0]] for id in run_list.keys()])
+        else:
+            run_list = {}
+
+        #
 
         # currently, the choice of integration time here is arbitrary. Since the background limited
         # case is assumed, the SNR scales with sqrt(integration time) and through this, the SNR
@@ -122,6 +145,7 @@ class InstrumentPrt(InstrumentModule):
 
         # iterate over all stars
         print('\nPreparing sample...')
+        run_id = 0
         for i, n in enumerate(tqdm(np.where(star_mask)[0])):
             nstar = self.data.catalog.nstar.iloc[n]
 
@@ -142,72 +166,100 @@ class InstrumentPrt(InstrumentModule):
                             method='adjust_image_size')
 
             # create single input dictionary
+            input_dict = {
+                # 'catalog': self.data.catalog[self.data.catalog.nstar == nstar],
+                'zodi_reference': self.data.options.other['zodi_reference'],
+                'wl_bins': self.data.inst['wl_bins'],
+                'wl_bin_widths': self.data.inst['wl_bin_widths'],
+                'wl_min': self.data.options.array['wl_min'],
+                'integration_time': integration_time,
+                'image_size': np.min((self.data.inst['image_size'], self.data.options.optimization['image_size_limit'])),
+                'diameter_ap': self.data.options.array['diameter'],
+                'flux_division': self.data.options.array['flux_division'],
+                'throughput': self.data.options.array['throughput']
+                              * self.data.options.array['quantum_eff'],
+                'phase_response': self.data.options.array['phase_response'],
+                'phase_response_chop': self.data.options.array['phase_response_chop'],
+                't_rot': self.data.options.array['t_rot'],
+                't_exp': self.data.options.array['t_exp'],
+                'chopping': self.data.options.array['chopping'],
+                'pix_per_wl': self.data.options.array['pix_per_wl'],
+                'col_pos': col_pos,
+                'bl': self.data.inst['bl'],
+                'ratio': self.data.options.array['ratio'],
+                'n_sampling_multiplier': self.data.options.array['n_sampling_multiplier'],
+                'nstar': nstar,
+                'baseline': self.data.inst['bl'],
+                'safe_mode': safe_mode,
+                'd_a_rms': self.data.options.array['d_a_rms'],
+                'd_phi_rms': self.data.options.array['d_phi_rms'],
+                'd_x_rms': self.data.options.array['d_x_rms'],
+                'd_y_rms': self.data.options.array['d_y_rms'],
+                'd_pol_rms': self.data.options.array['d_pol_rms'],
+                'd_a_co': self.data.options.array['d_a_co'],
+                'd_phi_co': self.data.options.array['d_phi_co'],
+                'd_x_co': self.data.options.array['d_x_co'],
+                'd_y_co': self.data.options.array['d_y_co'],
+                'd_pol_co': self.data.options.array['d_pol_co'],
+                'd_a_period_bin': self.data.options.array['d_a_period_bin'],
+                'd_phi_period_bin': self.data.options.array['d_phi_period_bin'],
+                'd_x_period_bin': self.data.options.array['d_x_period_bin'],
+                'd_y_period_bin': self.data.options.array['d_y_period_bin'],
+                'd_pol_period_bin': self.data.options.array['d_pol_period_bin'],
+                'agn_phot_hot': self.data.options.array['agn_phot_hot'],
+                'agn_phot_cold': self.data.options.array['agn_phot_cold'],
+                'agn_phot_white': self.data.options.array['agn_phot_white'],
+                'agn_spacecraft_temp': self.data.options.array['agn_spacecraft_temp'],
+                'rms_mode': self.data.options.array['rms_mode'],
+                'hyperrot_noise': self.data.options.array['hyperrot_noise'],
+                'lookup_table': lookup_table.split(':')[0],
+                # 'lt_in': lt_in,
+                'path_lookup_table': lookup_table.split(':')[1]
+            }
+            if (lookup_table.split(':')[0] == 'output'):
+                if (execution_opt_factor == 0) or (ex_time[ex_time[:, 0]==nstar, 2][0] == 1):
+                    input_dict['catalog'] = self.data.catalog[self.data.catalog.nstar == nstar]
+                    input_dict['run_id'] = run_id
+                    run_list[run_id] = [int(nstar), 'all']
+                    input_dict_list.append(input_dict)
+                    run_id += 1
+                else:
+                    sub_cat = deepcopy(self.data.catalog[self.data.catalog.nstar == nstar])
+                    sub_cat = sub_cat.sort_values(by='nuniverse')
+                    sub_cats = np.array_split(sub_cat, int(ex_time[ex_time[:, 0]==nstar, 2][0]))
+                    for sub_cat in sub_cats:
+                        idict = deepcopy(input_dict)
+                        idict['catalog'] = sub_cat
+                        idict['run_id'] = run_id
+                        run_list[run_id] = [int(nstar), sub_cat.id.values.tolist()]
+                        input_dict_list.append(idict)
+                        run_id += 1
 
-            input_dict = {'catalog': self.data.catalog[self.data.catalog.nstar == nstar],
-                          'zodi_reference': self.data.options.other['zodi_reference'],
-                          'wl_bins': self.data.inst['wl_bins'],
-                          'wl_bin_widths': self.data.inst['wl_bin_widths'],
-                          'wl_min': self.data.options.array['wl_min'],
-                          'integration_time': integration_time,
-                          'image_size': np.min((self.data.inst['image_size'], self.data.options.optimization['image_size_limit'])),
-                          'diameter_ap': self.data.options.array['diameter'],
-                          'flux_division': self.data.options.array['flux_division'],
-                          'throughput': self.data.options.array['throughput']
-                                        * self.data.options.array['quantum_eff'],
-                          'phase_response': self.data.options.array['phase_response'],
-                          'phase_response_chop': self.data.options.array['phase_response_chop'],
-                          't_rot': self.data.options.array['t_rot'],
-                          't_exp': self.data.options.array['t_exp'],
-                          'chopping': self.data.options.array['chopping'],
-                          'pix_per_wl': self.data.options.array['pix_per_wl'],
-                          'col_pos': col_pos,
-                          'bl': self.data.inst['bl'],
-                          'ratio': self.data.options.array['ratio'],
-                          'n_sampling_multiplier': self.data.options.array['n_sampling_multiplier'],
-                          'nstar': nstar,
-                          'baseline': self.data.inst['bl'],
-                          'safe_mode': safe_mode,
-                          'd_a_rms': self.data.options.array['d_a_rms'],
-                          'd_phi_rms': self.data.options.array['d_phi_rms'],
-                          'd_x_rms': self.data.options.array['d_x_rms'],
-                          'd_y_rms': self.data.options.array['d_y_rms'],
-                          'd_pol_rms': self.data.options.array['d_pol_rms'],
-                          'd_a_co': self.data.options.array['d_a_co'],
-                          'd_phi_co': self.data.options.array['d_phi_co'],
-                          'd_x_co': self.data.options.array['d_x_co'],
-                          'd_y_co': self.data.options.array['d_y_co'],
-                          'd_pol_co': self.data.options.array['d_pol_co'],
-                          'd_a_period_bin': self.data.options.array['d_a_period_bin'],
-                          'd_phi_period_bin': self.data.options.array['d_phi_period_bin'],
-                          'd_x_period_bin': self.data.options.array['d_x_period_bin'],
-                          'd_y_period_bin': self.data.options.array['d_y_period_bin'],
-                          'd_pol_period_bin': self.data.options.array['d_pol_period_bin'],
-                          'agn_phot_hot': self.data.options.array['agn_phot_hot'],
-                          'agn_phot_cold': self.data.options.array['agn_phot_cold'],
-                          'agn_phot_white': self.data.options.array['agn_phot_white'],
-                          'agn_spacecraft_temp': self.data.options.array['agn_spacecraft_temp'],
-                          'rms_mode': self.data.options.array['rms_mode'],
-                          'hyperrot_noise': self.data.options.array['hyperrot_noise'],
-                          'lookup_table': lookup_table.split(':')[0],
-                          # 'lt_in': lt_in,
-                          'path_lookup_table': lookup_table.split(':')[1]
-                          }
+            elif (lookup_table.split(':')[0] == 'input'):
+                nstar_runs = star_run_id[star_run_id[:, 1] == nstar, 0]
+                if len(nstar_runs) == 1:
+                    input_dict['catalog'] = self.data.catalog[self.data.catalog.nstar == nstar]
+                    input_dict['run_id'] = nstar_runs[0]
+                    input_dict_list.append(input_dict)
+                else:
+                    for id in nstar_runs:
+                        idict = deepcopy(input_dict)
+                        idict['run_id'] = int(id)
+                        idict['catalog'] = self.data.catalog[np.isin(self.data.catalog, run_list[id][1])]
+                        input_dict_list.append(idict)
 
-            # if safe_mode:
-            #     input_dict['noise_catalog'] = self.data.noise_catalog.loc[
-            #         self.data.catalog.id[self.data.catalog.nstar == nstar]]
+            else:
+                input_dict['catalog'] = self.data.catalog[self.data.catalog.nstar == nstar]
+                input_dict['run_id'] = run_id
+                input_dict_list.append(input_dict)
+                run_id += 1
 
-            input_dict_list.append(input_dict)
+        if (lookup_table.split(':')[0] == 'output'):
+            # Save run list to a YAML file
+            with open(os.path.join(lookup_table.split(':')[1], 'run_list.yaml'), 'w') as file:
+                yaml.dump(run_list, file, default_flow_style=False)
 
         self.data.catalog = None
-
-        # # prioritise order by image size
-        # image_size = np.array([[i, idl['nstar'], idl['image_size']] for i, idl in enumerate(input_dict_list)])
-        # execution_order = image_size[image_size[:, 2].argsort()[::-1]][:, 0]
-
-        # if safe_mode:
-        #     store = pd.HDFStore(self.data.options.other['output_path']
-        #                         + self.data.options.other['output_filename'] + '.hdf5')
 
         output_dict_list = []
 
@@ -217,22 +269,20 @@ class InstrumentPrt(InstrumentModule):
             for input_dict in tqdm(input_dict_list):
                 output_dict_list.append(multiprocessing_runner(input_dict=input_dict))
 
-            self.data.catalog = pd.concat([output_dict['catalog'] for output_dict in output_dict_list])
-
         else:
             print('\nRunning in multiprocessing...')
 
-            if os.path.exists(os.path.join(lookup_table.split(':')[1], 'execution_times.npy')):
-                ex_time = np.load(os.path.join(lookup_table.split(':')[1], 'execution_times.npy'))
-                ex_time = ex_time[ex_time[:, 1].argsort()[::-1]]
-
-                nstar_list = [od['nstar'] for od in input_dict_list]
-
-                execution_order = np.array([np.argwhere(nstar_list == nstar)[0][0] for nstar in ex_time[:, 0]])
-
-                print('Running in optimized execution order...')
-            else:
-                execution_order = np.arange(len(input_dict_list))
+            # if os.path.exists(os.path.join(lookup_table.split(':')[1], 'execution_times.npy')):
+            #     ex_time = np.load(os.path.join(lookup_table.split(':')[1], 'execution_times.npy'))
+            #     ex_time = ex_time[ex_time[:, 1].argsort()[::-1]]
+            #
+            #     nstar_list = [od['nstar'] for od in input_dict_list]
+            #
+            #     execution_order = np.array([np.argwhere(nstar_list == nstar)[0][0] for nstar in ex_time[:, 0]])
+            #
+            #     print('Running in optimized execution order...')
+            # else:
+            #     execution_order = np.arange(len(input_dict_list))
 
             with parallel_config(
                 backend="loky",
@@ -243,8 +293,8 @@ class InstrumentPrt(InstrumentModule):
                 total=int(len(input_dict_list)),
             ):
                 output_dict_list = Parallel(n_jobs=self.data.options.other['n_cpu'])(
-                    delayed(multiprocessing_runner)(input_dict=input_dict_list[ex_idx])
-                    for ex_idx in execution_order
+                    delayed(multiprocessing_runner)(input_dict=input_dict)
+                    for input_dict in input_dict_list
                 )
 
             print('Multiprocessing completed, collect results ', end='')
@@ -257,14 +307,14 @@ class InstrumentPrt(InstrumentModule):
                 except:
                     self.ex_time[i, 0] = -1
 
-            if lookup_table.split(':')[0] == 'output':
+            if (lookup_table.split(':')[0] == 'output') and (execution_opt_factor == 0):
                 np.save(os.path.join(lookup_table.split(':')[1], f"execution_times.npy"), self.ex_time)
 
-
-            self.data.catalog = pd.concat([
-                output_dict_list[np.argwhere(execution_order==i)[0][0]]['catalog']
-                for i in range(len(output_dict_list))
-            ])
+        self.data.catalog = pd.concat([output_dict['catalog'] for output_dict in output_dict_list])
+            # self.data.catalog = pd.concat([
+            #     output_dict_list[np.argwhere(execution_order==i)[0][0]]['catalog']
+            #     for i in range(len(output_dict_list))
+            # ])
 
         print('[Done]')
 
@@ -682,7 +732,7 @@ def multiprocessing_runner(input_dict: dict):
 
     elif input_dict['lookup_table'] == 'input':
         lookup_table = read_lookup_from_hdf5(path=input_dict['path_lookup_table'],
-                                             nstar=input_dict['nstar'])
+                                             nstar=input_dict['run_id'])
 
         inst.flux_star = lookup_table['flux_star']
         inst.instrumental_parameters()
@@ -864,7 +914,7 @@ def multiprocessing_runner(input_dict: dict):
     if input_dict['lookup_table'] == 'output':
         write_lookup_to_hdf5(lookup_data=lookup_table,
                              path=input_dict['path_lookup_table'],
-                             nstar=input_dict['nstar'],)
+                             nstar=input_dict['run_id'],)
 
     return_dict['execution_time'] = time.time() - t
     return return_dict
