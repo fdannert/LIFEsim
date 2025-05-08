@@ -225,7 +225,7 @@ class InstrumentPrt(InstrumentModule):
                     run_id += 1
                 else:
                     sub_cat = deepcopy(self.data.catalog[self.data.catalog.nstar == nstar])
-                    sub_cat = sub_cat.sort_values(by='nuniverse')
+                    # sub_cat = sub_cat.sort_values(by='nuniverse')
                     sub_cats = np.array_split(sub_cat, int(ex_time[ex_time[:, 0]==nstar, 2][0]))
                     for sub_cat in sub_cats:
                         idict = deepcopy(input_dict)
