@@ -20,7 +20,7 @@ def get_integration_time(temp_p,
                          instrument,
                          use_blackbody,
                          path_spectrum=None,
-                         return_reference=False,
+                         rerun=True,
                          return_time=False,
                          n_cpu=1,):
     """
@@ -89,30 +89,31 @@ def get_integration_time(temp_p,
             'SNR @ ' + str(np.round(res_in.index.to_numpy()[wl_id] * 1e6, 2)) + 'µm = ' + str(np.round(snr_fundamental[wl_id], 2)))
         integration_time_new = 60 * 60 * (target_snr / snr_fundamental[wl_id]) ** 2
 
-    n_rot = int(integration_time_new/24/60/60)  # Convert to integer (truncates towards zero)
-    if n_rot % 2 == 0:
-        n_rot -= 1  # If even, decrement by 1 to make it odd
-    n_rot = np.max((n_rot, 1))
+    if rerun:
+        n_rot = int(integration_time_new/24/60/60)  # Convert to integer (truncates towards zero)
+        if n_rot % 2 == 0:
+            n_rot -= 1  # If even, decrement by 1 to make it odd
+        n_rot = np.max((n_rot, 1))
 
-    res_in = instrument.get_spectrum(temp_s=temp_s,
-                                     radius_s=radius_s,
-                                     distance_s=distance_s,
-                                     lat_s=lat_s,
-                                     z=z,
-                                     angsep=angsep,
-                                     flux_planet_spectrum=flux_planet_spectrum,
-                                     integration_time=integration_time_new,
-                                     exposure_time=60*2,
-                                     n_rot=n_rot,
-                                     n_cpu=n_cpu,)
+        res_in = instrument.get_spectrum(temp_s=temp_s,
+                                         radius_s=radius_s,
+                                         distance_s=distance_s,
+                                         lat_s=lat_s,
+                                         z=z,
+                                         angsep=angsep,
+                                         flux_planet_spectrum=flux_planet_spectrum,
+                                         integration_time=integration_time_new,
+                                         exposure_time=60*2,
+                                         n_rot=n_rot,
+                                         n_cpu=n_cpu,)
 
-    snr_fundamental = res_in['snr']
+        snr_fundamental = res_in['snr']
 
-    print('In ' + str(np.round(integration_time_new / (24 * 60 * 60), 2)) + 'd of integration time:')
-    print('Bulk SNR = ' + str(np.round(np.sqrt(np.sum(snr_fundamental ** 2)), 2)))
-    if not wl_optimized == 'bulk':
-        print(
-            'SNR @ ' + str(np.round(res_in.index.to_numpy()[wl_id] * 1e6, 2)) + 'µm = ' + str(np.round(snr_fundamental[wl_id], 2)))
+        print('In ' + str(np.round(integration_time_new / (24 * 60 * 60), 2)) + 'd of integration time:')
+        print('Bulk SNR = ' + str(np.round(np.sqrt(np.sum(snr_fundamental ** 2)), 2)))
+        if not wl_optimized == 'bulk':
+            print(
+                'SNR @ ' + str(np.round(res_in.index.to_numpy()[wl_id] * 1e6, 2)) + 'µm = ' + str(np.round(snr_fundamental[wl_id], 2)))
 
     if return_time:
         return integration_time_new
