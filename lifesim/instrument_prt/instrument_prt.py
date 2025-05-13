@@ -338,50 +338,145 @@ class InstrumentPrt(InstrumentModule):
         # if safe_mode:
         #     store.close()
 
-    def get_spectrum(self):
-        pass
-    # def get_spectrum(self):
-    #     inst = Instrument(
-    #         wl_bins=self.data.inst['wl_bins'],  # wavelength bins center position in m
-    #         wl_bin_widths=self.data.inst['wl_bin_widths'],  # wavelength bin widths in m
-    #         image_size=input_dict['image_size'],  # size of the image used to simulate exozodi in pix
-    #         diameter_ap=input_dict['diameter_ap'],  # diameter of the primary mirrors in m
-    #         flux_division=input_dict['flux_division'],  # division of the flux between primary mirrors
-    #         throughput=input_dict['throughput'],  # fraction of light sustained through the optical train
-    #         dist_star=input_dict['catalog'].distance_s.iloc[0],  # distance to the target system in pc
-    #         radius_star=input_dict['catalog'].radius_s.iloc[0],  # radius of the star in stellar radii
-    #         temp_star=input_dict['catalog'].temp_s.iloc[0],  # temperature of the host star in Kelvin
-    #         lat_star=input_dict['catalog'].lat.iloc[0],  # ecliptic latitude of the target star
-    #         l_sun=input_dict['catalog'].l_sun.iloc[0],  # stellar luminosity in solar luminosities
-    #         z=input_dict['zodi_reference'],  # zodi level
-    #         temp_planet=0.,  # planet temperature in Kelvin
-    #         radius_planet=0.,  # planet radius in Earth radii
-    #         separation_planet=0.,  # separation of target planet from host star in AU
-    #         col_pos=input_dict['col_pos'],  # collector position in m
-    #         phase_response=input_dict['phase_response'],  # phase response of each collector arm in rad
-    #         phase_response_chop=input_dict['phase_response_chop'],  # phase response in the chopped state in rad
-    #         n_rot=1,  # NEW: total number of rotations over the observation time
-    #         t_total=input_dict['t_rot'],  # NEW: total observation time in seconds
-    #         t_exp=input_dict['t_exp'],  # NEW: exposure time per sampling in seconds
-    #         n_cpu=1,  # number of cores used in the simulation
-    #         rms_mode=input_dict['rms_mode'],  # mode for RMS values: 'lay', 'static', or 'wavelength'
-    #         hyperrot_noise=input_dict['hyperrot_noise'],  # NEW: hyperrotation noise source, e.g., "pink" or None
-    #         d_a_rms=input_dict['d_a_rms'],  # relative amplitude error RMS
-    #         d_phi_rms=input_dict['d_phi_rms'],  # phase error RMS
-    #         d_pol_rms=input_dict['d_pol_rms'],  # polarization error RMS
-    #         d_x_rms=input_dict['d_x_rms'],  # collector position RMS, x-direction
-    #         d_y_rms=input_dict['d_y_rms'],  # collector position RMS, y-direction
-    #         d_a_co=input_dict['d_a_co'],  # NEW: amplitude error cutoff frequency
-    #         d_phi_co=input_dict['d_phi_co'],  # NEW: phase error cutoff frequency
-    #         d_pol_co=input_dict['d_pol_co'],  # NEW: polarization error cutoff frequency
-    #         d_x_co=input_dict['d_x_co'],  # NEW: position error cutoff frequency, x-direction
-    #         d_y_co=input_dict['d_y_co'],  # NEW: position error cutoff frequency, y-direction
-    #         d_a_period_bin=input_dict['d_a_period_bin'],  # NEW: amplitude periodic error in binning mode
-    #         d_phi_period_bin=input_dict['d_phi_period_bin'],  # NEW: phase periodic error in binning mode
-    #         d_pol_period_bin=input_dict['d_pol_period_bin'],  # NEW: polarization periodic error in binning mode
-    #         d_x_period_bin=input_dict['d_x_period_bin'],  # NEW: position periodic error in binning mode, x-direction
-    #         d_y_period_bin=input_dict['d_y_period_bin'],  # NEW: position periodic error in binning mode, y-direction
-    #         simultaneous_chopping=True)
+    def get_spectrum(self,
+                     temp_s: float,
+                     radius_s: float,
+                     distance_s: float,
+                     lat_s: float,
+                     z: float,
+                     angsep: float,
+                     flux_planet_spectrum: list,
+                     integration_time: float,
+                     exposure_time: float = 600,
+                     n_rot: int = 1,
+                     baseline: float = None,
+                     wl_bin: Union[np.ndarray, type(None)] = None,
+                     wl_bin_width: Union[np.ndarray, type(None)] = None,
+                     run: bool = True,
+                     n_cpu: int = 1,
+                     ):
+
+        if wl_bin is not None:
+            self.data.inst['wl_bins'] = np.array([wl_bin])
+            self.data.inst['wl_bin_widths'] = np.array([wl_bin_width])
+            self.data.inst['wl_bin_edges'] = np.array((
+                wl_bin - wl_bin_width / 2,
+                wl_bin + wl_bin_width / 2
+            ))
+
+        # calculate the habitable zone of the specified star
+        s_in, s_out, l_sun, \
+        hz_in, hz_out, \
+            hz_center = single_habitable_zone(
+            model=self.data.options.models['habitable'],
+            temp_s=temp_s,
+            radius_s=radius_s
+        )
+
+        flux_planet_spectrum = spectres(
+            new_wavs=self.data.inst['wl_bin_edges'],
+            spec_wavs=flux_planet_spectrum[0].value,
+            spec_fluxes=flux_planet_spectrum[1].value,
+            edge_mode=True
+        )
+
+        flux_planet_spectrum *= self.data.inst['wl_bin_widths']
+
+        self.run_socket(s_name='instrument',
+                        method='apply_options')
+
+        if wl_bin is not None:
+            self.data.inst['wl_bins'] = np.array([wl_bin])
+            self.data.inst['wl_bin_widths'] = np.array([wl_bin_width])
+
+        if baseline is not None:
+            # set baseline manually
+            self.run_socket(s_name='instrument',
+                            method='apply_baseline',
+                            baseline=baseline,
+                            print_warning=True)
+        else:
+            # adjust baseline to HZ
+            self.run_socket(s_name='instrument',
+                            method='adjust_bl_to_hz',
+                            hz_center=hz_center,
+                            distance_s=distance_s)
+
+        col_pos = np.array((
+            (-self.data.inst['bl'] / 2,
+             -self.data.inst['bl'] * self.data.options.array['ratio'] / 2),
+            (-self.data.inst['bl'] / 2,
+             self.data.inst['bl'] * self.data.options.array['ratio'] / 2),
+            (self.data.inst['bl'] / 2,
+             -self.data.inst['bl'] * self.data.options.array['ratio'] / 2),
+            (self.data.inst['bl'] / 2,
+             self.data.inst['bl'] * self.data.options.array['ratio'] / 2)
+        ))
+
+        self.run_socket(s_name='instrument',
+                        method='adjust_sampling_rate',
+                        angsep=angsep)
+
+        self.inst = Instrument(
+            wl_bins=self.data.inst['wl_bins'],  # wavelength bins center position in m
+            wl_bin_widths=self.data.inst['wl_bin_widths'],  # wavelength bins width in m
+            image_size=self.data.inst['image_size'],
+            # size of image used to simulate exozodi in pix
+            diameter_ap=self.data.options.array['diameter'],
+            # diameter of the primary mirrors in m
+            flux_division=self.data.options.array['flux_division'],
+            # division of the flux between the primary mirrors, e.g. in
+            # baseline case [0.25, 0.25, 0.25, 0.25]
+            throughput=self.data.options.array['throughput']
+                       * self.data.options.array['quantum_eff'],
+            # fraction of light that is sustained through the optical train
+            t_total=integration_time,
+            # total integration time in s
+            t_exp=exposure_time,
+            # time of a single exposure in s
+            n_rot=n_rot,
+            # number of array rotations
+            dist_star=distance_s,  # distance to the target system in pc
+            radius_star=radius_s,  # radius of the star in stellar radii
+            temp_star=temp_s,  # temperature of the host star in Kelvin
+            lat_star=lat_s,  # ecliptic latitude of the target star
+            l_sun=l_sun,  # stellar luminosity in solar luminosities
+            z=z,  # zodi level
+            temp_planet=0.,  # planet temperature in Kelvin
+            radius_planet=0.,  # planet radius in earth radii
+            separation_planet=angsep * distance_s,
+            # separation of target planet from host star in AU
+            flux_planet=flux_planet_spectrum,
+            # substitute flux input in ph m-2 s-1
+            col_pos=col_pos,  # collector position in m
+            phase_response=self.data.options.array['phase_response'],
+            # phase response of each collector arm in rad
+            phase_response_chop=self.data.options.array['phase_response_chop'],
+            # phase response of each collector arm in the chopped state in rad
+            n_cpu=n_cpu,  # number of cores used in the simulation
+            rms_mode=self.data.options.array['rms_mode'],
+                        # mode for rms values, 'lay', 'static', 'wavelength'
+            hyperrot_noise=self.data.options.array['hyperrot_noise'],  # NEW: hyperrotation noise source, e.g., "pink" or None
+            d_a_rms=self.data.options.array['d_a_rms'],  # relative amplitude error RMS
+            d_phi_rms=self.data.options.array['d_phi_rms'],  # phase error RMS
+            d_pol_rms=self.data.options.array['d_pol_rms'],  # polarization error RMS
+            d_x_rms=self.data.options.array['d_x_rms'],  # collector position RMS, x-direction
+            d_y_rms=self.data.options.array['d_y_rms'],  # collector position RMS, y-direction
+            d_a_co=self.data.options.array['d_a_co'],  # NEW: amplitude error cutoff frequency
+            d_phi_co=self.data.options.array['d_phi_co'],  # NEW: phase error cutoff frequency
+            d_pol_co=self.data.options.array['d_pol_co'],  # NEW: polarization error cutoff frequency
+            d_x_co=self.data.options.array['d_x_co'],  # NEW: position error cutoff frequency, x-direction
+            d_y_co=self.data.options.array['d_y_co'],  # NEW: position error cutoff frequency, y-direction
+            d_a_period_bin=self.data.options.array['d_a_period_bin'],  # NEW: amplitude periodic error in binning mode
+            d_phi_period_bin=self.data.options.array['d_phi_period_bin'],  # NEW: phase periodic error in binning mode
+            d_pol_period_bin=self.data.options.array['d_pol_period_bin'],  # NEW: polarization periodic error in binning mode
+            d_x_period_bin=self.data.options.array['d_x_period_bin'],  # NEW: position periodic error in binning mode, x-direction
+            d_y_period_bin=self.data.options.array['d_y_period_bin'],  # NEW: position periodic error in binning mode, y-direction
+            simultaneous_chopping=True)
+
+        if run:
+            self.inst.run()
+            return self.inst.photon_rates_chop
 
     # def get_spectrum(self,
     #                  temp_s: float,  # in K
