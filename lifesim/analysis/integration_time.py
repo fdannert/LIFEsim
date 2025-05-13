@@ -19,6 +19,7 @@ def get_integration_time(temp_p,
                          bus,
                          instrument,
                          use_blackbody,
+                         path_spectrum=None,
                          return_reference=False,
                          return_time=False,):
     """
@@ -42,7 +43,7 @@ def get_integration_time(temp_p,
 
     else:
         data = pd.read_csv(
-            '/Users/fdannert/Documents/projects/InLIFEsim/working/nice_requirements/input_data/Earth_PRTunits_10pc.txt',
+            path_spectrum,
             header=None, sep='\s+')
 
         lam_PRT = data[0].values * u.micron
