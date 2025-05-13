@@ -21,7 +21,8 @@ def get_integration_time(temp_p,
                          use_blackbody,
                          path_spectrum=None,
                          return_reference=False,
-                         return_time=False,):
+                         return_time=False,
+                         n_cpu=1,):
     """
     Function to get the integration time for a given target SNR
     """
@@ -64,15 +65,16 @@ def get_integration_time(temp_p,
     # bus.modules['inst'].apply_options()
 
     res_in = instrument.get_spectrum(temp_s=temp_s,
-                                          radius_s=radius_s,
-                                          distance_s=distance_s,
-                                          lat_s=lat_s,
-                                          z=z,
-                                          angsep=angsep,
-                                          flux_planet_spectrum=flux_planet_spectrum,
-                                          integration_time=24*60*60,
-                                          exposure_time=60*2,
-                                          n_rot=1)
+                                     radius_s=radius_s,
+                                     distance_s=distance_s,
+                                     lat_s=lat_s,
+                                     z=z,
+                                     angsep=angsep,
+                                     flux_planet_spectrum=flux_planet_spectrum,
+                                     integration_time=24*60*60,
+                                     exposure_time=60*2,
+                                     n_rot=1,
+                                     n_cpu=n_cpu,)
 
     snr_fundamental = res_in['snr'] * np.sqrt(1/24)
 
@@ -93,15 +95,16 @@ def get_integration_time(temp_p,
     n_rot = np.max((n_rot, 1))
 
     res_in = instrument.get_spectrum(temp_s=temp_s,
-                                          radius_s=radius_s,
-                                          distance_s=distance_s,
-                                          lat_s=lat_s,
-                                          z=z,
-                                          angsep=angsep,
-                                          flux_planet_spectrum=flux_planet_spectrum,
-                                          integration_time=integration_time_new,
-                                          exposure_time=60*2,
-                                          n_rot=n_rot)
+                                     radius_s=radius_s,
+                                     distance_s=distance_s,
+                                     lat_s=lat_s,
+                                     z=z,
+                                     angsep=angsep,
+                                     flux_planet_spectrum=flux_planet_spectrum,
+                                     integration_time=integration_time_new,
+                                     exposure_time=60*2,
+                                     n_rot=n_rot,
+                                     n_cpu=n_cpu,)
 
     snr_fundamental = res_in['snr']
 
