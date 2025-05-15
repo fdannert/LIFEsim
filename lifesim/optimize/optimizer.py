@@ -69,7 +69,7 @@ class Optimizer(OptimizationModule):
         # sum of detected planets per stype
         self.data.optm['sum_detected'] = np.zeros(5)
 
-        self.data.optm['num_universe'] = self.data.catalog.nuniverse.max() + 1
+        self.data.optm['num_universe'] = len(np.unique(self.data.catalog.nuniverse))
         self.data.optm['hit_limit'] = ((self.data.optm['sum_detected']
                                        / (self.data.optm['num_universe']))
                                        >= np.array(list(self.data.options.optimization['limit'].values())))
@@ -79,6 +79,7 @@ class Optimizer(OptimizationModule):
         # add new columns to catalog
         self.data.catalog['detected'] = False
         self.data.catalog['snr_current'] = 0.
+        self.data.catalog['snr_char_current'] = 0.
         self.data.catalog['int_time'] = 0.
         self.data.catalog['int_time_actual'] = 0.
         self.data.catalog['t_slew'] = -self.data.options.array['t_slew']

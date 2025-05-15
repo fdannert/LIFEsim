@@ -111,6 +111,7 @@ class Options(object):
 
         self.optimization = {'N_pf': 0.,
                              'snr_target': 0.,
+                             'snr_char': 0.,
                              'limit': None,
                              'habitable': False,
                              't_search': 0.,
@@ -158,6 +159,7 @@ class Options(object):
 
         self.optimization['N_pf'] = 25
         self.optimization['snr_target'] = 7
+        self.optimization['snr_char'] = 44.1
         self.optimization['limit'] = {'A': np.inf,
                                       'F': np.inf,
                                       'G': np.inf,

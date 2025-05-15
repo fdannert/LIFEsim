@@ -3,6 +3,7 @@ import os
 import warnings
 import time
 from copy import deepcopy
+from typing import Union
 
 import numpy as np
 import xarray as xr
@@ -610,53 +611,29 @@ class Data(object):
                                    engine='h5netcdf') as file:
                 self.noise_catalog = file
             print('[Done]')
-            # if self.options.other['pickle_mode']:
-            #     file = open(input_path[:-5] + '_noise_pickle.pickle', 'rb')
-            #     self.noise_catalog = pickle.load(file)
-            #     file.close()
-            # elif self.options.other['large_file']:
-            #     store = pd.HDFStore(input_path[:-5] + '_noise_large.hdf5')
-            #     self.noise_catalog_pivot = {}
-            #     wl_keys = store.get('wl_keys')
-            #     for wl_key in tqdm(wl_keys):
-            #         self.noise_catalog_pivot[wl_key[3:-1] + '.' + wl_key[-1]] = store.get(wl_key)
-            #     store.close()
-            # else:
-            #     store = pd.HDFStore(input_path[:-5] + '_noise.hdf5')
-            #     self.noise_catalog = {}
-            #     for id in tqdm(self.catalog.id):
-            #         self.noise_catalog[str(id)] = store.get('id_' + str(id))
-            #     store.close()
 
-    # def pivot_noise_catalog(self,
-    #                         to_wavelength: bool):
-    #     print('Pivoting Noise Catalog...')
-    #     if to_wavelength:
-    #         self.noise_catalog_pivot = {}
-    #         idx = list(self.noise_catalog.keys())
-    #         wl_ids = self.noise_catalog[idx[0]].index.values
-    #         columns = self.noise_catalog[idx[0]].columns.values
-    #         for wl_id in tqdm(wl_ids):
-    #             pd_table = pd.DataFrame(columns=columns, index=idx)
-    #             for id in idx:
-    #                 pd_table.loc[id] = self.noise_catalog[id].loc[wl_id]
-    #             self.noise_catalog_pivot[wl_id] = pd_table
-    #         self.noise_catalog = None
-    #
-    #     else:
-    #         self.noise_catalog = {}
-    #         wl_ids = list(self.noise_catalog_pivot.keys())
-    #         idx = self.noise_catalog_pivot[wl_ids[0]].index.values
-    #         columns = self.noise_catalog_pivot[wl_ids[0]].columns.values
-    #         for id in tqdm(idx):
-    #             pd_table = pd.DataFrame(columns=columns, index=wl_ids)
-    #             for wl_id in wl_ids:
-    #                 pd_table.loc[wl_id] = self.noise_catalog_pivot[wl_id].loc[id]
-    #             self.noise_catalog[id] = pd_table
-    #         self.noise_catalog_pivot = None
-    #     print('')
-    #     print('[Done]')
+    def import_maxsep_catalog(self,
+                               input_path: str):
+        print('Importing Maxsep Catalog...')
 
+        self.options.other['database_path_maxsep'] = input_path
+
+        print('Beginning Import...')
+        t0 = time.time()
+        catalog_maxsep = pd.read_hdf(path_or_buf=input_path,
+                                     key='catalog')
+        print('Import completed (Time: ' + str(time.time() - t0) + '), changing string object types...')
+        t0 = time.time()
+        self.str_to_obj(catalog=catalog_maxsep,
+                        reverse=True)
+        print('[Done] (Time: ' + str(time.time() - t0) + ')')
+
+        # merge the catalogs
+        catalog_maxsep['maxsep_snr_1h'] = catalog_maxsep['snr_1h']
+
+        self.catalog = pd.merge(self.catalog, catalog_maxsep[['id', 'maxsep_snr_1h']], on='id', how='left')
+
+        del catalog_maxsep
 
     def noise_catalog_from_catalog(self):
         pass
@@ -695,7 +672,8 @@ class Data(object):
         # self.noise_catalog =
 
     def str_to_obj(self,
-                   reverse: bool):
+                   reverse: bool,
+                   catalog: Union[pd.DataFrame, type(None)] = None):
         """
         Converts all string type columns in the catalog between type 'object' (needed for saving to hdf5) and type
         'pandas.StringDtype' (needed for fast computation).
@@ -705,14 +683,18 @@ class Data(object):
         reverse : bool
             if reveres is set true, the type will be converted 'object' -> 'pandas.StringDtype'
         """
+        
+        if catalog is None:
+            catalog = self.catalog
+        
         if not reverse:
-            for key in list(set(self.catalog.keys()[np.where(self.catalog.dtypes == 'string')])
+            for key in list(set(catalog.keys()[np.where(catalog.dtypes == 'string')])
                             & {'name_s', 'stype'}):
-                self.catalog[key] = self.catalog[key].astype(object)
+                catalog[key] = catalog[key].astype(object)
         else:
-            for key in list(set(self.catalog.keys()[np.where(self.catalog.dtypes == 'object')])
+            for key in list(set(catalog.keys()[np.where(catalog.dtypes == 'object')])
                             & {'name_s', 'stype'}):
-                self.catalog[key] = self.catalog[key].astype(pd.StringDtype())
+                catalog[key] = catalog[key].astype(pd.StringDtype())
 
 def invert_coefficients(value):
     if isinstance(value, list):
