@@ -104,7 +104,7 @@ class Options(object):
                       'output_filename': None,
                       'large_file': False,
                       'pickle_mode': False,
-                      'zodi_reference': 10}
+                      'zodi_reference': 10,}
 
         self.models = {'localzodi': '',
                        'habitable': ''}
