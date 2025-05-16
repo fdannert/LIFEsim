@@ -478,7 +478,7 @@ class Bus(object):
             try:
                 config_dict = yaml.load(file, Loader=yaml.FullLoader)
             except:
-                config_dict = yaml.full_load(file)
+                config_dict = yaml.unsafe_load(file)
 
         self.data.options.array = convert_to_np(config_dict['array'])
         self.data.options.optimization = convert_to_np(config_dict['optimization'])
