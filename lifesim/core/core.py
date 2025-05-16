@@ -6,7 +6,7 @@ import warnings
 import os
 
 import yaml
-from numpy import ndarray, array
+from numpy import ndarray, array, isin
 import git
 
 from lifesim.core.data import Data
@@ -479,6 +479,9 @@ class Bus(object):
                 config_dict = yaml.load(file, Loader=yaml.FullLoader)
             except:
                 config_dict = yaml.unsafe_load(file)
+
+        if not isin(['array', 'optimization', 'models', 'other'], config_dict.keys()).all():
+            raise ValueError(f'Config file {filename} could not be read.')
 
         self.data.options.array = convert_to_np(config_dict['array'])
         self.data.options.optimization = convert_to_np(config_dict['optimization'])
