@@ -487,7 +487,10 @@ class Bus(object):
         #     print(config_dict)
         #     raise ValueError(f'Config file {filename} could not be read.')
 
-        self.data.options.array = convert_to_np(config_dict['array'])
+        try:
+            self.data.options.array = convert_to_np(config_dict['array'])
+        except:
+            raise ValueError(f'Config file {filename} could not be read.')
         self.data.options.optimization = convert_to_np(config_dict['optimization'])
         self.data.options.models = config_dict['models']
         self.data.options.other = config_dict['other']
