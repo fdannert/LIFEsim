@@ -109,8 +109,8 @@ class AhgsCharModule(SlopeModule):
                     * self.data.options.array['t_efficiency'])
 
         tot_time = 0
-
-        print('Number of planets detected by stellar type:')
+        if self.data.options.optimization['verbose']:
+            print('Number of planets detected by stellar type:')
 
         while tot_time < obs_time:
             # find the best global slope and observe star
@@ -123,7 +123,6 @@ class AhgsCharModule(SlopeModule):
 
             else:
                 if ((obs[no_star, 1, ind_t] - obs[no_star, 0, ind_t]) * (ind_t + 1) + 0.01) < 0:
-                    print( (obs[no_star, 1, ind_t] - obs[no_star, 0, ind_t]) * (ind_t + 1) + 0.01)
                     raise ValueError('Negative time difference encountered.')
                 self.observe_star(nstar=stars[no_star],
                                   int_time=obs[no_star, 0, ind_t] * (ind_t + 1) + 0.01)
@@ -147,15 +146,17 @@ class AhgsCharModule(SlopeModule):
 
             self.t_series.append(tot_time)
 
-            print('\r' + out_string, end='')
+            if self.data.options.optimization['verbose']:
+                print('\r' + out_string, end='')
 
             if np.any(
                     np.logical_and(
                         (self.data.optm['sum_detected'] / self.data.optm['num_universe'])
                         > np.array(list(self.data.options.optimization['limit'].values())),
                         np.invert(self.data.optm['hit_limit']))):
-                print('\n')
-                print('HIT LIMIT, RECOUNTING -------------------')
+                if self.data.options.optimization['verbose']:
+                    print('\n')
+                    print('HIT LIMIT, RECOUNTING -------------------')
                 self.data.optm['hit_limit'] = ((self.data.optm['sum_detected']
                                                 / (self.data.optm['num_universe']))
                                                >= np.array(

@@ -123,7 +123,8 @@ class AhgsModule(SlopeModule):
 
         tot_time = 0
 
-        print('Number of planets detected by stellar type:')
+        if self.data.options.optimization['verbose']:
+            print('Number of planets detected by stellar type:')
 
         while tot_time < obs_time:
             # find the best global slope and observe star
@@ -163,15 +164,17 @@ class AhgsModule(SlopeModule):
 
             self.t_series.append(tot_time)
 
-            print('\r' + out_string, end='')
+            if self.data.options.optimization['verbose']:
+                print('\r' + out_string, end='')
 
             if np.any(
                     np.logical_and(
                         (self.data.optm['sum_detected'] / self.data.optm['num_universe'])
                         > np.array(list(self.data.options.optimization['limit'].values())),
                         np.invert(self.data.optm['hit_limit']))):
-                print('\n')
-                print('HIT LIMIT, RECOUNTING -------------------')
+                if self.data.options.optimization['verbose']:
+                    print('\n')
+                    print('HIT LIMIT, RECOUNTING -------------------')
                 self.data.optm['hit_limit'] = ((self.data.optm['sum_detected']
                                                 / (self.data.optm['num_universe']))
                                                >= np.array(

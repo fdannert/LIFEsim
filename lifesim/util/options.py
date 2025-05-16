@@ -116,7 +116,8 @@ class Options(object):
                              'habitable': False,
                              't_search': 0.,
                              'instrumental_opt': False,
-                             'image_size_limit': 512,}
+                             'image_size_limit': 512,
+                             'verbose': True,}
 
     def set_scenario(self,
                      case: str):
@@ -167,6 +168,7 @@ class Options(object):
                                       'M': np.inf}
         self.optimization['habitable'] = True
         self.optimization['t_search'] = 2.5 * 365. * 24. * 60. * 60.
+        self.optimization['verbose'] = True
 
         if case == 'baseline':
             self.array['diameter'] = 2.

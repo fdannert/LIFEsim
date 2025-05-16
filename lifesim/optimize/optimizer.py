@@ -86,4 +86,5 @@ class Optimizer(OptimizationModule):
 
         self.run_socket(s_name='slope',
                         method='distribute_time')
-        print('')
+        if self.data.options.optimization['verbose']:
+            print('')
