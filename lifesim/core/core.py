@@ -480,7 +480,9 @@ class Bus(object):
             except:
                 config_dict = yaml.unsafe_load(file)
 
-        if not isin(['array', 'optimization', 'models', 'other'], config_dict.keys()).all():
+        if ((config_dict is None)
+                or (not isin(['array', 'optimization', 'models', 'other'], config_dict.keys()).all())):
+            print(config_dict)
             raise ValueError(f'Config file {filename} could not be read.')
 
         self.data.options.array = convert_to_np(config_dict['array'])
