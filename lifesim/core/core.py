@@ -475,8 +475,10 @@ class Bus(object):
     def build_from_config(self,
                           filename: str):
         with open(filename) as file:
-
-            config_dict = yaml.load(file, Loader=yaml.FullLoader)
+            try:
+                config_dict = yaml.load(file, Loader=yaml.FullLoader)
+            except:
+                config_dict = yaml.unsafe_load(file)
         #     except:
         #         config_dict = yaml.unsafe_load(file)
         #
