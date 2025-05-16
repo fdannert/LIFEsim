@@ -475,15 +475,15 @@ class Bus(object):
     def build_from_config(self,
                           filename: str):
         with open(filename) as file:
-            try:
-                config_dict = yaml.load(file, Loader=yaml.FullLoader)
-            except:
-                config_dict = yaml.unsafe_load(file)
 
-        if ((config_dict is None)
-                or (not isin(['array', 'optimization', 'models', 'other'], config_dict.keys()).all())):
-            print(config_dict)
-            raise ValueError(f'Config file {filename} could not be read.')
+            config_dict = yaml.load(file, Loader=yaml.FullLoader)
+        #     except:
+        #         config_dict = yaml.unsafe_load(file)
+        #
+        # if ((config_dict is None)
+        #         or (not isin(['array', 'optimization', 'models', 'other'], config_dict.keys()).all())):
+        #     print(config_dict)
+        #     raise ValueError(f'Config file {filename} could not be read.')
 
         self.data.options.array = convert_to_np(config_dict['array'])
         self.data.options.optimization = convert_to_np(config_dict['optimization'])
