@@ -630,8 +630,10 @@ class Data(object):
 
         # merge the catalogs
         catalog_maxsep['maxsep_snr_1h'] = catalog_maxsep['snr_1h']
+        catalog_maxsep['maxsep_fundamental_snr_1h'] = catalog_maxsep['fundamental_snr_1h']
 
         self.catalog = pd.merge(self.catalog, catalog_maxsep[['id', 'maxsep_snr_1h']], on='id', how='left')
+        self.catalog = pd.merge(self.catalog, catalog_maxsep[['id', 'maxsep_fundamental_snr_1h']], on='id', how='left')
 
         del catalog_maxsep
 
