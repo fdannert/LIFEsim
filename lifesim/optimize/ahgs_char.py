@@ -12,6 +12,7 @@ class AhgsCharModule(SlopeModule):
                              'G': [],
                              'K': [],
                              'M': []}
+        self.id_series = []
 
     def obs_array_star(self, nstar):
         mask = self.data.catalog.nstar == nstar
@@ -78,15 +79,19 @@ class AhgsCharModule(SlopeModule):
         #        * np.sqrt(int_char_time
         #                  / (60 * 60))) ** 2)
 
+        det_ids = []
+
         for _, i in enumerate(np.where(mask)[0]):
             if (not self.data.catalog.detected.iloc[i]) and \
                     (self.data.catalog.snr_current.iloc[i]
                      >= self.data.options.optimization['snr_target']):
                 self.data.catalog.detected.iat[i] = True
+                det_ids.append(self.data.catalog.id.iat[i])
                 if self.data.catalog.habitable.iloc[i]:
                     self.data.optm['sum_detected'][
                         np.where(np.array(list(self.data.options.optimization['limit'].keys()))
                                  == self.data.catalog.stype.iloc[i])] += 1
+        self.id_series.append(det_ids)
 
     def distribute_time(self):
         if not self.data.options.optimization['habitable']:
