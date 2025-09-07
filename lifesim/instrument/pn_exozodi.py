@@ -128,8 +128,13 @@ class PhotonNoiseExozodi(PhotonNoiseUniverseModule):
                                mode='wavelength') \
                     * sigma * rad_pix ** 2 * self.data.inst['telescope_area']
 
-        ap = np.where(self.data.inst['radius_map']
-                      <= self.data.options.other['image_size'] / 2, 1, 0)
+        if self.data.options.models['fov_taper'] == 'gaussian':
+            ap = np.ones_like(self.data.inst['radius_map'])
+        elif self.data.options.models['fov_taper'] == 'none':
+            ap = np.where(self.data.inst['radius_map']
+                          <= self.data.options.other['image_size'] / 2, 1, 0)
+        else:
+            raise ValueError('Nonexistent fov taper model')
         # add the transmission map
         ez_leak = (f_nu_disk * self.data.inst['t_map'] * ap).sum(axis=(-2, -1))
 

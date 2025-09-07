@@ -75,10 +75,12 @@ class Options(object):
                       'wl_optimal': 0.,
                       'n_plugins': 0,
                       'output_path': None,
-                      'output_filename': None}
+                      'output_filename': None,
+                      'fov_threshold': 0.}
 
         self.models = {'localzodi': '',
-                       'habitable': ''}
+                       'habitable': '',
+                       'fov_taper': ''}
 
         self.optimization = {'N_pf': 0.,
                              'snr_target': 0.,
@@ -111,9 +113,11 @@ class Options(object):
         self.other['image_size'] = 256  # TODO: or 512?
         self.other['wl_optimal'] = 15
         self.other['n_plugins'] = 5
+        self.other['fov_threshold'] = 0.01
 
         self.models['localzodi'] = 'darwinsim'
         self.models['habitable'] = 'MS'
+        self.models['fov_taper'] = 'gaussian'
 
         self.optimization['N_pf'] = 25
         self.optimization['snr_target'] = 7

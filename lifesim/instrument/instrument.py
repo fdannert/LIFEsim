@@ -91,11 +91,23 @@ class Instrument(InstrumentModule):
         # TODO remove the double usage of mas and rad, stick to only one
         self.data.inst['hfov'] = self.data.inst['wl_bins'] \
                                  / (2. * self.data.options.array['diameter'])
-
         self.data.inst['hfov_mas'] = self.data.inst['hfov'] * (3600000. * 180.) / np.pi
-        self.data.inst['rad_pix'] = (2 * self.data.inst['hfov']) \
+
+        # set size of the integrated image, adjusted to a threshold measured on the FoV taper
+        if self.data.options.models['fov_taper'] == 'gaussian':
+            self.data.inst['image_angle'] = self.data.inst['hfov'] * 4 / np.pi * np.sqrt(
+                -np.log(self.data.options.other['fov_threshold'])
+            )
+        elif self.data.options.models['fov_taper'] == 'none':
+            self.data.inst['image_angle'] = self.data.inst['hfov']
+        else:
+            raise ValueError('Nonexistent fov taper model')
+
+        self.data.inst['image_angle_mas'] = self.data.inst['image_angle'] * (3600000. * 180.) / np.pi
+
+        self.data.inst['rad_pix'] = (2 * self.data.inst['image_angle']) \
                                     / self.data.options.other['image_size']  # Radians per pixel
-        self.data.inst['mas_pix'] = (2 * self.data.inst['hfov_mas']) \
+        self.data.inst['mas_pix'] = (2 * self.data.inst['image_angle_mas']) \
                                     / self.data.options.other['image_size']  # mas per pixel
 
         # apertures defines the telescope positions (and *relative* radius)
