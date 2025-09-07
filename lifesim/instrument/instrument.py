@@ -740,19 +740,20 @@ class Instrument(InstrumentModule):
         curve_chop, curve_tm4 = self.run_socket(s_name='transmission',
                                                 method='transmission_curve',
                                                 angsep=angsep,
-                                                phi_n=self.data.inst['n_sampling_rot'])
+                                                # phi_n=self.data.inst['n_sampling_rot']
+                                                )
 
         # calculate the signal and photon noise flux received from the planet per time bin
         flux_planet = (flux_planet_spectrum[:, np.newaxis]
                       * np.squeeze(curve_chop, axis=1)
                       * integration_time
-                      / phi_n
+                      / self.data.inst['n_sampling_rot']
                       * self.data.inst['eff_tot']
                       * self.data.inst['telescope_area']
                       * self.data.inst['wl_bin_widths'][:, np.newaxis])
         noise_planet = (flux_planet_spectrum[:, np.newaxis]
                        * np.squeeze(curve_tm4, axis=1)
-                       / phi_n
+                       / self.data.inst['n_sampling_rot']
                        * integration_time
                        * self.data.inst['eff_tot']
                        * self.data.inst['telescope_area']
@@ -789,7 +790,7 @@ class Instrument(InstrumentModule):
         else:
             noise_bg_universe = noise_bg_list_star
 
-        noise_bg = (noise_bg_star + noise_bg_universe) * integration_time / phi_n * self.data.inst['eff_tot'] * 2
+        noise_bg = (noise_bg_star + noise_bg_universe) * integration_time / self.data.inst['n_sampling_rot'] * self.data.inst['eff_tot'] * 2
 
         noise = (noise_bg[:, np.newaxis] + noise_planet)
 
