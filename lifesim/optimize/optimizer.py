@@ -63,16 +63,69 @@ class Optimizer(OptimizationModule):
             self.data.catalog.snr_new.iat[n_p] = self.data.catalog.snr_phase.iloc[n_p][0][i]
 
     def ahgs(self):
-        # set 0 if type limit is not hit
-        self.data.optm['hit_limit'] = np.zeros(5)
-
         # sum of detected planets per stype
         self.data.optm['sum_detected'] = np.zeros(5)
 
         self.data.optm['num_universe'] = self.data.catalog.nuniverse.max() + 1
-        self.data.optm['hit_limit'] = ((self.data.optm['sum_detected']
-                                       / (self.data.optm['num_universe']))
-                                       >= np.array(list(self.data.options.optimization['limit'].values())))
+
+        # initialize optimization limits
+
+        # handle the legacy mode
+        if self.data.options.optimization['limit_mode'] == 'legacy':
+            self.data.options.optimization['experiments'] = {}
+            if self.data.options.optimization['habitable']:
+                rmin = 0.5
+                rmax = 1.5
+            else:
+                rmin = 0.
+                rmax = np.inf
+            for stype, limit in self.data.options.optimization['limit'].items():
+                self.data.options.optimization['experiments'][stype] = {
+                    'radius_p_min': rmin,
+                    'radius_p_max': rmax,
+                    'temp_s_min': self.data.catalog[self.data.catalog.stype==stype].temp_s.min(),
+                    'temp_s_max': self.data.catalog[self.data.catalog.stype==stype].temp_s.max(),
+                    'in_HZ': self.data.options.optimization['habitable'],
+                    'sample_size': self.data.options.optimization['limit'][stype],
+                }
+
+        if self.data.options.optimization['experiments'] is None:
+            self.data.catalog['is_interesting'] = True
+            self.data.optm['hit_limit'] = None
+            self.data.optm['exp_detected'] = None
+        else:
+            # assign targets to experiments
+            self.data.catalog['is_interesting'] = False
+            self.data.optm['hit_limit'] = {}
+            self.data.optm['exp_detected'] = {}
+            for exp in self.data.options.optimization['experiments'].keys():
+                mask_exp = ((self.data.catalog.radius_p
+                             >= self.data.options.optimization['experiments'][exp]['radius_p_min'])
+                            & (self.data.catalog.radius_p
+                               <= self.data.options.optimization['experiments'][exp]['radius_p_max'])
+                            & (self.data.catalog.temp_s
+                               >= self.data.options.optimization['experiments'][exp]['temp_s_min'])
+                            & (self.data.catalog.temp_s
+                               <= self.data.options.optimization['experiments'][exp]['temp_s_max']))
+
+                if self.data.options.optimization['experiments'][exp]['in_HZ']:
+                    mask_exp = (mask_exp
+                                & (self.data.catalog['habitable']))
+
+                self.data.catalog['exp_' + exp] = mask_exp
+
+                self.data.catalog['is_interesting'] = np.logical_or(mask_exp, self.data.catalog['is_interesting'])
+
+                self.data.optm['hit_limit'][exp] = False
+                self.data.optm['exp_detected'][exp] = 0
+
+
+        # # set 0 if type limit is not hit
+        # self.data.optm['hit_limit'] = np.zeros(5)
+        #
+        # self.data.optm['hit_limit'] = ((self.data.optm['sum_detected']
+        #                                / (self.data.optm['num_universe']))
+        #                                >= np.array(list(self.data.options.optimization['limit'].values())))
 
         self.data.optm['tot_time'] = 0  # in sec
 
