@@ -171,8 +171,10 @@ class AhgsModule(SlopeModule):
                 ]
                 for exp in over_limit_experiments:
                     self.data.optm['hit_limit'][exp] = True
-                    self.data.catalog['is_interesting'] = np.logical_and(self.data.catalog['is_interesting'],
-                                                                         np.invert(self.data.catalog['exp_' + exp]))
+                    self.data.catalog['is_interesting'] = False
+                    for exp_interesting in [exp for exp, hit in self.data.optm['hit_limit'].items() if not hit]:
+                        self.data.catalog['is_interesting'] = np.logical_or(self.data.catalog['is_interesting'],
+                                                                           self.data.catalog['exp_' + exp_interesting])
 
                 if self.data.catalog['is_interesting'].sum() == 0:
                     print('\nAll experiments have been completed, spending remaining mission time on all HZ planets.')
