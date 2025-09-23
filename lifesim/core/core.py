@@ -475,7 +475,7 @@ class Bus(object):
     def build_from_config(self,
                           filename: str):
         with open(filename) as file:
-            config_dict = yaml.load(file, Loader=yaml.FullLoader)
+            config_dict = yaml.load(file, Loader=yaml.UnsafeLoader)
 
         self.data.options.array = convert_to_np(config_dict['array'])
         self.data.options.optimization = convert_to_np(config_dict['optimization'])

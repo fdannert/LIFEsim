@@ -44,6 +44,10 @@ class Options(object):
               ``'darwinsim'``
             - ``'habitable'`` : Model used for calculating the habitable zone, possible options are
               ``'MS'`` and ``'POST_MS'``
+            - ``'fov_taper'`` : Model used for tapering the field of view, possible options are
+              ``'gaussian'`` and ``'none'``
+            - ``'baseline_optimisation'`` : Model used for optimising the baseline, possible options are
+              ``'ref_wl'``, ``'Bryson'`` and ``'Uniform'``
     optimization : dict
         Options concerning the methods used to optimally distribute the observing time.
             - ``'N_pf'`` : Number of sampling locations per orbit.
@@ -80,7 +84,8 @@ class Options(object):
 
         self.models = {'localzodi': '',
                        'habitable': '',
-                       'fov_taper': ''}
+                       'fov_taper': '',
+                       'baseline_optimisation': ''}
 
         self.optimization = {'N_pf': 0.,
                              'snr_target': 0.,
@@ -118,6 +123,7 @@ class Options(object):
         self.models['localzodi'] = 'darwinsim'
         self.models['habitable'] = 'MS'
         self.models['fov_taper'] = 'gaussian'
+        self.models['baseline_optimisation'] = 'ref_wl'
 
         self.optimization['N_pf'] = 25
         self.optimization['snr_target'] = 7
