@@ -66,7 +66,7 @@ class Optimizer(OptimizationModule):
         # sum of detected planets per stype
         self.data.optm['sum_detected'] = np.zeros(5)
 
-        self.data.optm['num_universe'] = self.data.catalog.nuniverse.max() + 1
+        self.data.optm['num_universe'] = np.unique(self.data.catalog.nuniverse).shape[0]
 
         # initialize optimization limits
 
@@ -119,14 +119,6 @@ class Optimizer(OptimizationModule):
                 self.data.optm['hit_limit'][exp] = False
                 self.data.optm['exp_detected'][exp] = 0
 
-
-        # # set 0 if type limit is not hit
-        # self.data.optm['hit_limit'] = np.zeros(5)
-        #
-        # self.data.optm['hit_limit'] = ((self.data.optm['sum_detected']
-        #                                / (self.data.optm['num_universe']))
-        #                                >= np.array(list(self.data.options.optimization['limit'].values())))
-
         self.data.optm['tot_time'] = 0  # in sec
 
         # add new columns to catalog
@@ -134,6 +126,7 @@ class Optimizer(OptimizationModule):
         self.data.catalog['snr_current'] = 0.
         self.data.catalog['int_time'] = 0.
         self.data.catalog['t_slew'] = -self.data.options.array['t_slew']
+        self.data.catalog['t_detected'] = 0.
 
         self.run_socket(s_name='slope',
                         method='distribute_time')
