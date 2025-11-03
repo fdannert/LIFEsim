@@ -184,7 +184,7 @@ class Instrument(InstrumentModule):
         hz_center_rad = hz_center / distance_s / (3600 * 180) * np.pi  # in rad
 
         # put first transmission peak of optimal wl on center of HZ
-        # for the origin of the value 0.5.. see Ottiger+2021
+        # for the origin of the value 0.5.. see Dannert+2022
         baseline = (0.589645 / hz_center_rad
                                 * self.data.options.other['wl_optimal'] * 10 ** (-6))
 
