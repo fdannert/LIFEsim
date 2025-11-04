@@ -40,7 +40,7 @@ class ScienceYield:
 
 
         # ---------- Loading the Catalog ----------
-        bus.data.import_catalog(input_path=self.catalog_path)
+        bus.data.catalog_from_ppop(input_path=self.catalog_path)
 
         # ---------- Creating the Instrument ----------
 
