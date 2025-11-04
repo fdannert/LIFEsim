@@ -76,7 +76,8 @@ class Options(object):
                       'n_plugins': 0,
                       'output_path': None,
                       'output_filename': None,
-                      'fov_threshold': 0.}
+                      'fov_threshold': 0.,
+                      'n_cpu': 1}
 
         self.models = {'localzodi': '',
                        'habitable': '',
@@ -120,8 +121,7 @@ class Options(object):
 
         self.optimization['N_pf'] = 25
         self.optimization['snr_target'] = 7
-        self.optimization['limit'] = {'A': np.inf,
-                                      'F': np.inf,
+        self.optimization['limit'] = {'F': np.inf,
                                       'G': np.inf,
                                       'K': np.inf,
                                       'M': np.inf}
