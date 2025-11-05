@@ -81,12 +81,12 @@ class Optimizer(OptimizationModule):
                 rmax = np.inf
             for stype, limit in self.data.options.optimization['limit'].items():
                 self.data.options.optimization['experiments'][stype] = {
-                    'radius_p_min': rmin,
-                    'radius_p_max': rmax,
-                    'temp_s_min': self.data.catalog[self.data.catalog.stype==stype].temp_s.min(),
-                    'temp_s_max': self.data.catalog[self.data.catalog.stype==stype].temp_s.max(),
+                    'radius_p_min': float(rmin),
+                    'radius_p_max': float(rmax),
+                    'temp_s_min': float(self.data.catalog[self.data.catalog.stype==stype].temp_s.min()),
+                    'temp_s_max': float(self.data.catalog[self.data.catalog.stype==stype].temp_s.max()),
                     'in_HZ': self.data.options.optimization['habitable'],
-                    'sample_size': self.data.options.optimization['limit'][stype],
+                    'sample_size': float(self.data.options.optimization['limit'][stype]),
                 }
 
         if self.data.options.optimization['experiments'] is None:

@@ -55,14 +55,16 @@ class AhgsModule(SlopeModule):
                    * np.sqrt(int_actual
                              / (60 * 60)))**2)
 
+            # Changed: use label-based .loc to avoid chained-assignment warnings
             for _, i in enumerate(np.where(mask)[0]):
-                if (not self.data.catalog.detected.iloc[i]) and \
-                        (self.data.catalog.snr_current.iloc[i]
+                idx = self.data.catalog.index[i]
+                if (not self.data.catalog.loc[idx, 'detected']) and \
+                        (self.data.catalog.loc[idx, 'snr_current']
                          >= self.data.options.optimization['snr_target']):
-                    self.data.catalog.detected.iat[i] = True
-                    self.data.catalog.t_detected.iat[i] = deepcopy(self.tot_time)
+                    self.data.catalog.loc[idx, 'detected'] = True
+                    self.data.catalog.loc[idx, 't_detected'] = deepcopy(self.tot_time)
                     exp_cols = [col for col in self.data.catalog.columns if col.startswith('exp_')]
-                    true_experiments = [col[4:] for col in exp_cols if self.data.catalog.at[i, col]]
+                    true_experiments = [col[4:] for col in exp_cols if self.data.catalog.loc[idx, col]]
 
                     for exp in true_experiments:
                         self.data.optm['exp_detected'][exp] += 1
