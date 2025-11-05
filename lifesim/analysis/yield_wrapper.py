@@ -343,8 +343,7 @@ def compute_yields_mp(output_filename,
 
     with contextlib.redirect_stdout(None):
         opt.ahgs()
-
-    bus.save()
+        bus.save()
 
     if return_yields:
         yields = get_yields(bus=bus,
