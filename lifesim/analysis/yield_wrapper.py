@@ -30,7 +30,8 @@ class ScienceYield:
     def compute_snrs(self,
                      output_path,
                      output_filename,
-                     run_maxsep):
+                     run_maxsep,
+                     diameter=None):
 
         print('START OF RUN: ', time.ctime())
         print('RUN NAME: ', output_filename)
@@ -43,6 +44,9 @@ class ScienceYield:
         # setting the options
         bus.build_from_config(filename=self.config_path)
         bus.data.options.set_manual(n_cpu=self.n_cpu) # speed up calculation
+
+        if diameter is not None:
+            bus.data.options.set_manual(diameter=diameter)
 
         bus.data.options.set_manual(
             output_path=output_path)
@@ -110,13 +114,15 @@ class ScienceYield:
             print('Commencing base run... ')
             self.compute_snrs(output_path=f'{output_directory}/',
                               output_filename='sweep_diam_' + str(np.round(diameter, 2)).replace('.', '_'),
-                              run_maxsep=False)
+                              run_maxsep=False,
+                              diameter=diameter)
             print('[Done]')
 
             print('Commencing maxsep run... ')
             self.compute_snrs(output_path=f'{output_directory}/',
                               output_filename='sweep_diam_maxsep_' + str(np.round(diameter, 2)).replace('.', '_'),
-                              run_maxsep=True)
+                              run_maxsep=True,
+                              diameter=diameter)
             print('[Done]')
 
     def run_optimizer_sweep(self,
