@@ -330,10 +330,10 @@ class Instrument(InstrumentModule):
                                               self.data.catalog.nuniverse == nuniverse))[0][0]
 
                 noise_bg_universe_temp = (noise_bg_universe * self.data.catalog.z.iloc[n_u]
-                                          / self.data.catalog.z.iloc[n])
+                                      / self.data.catalog.z.iloc[n])
 
                 noise_bg = ((noise_bg_star + noise_bg_universe_temp)
-                            * integration_time * self.data.inst['eff_tot'] * 2)
+                        * integration_time * self.data.inst['eff_tot'] * 2)
 
                 # go through all planets for the chosen star
                 for _, n_p in enumerate(np.argwhere(
@@ -370,28 +370,33 @@ class Instrument(InstrumentModule):
 
                     # Add up the noise and caluclate the SNR
                     noise = noise_bg + noise_planet
-                    self.data.catalog.snr_1h.iat[n_p] = np.sqrt((flux_planet ** 2 / noise).sum())
+
+                    # use index label to avoid chained assignment / view-copy problems
+                    idx_label = self.data.catalog.index[n_p]
+                    self.data.catalog.loc[idx_label, 'snr_1h'] = np.sqrt((flux_planet ** 2 / noise).sum())
 
                     # save baseline
-                    self.data.catalog['baseline'].iat[n_p] = self.data.inst['bl']
+                    self.data.catalog.loc[idx_label, 'baseline'] = self.data.inst['bl']
 
                     if save_mode:
-                        self.data.catalog.noise_astro.iat[n_p] = [noise_bg]
-                        self.data.catalog.planet_flux_use.iat[n_p] = (
+                        self.data.catalog.loc[idx_label, 'noise_astro'] = [noise_bg]
+                        self.data.catalog.loc[idx_label, 'planet_flux_use'] = (
                             [flux_planet_thermal
                              * integration_time
                              * self.data.inst['eff_tot']
                              * self.data.inst['telescope_area']])
-                        self.data.catalog['photon_rate_planet'].iat[n_p] = (
+                        self.data.catalog.loc[idx_label, 'photon_rate_planet'] = (
                                 flux_planet
                                 / integration_time
                                 / self.data.inst['eff_tot']
                         ).sum()
-                        self.data.catalog['photon_rate_noise'].iat[n_p] = (
+                        self.data.catalog.loc[idx_label, 'photon_rate_noise'] = (
                                 noise
                                 / integration_time
                                 / self.data.inst['eff_tot']
                         ).sum()
+
+        # ...existing code...
 
     def get_snr_multi_processing(self,
                                     save_mode: bool = False):
@@ -487,12 +492,6 @@ class Instrument(InstrumentModule):
         noise
             Returns the noise contribution in [photons]
         """
-
-        # TODO: remove by 2024
-        warn('The get_spectrum function was implemented with a major bug between versions 0.2.16 '
-             'and 0.2.24 in which the noise level was twice as large as the correct value. If '
-             'you created results with the versions in question, please validate them with the '
-             'latest version of LIFEsim.')
 
         # options are applied before the simulation run
         self.apply_options()
@@ -719,6 +718,12 @@ class Instrument(InstrumentModule):
             Returns the noise contribution in [photons]
         """
 
+        # TODO: remove by 2024
+        warn('The get_spectrum function was implemented with a major bug between versions 0.2.16 '
+             'and 0.2.24 in which the noise level was twice as large as the correct value. If '
+             'you created results with the versions in question, please validate them with the '
+             'latest version of LIFEsim.')
+
         # options are applied before the simulation run
         self.apply_options()
 
@@ -882,6 +887,3 @@ def balanced_partition_greedy(occ: Sequence[int],
         sums[g] += int(occ_arr[int(i)])
 
     return groups
-
-
-
