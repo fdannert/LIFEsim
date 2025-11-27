@@ -1,9 +1,14 @@
 from warnings import warn
+from copy import deepcopy
+from typing import List, Optional, Sequence, Any
 
 import numpy as np
+import pandas as pd
 from tqdm import tqdm
 from spectres import spectres
 from PyQt5.QtGui import QGuiApplication
+from joblib import Parallel, delayed, parallel_config
+from joblib_progress import joblib_progress
 
 from lifesim.core.modules import InstrumentModule
 from lifesim.util.habitable import single_habitable_zone
@@ -258,7 +263,9 @@ class Instrument(InstrumentModule):
     def get_snr(self,
                 save_mode: bool = False):
         """
-        Calculates the one-hour signal-to-noise ration for all planets in the catalog.
+        Calculates the one-hour signal-to-noise ration for all planets in the catalog. Switches between single and
+        multi processing depending on the n_cpu option.
+
         Parameters
         ----------
         safe_mode : bool
@@ -269,12 +276,6 @@ class Instrument(InstrumentModule):
         # options are applied before the simulation run
         self.apply_options()
 
-        # currently, the choice of integration time here is arbitrary. Since the background limited
-        # case is assumed, the SNR scales with sqrt(integration time) and through this, the SNR
-        # for any integration time can be calculated by knowing the SNR of a specific integration
-        # time
-        integration_time = 60 * 60
-
         self.data.catalog['snr_1h'] = np.zeros_like(self.data.catalog.nstar, dtype=float)
         self.data.catalog['baseline'] = np.zeros_like(self.data.catalog.nstar, dtype=float)
         if save_mode:
@@ -283,13 +284,38 @@ class Instrument(InstrumentModule):
             self.data.catalog['photon_rate_planet'] = None
             self.data.catalog['photon_rate_noise'] = None
 
+        if self.data.options.other['n_cpu'] == 1:
+            self.get_snr_single_processing(save_mode=save_mode)
+        elif self.data.options.other['n_cpu'] > 1:
+            self.get_snr_multi_processing(save_mode=save_mode)
+        else:
+            raise ValueError('n_cpu option must be >= 1')
+
+    def get_snr_single_processing(self,
+                                  save_mode: bool = False,
+                                  verbose : bool = True):
+        """
+        Calculates the one-hour signal-to-noise ration for all planets in the catalog.
+        Parameters
+        ----------
+        safe_mode : bool
+            If save mode is enables, the individual photon counts of the planet and noise sources
+            are written to the catalog.
+        """
+
+        # currently, the choice of integration time here is arbitrary. Since the background limited
+        # case is assumed, the SNR scales with sqrt(integration time) and through this, the SNR
+        # for any integration time can be calculated by knowing the SNR of a specific integration
+        # time
+        integration_time = 60 * 60
+
         # create mask returning only unique stars
         _, temp = np.unique(self.data.catalog.nstar, return_index=True)
         star_mask = np.zeros_like(self.data.catalog.nstar, dtype=bool)
         star_mask[temp] = True
 
         # iterate over all stars to calculate noise specific to stars
-        for i, n in enumerate(tqdm(np.where(star_mask)[0])):
+        for i, n in enumerate(tqdm(np.where(star_mask)[0], disable=not verbose)):
             # if i == 10:
             #     break
             nstar = self.data.catalog.nstar.iloc[n]
@@ -335,10 +361,10 @@ class Instrument(InstrumentModule):
                                               self.data.catalog.nuniverse == nuniverse))[0][0]
 
                 noise_bg_universe_temp = (noise_bg_universe * self.data.catalog.z.iloc[n_u]
-                                          / self.data.catalog.z.iloc[n])
+                                      / self.data.catalog.z.iloc[n])
 
                 noise_bg = ((noise_bg_star + noise_bg_universe_temp)
-                            * integration_time * self.data.inst['eff_tot'] * 2)
+                        * integration_time * self.data.inst['eff_tot'] * 2)
 
                 # go through all planets for the chosen star
                 for _, n_p in enumerate(np.argwhere(
@@ -375,28 +401,67 @@ class Instrument(InstrumentModule):
 
                     # Add up the noise and caluclate the SNR
                     noise = noise_bg + noise_planet
-                    self.data.catalog.snr_1h.iat[n_p] = np.sqrt((flux_planet ** 2 / noise).sum())
+
+                    # use index label to avoid chained assignment / view-copy problems
+                    idx_label = self.data.catalog.index[n_p]
+                    self.data.catalog.loc[idx_label, 'snr_1h'] = np.sqrt((flux_planet ** 2 / noise).sum())
 
                     # save baseline
-                    self.data.catalog['baseline'].iat[n_p] = self.data.inst['bl']
+                    self.data.catalog.loc[idx_label, 'baseline'] = self.data.inst['bl']
 
                     if save_mode:
-                        self.data.catalog.noise_astro.iat[n_p] = [noise_bg]
-                        self.data.catalog.planet_flux_use.iat[n_p] = (
+                        self.data.catalog.loc[idx_label, 'noise_astro'] = [noise_bg]
+                        self.data.catalog.loc[idx_label, 'planet_flux_use'] = (
                             [flux_planet_thermal
                              * integration_time
                              * self.data.inst['eff_tot']
                              * self.data.inst['telescope_area']])
-                        self.data.catalog['photon_rate_planet'].iat[n_p] = (
+                        self.data.catalog.loc[idx_label, 'photon_rate_planet'] = (
                                 flux_planet
                                 / integration_time
                                 / self.data.inst['eff_tot']
                         ).sum()
-                        self.data.catalog['photon_rate_noise'].iat[n_p] = (
+                        self.data.catalog.loc[idx_label, 'photon_rate_noise'] = (
                                 noise
                                 / integration_time
                                 / self.data.inst['eff_tot']
                         ).sum()
+
+        # ...existing code...
+
+    def get_snr_multi_processing(self,
+                                    save_mode: bool = False):
+
+        # divide the catalog into roughly equal chunks for each cpu
+        n_star, occ_star = np.unique(self.data.catalog.nstar, return_counts=True)
+        star_groups = balanced_partition_greedy(occ=occ_star, items=n_star, n_groups=self.data.options.other['n_cpu']*10)
+
+        sub_catalogs = [self.data.catalog[np.isin(self.data.catalog.nstar, sg)] for sg in star_groups]
+        group_sizes = [len(sc) for sc in sub_catalogs]
+        per_dev = (np.max(group_sizes) - np.min(group_sizes)) / np.mean(group_sizes)
+        print(f'Maximum deviation in group sizes: {per_dev*100:.1f}%')
+
+        reference_bus = deepcopy(self)
+        del reference_bus.data.catalog
+
+        with parallel_config(
+                backend="loky", inner_max_num_threads=1
+        ), joblib_progress(
+            description="Running SNR calculation in parallel ...",
+            total=len(star_groups),
+        ):
+            results = Parallel(n_jobs=self.data.options.other['n_cpu'])(
+                delayed(mp_runner)(
+                    bus=reference_bus,
+                    catalog=sc,
+                    save_mode=save_mode
+                )
+                for sc in sub_catalogs)
+
+        # combine results back into main catalog
+        self.data.catalog = pd.concat(results)
+        self.data.catalog.sort_values('id', inplace=True)
+
 
     # TODO: fix units in documentation
     def get_spectrum(self,
@@ -458,12 +523,6 @@ class Instrument(InstrumentModule):
         noise
             Returns the noise contribution in [photons]
         """
-
-        # TODO: remove by 2024
-        warn('The get_spectrum function was implemented with a major bug between versions 0.2.16 '
-             'and 0.2.24 in which the noise level was twice as large as the correct value. If '
-             'you created results with the versions in question, please validate them with the '
-             'latest version of LIFEsim.')
 
         # options are applied before the simulation run
         self.apply_options()
@@ -801,78 +860,63 @@ class Instrument(InstrumentModule):
 
         return signal, flux_planet
 
+def mp_runner(bus,
+              catalog,
+              save_mode: bool = False):
+    bus = deepcopy(bus)
+    bus.data.catalog = catalog
+    bus.get_snr_single_processing(save_mode=save_mode,
+                                  verbose=False)
+    return bus.data.catalog
 
-def multiprocessing_runner(input_dict: dict):
-    # create mask returning only unique stars
-    universes = np.unique(
-        input_dict['catalog'].nuniverse[input_dict['catalog'].nstar == input_dict['nstar']],
-        return_index=False
-    )
+def balanced_partition_greedy(occ: Sequence[int],
+                                    n_groups: int,
+                                    items: Optional[Sequence[Any]] = None) -> List[List[Any]]:
+    """
+    Greedy multi-way partition using NumPy for faster min selection.
+    Assigns the largest items first to the current smallest-sum group.
 
-    # get transmission map
-    _, _, self.data.inst['t_map'], _, _ = self.run_socket(s_name='transmission',
-                                                          method='transmission_map',
-                                                          map_selection='tm3')
+    Parameters
+    ----------
+    occ : Sequence[int]
+        Sequence containing the weight (e.g. number of sub-objects) for each item.
+    n_groups : int
+        Number of groups to partition into. Must be >= 1.
+    items : Optional[Sequence[Any]]
+        Sequence of items corresponding to `occ`. If ``None``, the function will use the
+        indices ``range(len(occ))`` as the items.
 
-    for nuniverse in universes:
-        inst.z = input_dict['catalog'][np.logical_and(input_dict['catalog'].nstar == input_dict['nstar'],
-                                                  input_dict['catalog'].nuniverse == nuniverse)].z.iloc[0]
+    Returns
+    -------
+    List[List[Any]]
+        List of length ``n_groups`` where each element is a list of the assigned items
+        (or indices if ``items`` was ``None``). Group totals are balanced using a greedy
+        heuristic; some groups may remain empty if ``n_groups`` > ``len(occ)``.
 
-        # redo calculation for exozodi
-        inst.create_exozodi()
-        inst.sensitivity_coefficients(exozodi_only=True)
-        inst.fundamental_noise(exozodi_only=True)
+    Raises
+    ------
+    ValueError
+        If ``n_groups`` < 1 or if ``items`` is provided but its length does not match ``occ``.
+    """
+    if n_groups <= 0:
+        raise ValueError("n_groups must be >= 1")
+    n = len(occ)
+    if items is None:
+        items = list(range(n))
+    if len(items) != n:
+        raise ValueError("items and occ must have same length")
 
-        # go through all planets for the chosen star
-        for _, n_p in enumerate(np.argwhere(
-                np.logical_and(input_dict['catalog'].nstar.to_numpy() == input_dict['nstar'],
-                               input_dict['catalog'].nuniverse.to_numpy() == nuniverse))[:, 0]):
-            inst.temp_planet = input_dict['catalog']['temp_p'].iloc[n_p]
-            inst.radius_planet = input_dict['catalog']['radius_p'].iloc[n_p]
-            inst.separation_planet = (input_dict['catalog']['angsep'].iloc[n_p]
-                                      * input_dict['catalog']['distance_s'].iloc[n_p])
+    occ_arr = np.asarray(occ, dtype=np.int64)
+    # sort indices by descending weight (largest first)
+    idxs = np.argsort(-occ_arr)
 
-            # ----- must be repeated for every planet -----
-            inst.create_planet(force=True)
-            inst.planet_signal()
+    groups: List[List[Any]] = [[] for _ in range(n_groups)]
+    sums = np.zeros(n_groups, dtype=np.int64)
 
-            if (inst.chopping == 'nchop'):
-                inst.sn_nchop()
-            else:
-                inst.sn_chop()
+    # assign each item to the group with the smallest current sum
+    for i in idxs:
+        g = int(np.argmin(sums))  # fast C-level operation
+        groups[g].append(items[int(i)])
+        sums[g] += int(occ_arr[int(i)])
 
-            # save baseline
-            input_dict['catalog']['baseline'].iat[n_p] = input_dict['baseline']
-
-            # save snr results
-            if (inst.chopping == 'nchop'):
-                input_dict['catalog'].t_rot.iat[n_p] = input_dict['integration_time']
-                input_dict['catalog'].signal.iat[n_p] = inst.photon_rates.loc['signal', 'nchop'].sum()
-                input_dict['catalog'].photon_noise.iat[n_p] = (
-                    np.sqrt((inst.photon_rates.loc['pn', 'nchop'] ** 2).sum()))
-                input_dict['catalog'].systematic_noise.iat[n_p] = (
-                    np.sqrt((inst.photon_rates.loc['sn', 'nchop'] ** 2).sum()))
-            else:
-                input_dict['catalog'].t_rot.iat[n_p] = input_dict['integration_time']
-                input_dict['catalog'].signal.iat[n_p] = inst.photon_rates.loc['signal', 'chop'].sum()
-                input_dict['catalog'].photon_noise.iat[n_p] = (
-                    np.sqrt((inst.photon_rates.loc['pn', 'chop'] ** 2).sum()))
-                input_dict['catalog'].systematic_noise.iat[n_p] = (
-                    np.sqrt((inst.photon_rates.loc['sn', 'chop'] ** 2).sum()))
-
-            if input_dict['safe_mode']:
-                if (inst.chopping == 'nchop'):
-                    input_dict['noise_catalog'].loc[input_dict['catalog']['id'].iloc[n_p]] = (
-                        inst.photon_rates.nchop)
-                else:
-                    input_dict['noise_catalog'].loc[input_dict['catalog']['id'].iloc[n_p]] = (
-                        inst.photon_rates.chop)
-
-    return_dict = {'catalog': input_dict['catalog']}
-    if input_dict['safe_mode']:
-        return_dict['noise_catalog'] = input_dict['noise_catalog']
-
-    return return_dict
-
-
-
+    return groups
