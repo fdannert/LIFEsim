@@ -118,7 +118,7 @@ class Optimizer(OptimizationModule):
 
                 self.data.optm['hit_limit'][exp] = False
                 self.data.optm['exp_detected'][exp] = 0
-
+        print(self.data.optm)
         self.data.optm['tot_time'] = 0  # in sec
 
         # add new columns to catalog

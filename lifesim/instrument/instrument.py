@@ -190,9 +190,10 @@ class Instrument(InstrumentModule):
             # for the origin of the value 0.5.. see Ottiger+2021
             k = 0.589645 * self.data.options.other['wl_optimal'] * 10 ** (-6)
                                     
-        elif opt_model == "Bryson":
-            # Baseline optimisation considering the semi-major axis distribution of the Bryson 21
-            # occurance rates and orbit projection effects, approximated via a polynomial fit to an MC analysis
+        elif opt_model == "Kepler":
+            # Baseline optimisation considering the semi-major axis distribution of the Kepler 
+            # occurance rates (SAG13/Bryson Hab2Max) and orbit projection effects, 
+            # approximated via a polynomial fit to an MC analysis
             sqL = l_sun**0.5
             if sqL > 0.28: #FGKs
                 cs = np.array([-2.5655e-1,2.0727e-1,4.8682e-2,-4.0867e-4,-2.1587e-2,9.3433])*1e-6
@@ -211,6 +212,11 @@ class Instrument(InstrumentModule):
             k = cs[0]*sqL + cs[1]*sqL**2 + cs[2]*distance_s + cs[3]*distance_s**2 + cs[4]*sqL*distance_s + cs[5]
 
         baseline = k / hz_center_rad
+
+        # If discrete, set baseline to nearest value
+        if self.data.options.models["discrete_baselines"]:
+            bls = np.array(self.data.options.array['bl_discrete'])
+            baseline = bls[np.abs(bls-baseline).argmin()]
 
         self.apply_baseline(baseline=baseline)
 

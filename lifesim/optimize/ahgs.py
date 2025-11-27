@@ -64,7 +64,7 @@ class AhgsModule(SlopeModule):
                     exp_cols = [col for col in self.data.catalog.columns if col.startswith('exp_')]
                     true_experiments = [col[4:] for col in exp_cols if self.data.catalog.at[i, col]]
 
-                    for exp in true_experiments:
+                    for exp in true_experiments[1:]:
                         self.data.optm['exp_detected'][exp] += 1
         else:
             raise ValueError('Delete mode not implemented for AHGS optimizer.')
