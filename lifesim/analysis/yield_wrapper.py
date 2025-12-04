@@ -27,7 +27,7 @@ class ScienceYield:
         self.n_cpu = n_cpu
         self.cat_from_ppop = cat_from_ppop
 
-    def compute_snrs(self,
+    def _compute_snrs(self,
                      output_path,
                      output_filename,
                      run_maxsep,
@@ -95,7 +95,13 @@ class ScienceYield:
         print('Generation took ', (time.time() - t) / 60, ' minutes to complete.')
 
     def run_aperture_sweep_snr(self,
-                               mirror_diameters):
+                               mirror_diameters,
+                               run_name):
+        final_output_path = os.path.join(self.output_path, run_name)
+        if not os.path.exists(final_output_path):
+            os.makedirs(final_output_path)
+        else:
+            raise ValueError('Directory already exists: ' + final_output_path)
 
         for ndim, diameter in enumerate(mirror_diameters):
             print('')
@@ -105,30 +111,32 @@ class ScienceYield:
 
             print('Preparing directories... ', end='')
 
-            output_directory = os.path.join(self.output_path, 'diam_' + str(np.round(diameter, 2)).replace('.', '_'))
+            output_directory = os.path.join(final_output_path, 'diam_' + str(np.round(diameter, 2)).replace('.', '_'))
             if not os.path.exists(output_directory):
                 os.makedirs(output_directory)
 
             print('[Done]')
 
             print('Commencing base run... ')
-            self.compute_snrs(output_path=f'{output_directory}/',
+            self._compute_snrs(output_path=f'{output_directory}/',
                               output_filename='sweep_diam_' + str(np.round(diameter, 2)).replace('.', '_'),
                               run_maxsep=False,
                               diameter=diameter)
             print('[Done]')
 
             print('Commencing maxsep run... ')
-            self.compute_snrs(output_path=f'{output_directory}/',
+            self._compute_snrs(output_path=f'{output_directory}/',
                               output_filename='sweep_diam_maxsep_' + str(np.round(diameter, 2)).replace('.', '_'),
                               run_maxsep=True,
                               diameter=diameter)
             print('[Done]')
 
     def run_optimizer_sweep(self,
-                            run_name):
-        # get the names of all subdirectories in output_path
-        subdirs = [d for d in os.listdir(self.output_path) if os.path.isdir(os.path.join(self.output_path, d))]
+                            run_name,
+                            source_name):
+        source_path = os.path.join(self.output_path, source_name)
+        # get the names of all subdirectories in output_path (which contain subdirectories for different mirror diameters)
+        subdirs = [d for d in os.listdir(source_path) if os.path.isdir(os.path.join(source_path, d))]
 
         # check a directory with the name run_name already exists in output_path, otherwise create it
         final_output_path = os.path.join(self.output_path, run_name)
@@ -141,7 +149,7 @@ class ScienceYield:
 
         for subdir in subdirs:
             # make a list of all files ending in .hdf5 in subdir, then keep only the part of the filename before '_catalog.hdf5' and only if the sting does not contain 'maxsep'
-            catalog_files = [f.split('_catalog.hdf5')[0] for f in os.listdir(os.path.join(self.output_path, subdir))
+            catalog_files = [f.split('_catalog.hdf5')[0] for f in os.listdir(os.path.join(source_path, subdir))
                                 if f.endswith('_catalog.hdf5') and 'maxsep' not in f]
 
             # create a subdir of the same name in final_output_path, no existence check required
@@ -153,13 +161,13 @@ class ScienceYield:
                     compute_yields_mp(
                         output_filename=catalog_file,
                         output_path=output_directory + '/',
-                        catalog_path=os.path.join(self.output_path, subdir, catalog_file + '_catalog.hdf5'),
+                        catalog_path=os.path.join(source_path, subdir, catalog_file + '_catalog.hdf5'),
                         config_path=self.config_path
                     )
                 else:
                     run_configs.append({'output_filename': catalog_file,
                                         'output_path': output_directory + '/',
-                                        'catalog_path': os.path.join(self.output_path, subdir, catalog_file + '_catalog.hdf5')
+                                        'catalog_path': os.path.join(source_path, subdir, catalog_file + '_catalog.hdf5')
                                         })
 
         if self.n_cpu > 1:
