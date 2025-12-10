@@ -164,9 +164,8 @@ Runs the optimizer on all snr tables in a given source folder.
 | `output_path/output_filename_catalog.hdf5`| snr table for the single run     |
 | `output_path/output_filename.yaml`        | config file for the single run   |
 
-**Parameters:**
 
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `param1`  | Type | Description of param1 |
-| `param2`  | Type | Description of param2 |
+# What happens in the characterization ahgs
+
+
+

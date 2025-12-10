@@ -84,7 +84,27 @@ class ScienceYield:
         bus.connect(('star', 'transm'))
 
         if run_maxsep:
-            bus.data.catalog = bus.data.catalog[bus.data.catalog.habitable]
+            # only run maxsep SNR for planets that are part of an experiment
+            bus.data.catalog['is_interesting'] = False
+            for exp in bus.data.options.optimization['experiments'].keys():
+                mask_exp = ((bus.data.catalog.radius_p
+                             >= bus.data.options.optimization['experiments'][exp]['radius_p_min'])
+                            & (bus.data.catalog.radius_p
+                               <= bus.data.options.optimization['experiments'][exp]['radius_p_max'])
+                            & (bus.data.catalog.temp_s
+                               >= bus.data.options.optimization['experiments'][exp]['temp_s_min'])
+                            & (bus.data.catalog.temp_s
+                               <= bus.data.options.optimization['experiments'][exp]['temp_s_max']))
+
+                if bus.data.options.optimization['experiments'][exp]['in_HZ']:
+                    mask_exp = (mask_exp
+                                & (bus.data.catalog['habitable']))
+
+                bus.data.catalog['exp_' + exp] = mask_exp
+
+                bus.data.catalog['is_interesting'] = np.logical_or(mask_exp, bus.data.catalog['is_interesting'])
+            
+            bus.data.catalog = bus.data.catalog[bus.data.catalog.is_interesting]
             bus.data.catalog['angsep'] = bus.data.catalog['maxangsep']
 
         instrument.get_snr()
@@ -126,14 +146,15 @@ class ScienceYield:
 
             print('Commencing maxsep run... ')
             self._compute_snrs(output_path=f'{output_directory}/',
-                              output_filename='sweep_diam_maxsep_' + str(np.round(diameter, 2)).replace('.', '_'),
+                              output_filename='sweep_diam_' + str(np.round(diameter, 2)).replace('.', '_') + '_maxsep',
                               run_maxsep=True,
                               diameter=diameter)
             print('[Done]')
 
     def run_optimizer_sweep(self,
                             run_name,
-                            source_name):
+                            source_name,
+                            characterization: bool = False):
         source_path = os.path.join(self.output_path, source_name)
         # get the names of all subdirectories in output_path (which contain subdirectories for different mirror diameters)
         subdirs = [d for d in os.listdir(source_path) if os.path.isdir(os.path.join(source_path, d))]
@@ -162,12 +183,13 @@ class ScienceYield:
                         output_filename=catalog_file,
                         output_path=output_directory + '/',
                         catalog_path=os.path.join(source_path, subdir, catalog_file + '_catalog.hdf5'),
-                        config_path=self.config_path
+                        config_path=self.config_path,
+                        characterization=characterization
                     )
                 else:
                     run_configs.append({'output_filename': catalog_file,
                                         'output_path': output_directory + '/',
-                                        'catalog_path': os.path.join(source_path, subdir, catalog_file + '_catalog.hdf5')
+                                        'catalog_path': os.path.join(source_path, subdir, catalog_file + '_catalog.hdf5'),
                                         })
 
         if self.n_cpu > 1:
@@ -182,9 +204,171 @@ class ScienceYield:
                         output_filename=rc['output_filename'],
                         output_path=rc['output_path'],
                         catalog_path=rc['catalog_path'],
-                        config_path=self.config_path
+                        config_path=self.config_path,
+                        characterization=characterization
                     )
                     for rc in run_configs)
+
+    def combine_catalog_maxsep(self,
+                               source_name,):
+        source_path = os.path.join(self.output_path, source_name)
+
+        print('START OF combine_catalog_maxsep: ', time.ctime())
+        print('SOURCE NAME: ', source_name)
+        print('SOURCE PATH: ', source_path)
+        t_all = time.time()
+
+        subdirs = [d for d in os.listdir(source_path) if os.path.isdir(os.path.join(source_path, d))]
+
+        for subdir in subdirs:
+            print('--------------------------------------------------')
+            print('Processing subdir: ', subdir)
+            t_sub = time.time()
+
+            # make a list of all files ending in .hdf5 in subdir, then keep only the part of the filename before '_catalog.hdf5' and only if the sting does not contain 'maxsep'
+            base_catalog_files = [f.split('_catalog.hdf5')[0] for f in os.listdir(os.path.join(source_path, subdir))
+                                if f.endswith('_catalog.hdf5') and 'maxsep' not in f]
+
+            if len(base_catalog_files) == 0:
+                print('  No base catalog files found in', os.path.join(source_path, subdir))
+                print('  Skipping subdir.')
+                print('Subdir processing took', round(time.time() - t_sub, 2), 's')
+                continue
+
+            for catalog_file in base_catalog_files:
+                print('  ----------------------------------------------')
+                print('  Processing catalog:', catalog_file)
+                t_cat = time.time()
+
+                base_path = os.path.join(source_path, subdir, catalog_file + '_catalog.hdf5')
+                maxsep_path = os.path.join(source_path, subdir, catalog_file + '_maxsep_catalog.hdf5')
+
+                print('    Reading base catalog from:', base_path)
+                base_catalog = pd.read_hdf(base_path)
+                print('    Base catalog entries:', len(base_catalog))
+
+                print('    Reading maxsep catalog from:', maxsep_path)
+                maxsep_catalog = pd.read_hdf(maxsep_path)
+                print('    Maxsep catalog entries:', len(maxsep_catalog))
+
+                # map and fill missing values
+                base_catalog['maxsep_snr_1h'] = base_catalog['id'].map(maxsep_catalog.set_index('id')['snr_1h'])
+                missing_before = int(base_catalog['maxsep_snr_1h'].isna().sum())
+                base_catalog['maxsep_snr_1h'].fillna(0, inplace=True)
+                print(f'    Mapped maxsep snr_1h, filled {missing_before} missing values with 0')
+
+                print('    Saving combined catalog to:', base_path)
+                base_catalog.to_hdf(base_path, key='catalog', mode='w')
+
+                print('  Done processing', catalog_file, '- took', round(time.time() - t_cat, 2), 's')
+
+            print('Finished subdir:', subdir, '- took', round(time.time() - t_sub, 2), 's')
+
+        print('ALL combine_catalog_maxsep finished. Total time:', round(time.time() - t_all, 2), 's')
+
+    def get_mission_time(self,
+                         catalog_path,
+                         config_path):
+        bus = lifesim.Bus()
+
+        # loading the config and catalog, make sure that the catalog is already combined with maxsep SNRs
+        bus.build_from_config(filename=config_path)
+        bus.data.import_catalog(input_path=catalog_path)
+
+        cat_det = bus.data.catalog[np.logical_and(
+            bus.data.catalog.is_interesting,
+            bus.data.catalog.detected
+        )].sort_values('t_detected')
+
+        # collect the experiments
+        exps = [col[4:] for col in bus.data.catalog.columns if col.startswith('exp_')]
+
+        # set up the time sheet that records the mission time per universe and per experiment
+        time_sheet = {}
+        for exp in exps:
+            time_sheet[exp] = pd.DataFrame(index=np.unique(cat_det.nuniverse),
+                                           columns=['detection', 'orbit', 'characterization', 'total'])
+        t_det = np.zeros((2, len(np.unique(cat_det.nuniverse))))
+        t_det[0, :] = np.unique(cat_det.nuniverse)
+
+        # 1. get total time for detection campaign from every universe
+        for nu in np.unique(cat_det.nuniverse):
+            temp_t_dets = []
+            for exp in exps:
+                det_stream = cat_det[np.logical_and(cat_det.nuniverse == nu, cat_det['exp_' + exp])].t_detected
+                temp_t_det = det_stream.iloc[bus.data.options.optimization['experiments'][exp]['sample_size']] \
+                    if len(det_stream) > 0 else np.nan
+                temp_t_dets.append(temp_t_det)
+                time_sheet[exp].loc[nu, 'detection'] = temp_t_det
+            t_det[1, t_det[0, :] == nu] = np.max(temp_t_dets)
+
+        # 2. identify the follow_up targets for each universe
+        cat_det.sort_values('maxsep_snr_1h', ascending=False, inplace=True)
+        cat_det['follow_up'] = False
+        for nu in np.unique(cat_det.nuniverse):
+            for exp in exps:
+                mask_det = np.logical_and.reduce((cat_det.nuniverse == nu, cat_det['exp_' + exp],
+                                                  cat_det.t_detected <= t_det[1, t_det[0, :] == nu][0]))
+                # only set the top N targets to follow up where N is the sample size for the experiment
+                mask_det_indices = cat_det[mask_det].index[:bus.data.options.optimization['experiments'][exp]['sample_size']]
+                cat_det.loc[mask_det_indices, 'follow_up'] = True
+
+        # 3. calculate follow-up time for orbit and characterization
+        for nu in np.unique(cat_det.nuniverse):
+            for exp in exps:
+                mask_followup = np.logical_and.reduce(
+                    (cat_det.nuniverse == nu, cat_det['exp_' + exp], cat_det.follow_up))
+                time_sheet[exp].loc[nu, 'orbit'] = (((bus.data.options.optimization['snr_target']
+                                                     / cat_det[mask_followup].maxsep_snr_1h) ** 2 *
+                                                    (bus.data.options.optimization['n_orbits'] - 1) * 60 * 60).sum()
+                                                    + np.sum(mask_followup)
+                                                    * (bus.data.options.optimization['n_orbits'] - 1)
+                                                    * bus.data.options.array['t_slew'])
+                time_sheet[exp].loc[nu, 'characterization'] = (((bus.data.options.optimization['snr_char'] / cat_det[
+                    mask_followup].maxsep_snr_1h) ** 2 * 60 * 60).sum()
+                                                               + np.sum(mask_followup)
+                                                               * bus.data.options.array['t_slew'])
+
+        # 4. get total time
+        for exp in exps:
+            time_sheet[exp]['total'] = time_sheet[exp]['detection'] + time_sheet[exp]['orbit'] + time_sheet[exp][
+                'characterization']
+
+        return time_sheet
+
+    def sweep_mission_time(self,
+                           source_name):
+        source_path = os.path.join(self.output_path, source_name)
+        subdirs = [d for d in os.listdir(source_path) if os.path.isdir(os.path.join(source_path, d))]
+
+        for subdir in subdirs:
+            print('--------------------------------------------------')
+            print('Processing subdir: ', subdir)
+            t_sub = time.time()
+
+            # make a list of all files ending in .hdf5 in subdir, then keep only the part of the filename before '_catalog.hdf5' and only if the sting does not contain 'maxsep'
+            run_names = [f.split('_catalog.hdf5')[0] for f in os.listdir(os.path.join(source_path, subdir))
+                                  if f.endswith('_catalog.hdf5')]
+
+            for run_name in run_names:
+                print('  ----------------------------------------------')
+                print('  Processing run: ', run_name)
+                t_run = time.time()
+
+                catalog_path = os.path.join(source_path, subdir, run_name + '_catalog.hdf5')
+                config_path = os.path.join(source_path, subdir, run_name + '.yaml')
+
+                time_sheet = self.get_mission_time(catalog_path=catalog_path,
+                                                  config_path=config_path)
+
+                # save time_sheet to csv files, one per experiment
+                for exp in time_sheet.keys():
+                    output_csv_path = os.path.join(source_path, subdir, run_name + '_' + exp + '_mission_time.csv')
+                    time_sheet[exp].to_csv(output_csv_path)
+                    print('    Saved mission time for experiment', exp, 'to', output_csv_path)
+
+                print('  Done processing run:', run_name, '- took', round(time.time() - t_run, 2), 's')
+
 
     def run_covergence_test(self,
                             run_name,
@@ -312,7 +496,8 @@ def compute_yields_mp(output_filename,
                       catalog_path,
                       config_path,
                       uni_sel=None,
-                      return_yields=False):
+                      return_yields=False,
+                      characterization: bool = False):
 
     t = time.time()
     # create bus
@@ -322,10 +507,9 @@ def compute_yields_mp(output_filename,
     bus.build_from_config(filename=config_path)
     bus.data.options.set_manual(n_cpu=1)  # speed up calculation
 
-    bus.data.options.set_manual(
-        output_path=output_path)
+    bus.data.options.set_manual(output_path=output_path)
     bus.data.options.set_manual(output_filename=output_filename)
-
+    bus.data.options.optimization['characterization'] = characterization
     # ---------- Loading the Catalog ----------
     bus.data.import_catalog(input_path=catalog_path)
 
@@ -355,9 +539,9 @@ def compute_yields_mp(output_filename,
     bus.connect(('inst', 'opt'))
     bus.connect(('opt', 'ahgs'))
 
-    with contextlib.redirect_stdout(None):
-        opt.ahgs()
-        bus.save()
+    # with contextlib.redirect_stdout(None):
+    opt.ahgs()
+    bus.save()
 
     if return_yields:
         yields = get_yields(bus=bus,
