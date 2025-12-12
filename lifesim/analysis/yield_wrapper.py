@@ -4,6 +4,7 @@ import os
 import contextlib
 from copy import deepcopy
 import json
+from typing import Union
 
 import numpy as np
 from joblib import Parallel, delayed, parallel_config
@@ -154,7 +155,8 @@ class ScienceYield:
     def run_optimizer_sweep(self,
                             run_name,
                             source_name,
-                            characterization: bool = False):
+                            characterization: bool = False,
+                            opt_limit_factor: Union[None, float] = None):
         source_path = os.path.join(self.output_path, source_name)
         # get the names of all subdirectories in output_path (which contain subdirectories for different mirror diameters)
         subdirs = [d for d in os.listdir(source_path) if os.path.isdir(os.path.join(source_path, d))]
@@ -184,7 +186,8 @@ class ScienceYield:
                         output_path=output_directory + '/',
                         catalog_path=os.path.join(source_path, subdir, catalog_file + '_catalog.hdf5'),
                         config_path=self.config_path,
-                        characterization=characterization
+                        characterization=characterization,
+                        opt_limit_factor=opt_limit_factor
                     )
                 else:
                     run_configs.append({'output_filename': catalog_file,
@@ -205,7 +208,8 @@ class ScienceYield:
                         output_path=rc['output_path'],
                         catalog_path=rc['catalog_path'],
                         config_path=self.config_path,
-                        characterization=characterization
+                        characterization=characterization,
+                        opt_limit_factor=opt_limit_factor
                     )
                     for rc in run_configs)
 
@@ -275,19 +279,39 @@ class ScienceYield:
         bus.build_from_config(filename=config_path)
         bus.data.import_catalog(input_path=catalog_path)
 
+        # collect the experiments
+        exps = [col[4:] for col in bus.data.catalog.columns if col.startswith('exp_')]
+        
+        # recalculate the interesting flag
+        bus.data.catalog['is_interesting'] = False
+        for exp in exps:
+            mask_exp = ((bus.data.catalog.radius_p
+                         >= bus.data.options.optimization['experiments'][exp]['radius_p_min'])
+                        & (bus.data.catalog.radius_p
+                           <= bus.data.options.optimization['experiments'][exp]['radius_p_max'])
+                        & (bus.data.catalog.temp_s
+                           >= bus.data.options.optimization['experiments'][exp]['temp_s_min'])
+                        & (bus.data.catalog.temp_s
+                           <= bus.data.options.optimization['experiments'][exp]['temp_s_max']))
+
+            if bus.data.options.optimization['experiments'][exp]['in_HZ']:
+                mask_exp = (mask_exp
+                            & (bus.data.catalog['habitable']))
+
+            bus.data.catalog['exp_' + exp] = mask_exp
+
+            bus.data.catalog['is_interesting'] = np.logical_or(mask_exp, bus.data.catalog['is_interesting'])
+
         cat_det = bus.data.catalog[np.logical_and(
             bus.data.catalog.is_interesting,
             bus.data.catalog.detected
         )].sort_values('t_detected')
 
-        # collect the experiments
-        exps = [col[4:] for col in bus.data.catalog.columns if col.startswith('exp_')]
-
         # set up the time sheet that records the mission time per universe and per experiment
         time_sheet = {}
         for exp in exps:
             time_sheet[exp] = pd.DataFrame(index=np.unique(cat_det.nuniverse),
-                                           columns=['detection', 'orbit', 'characterization', 'total'])
+                                           columns=['detection', 'orbit', 'characterization', 'total', 'number'])
         t_det = np.zeros((2, len(np.unique(cat_det.nuniverse))))
         t_det[0, :] = np.unique(cat_det.nuniverse)
 
@@ -296,11 +320,18 @@ class ScienceYield:
             temp_t_dets = []
             for exp in exps:
                 det_stream = cat_det[np.logical_and(cat_det.nuniverse == nu, cat_det['exp_' + exp])].t_detected
-                temp_t_det = det_stream.iloc[bus.data.options.optimization['experiments'][exp]['sample_size']] \
-                    if len(det_stream) > 0 else np.nan
+                if len(det_stream) == 0:
+                    temp_t_det = np.nan
+                    time_sheet[exp].loc[nu, 'number'] = 0
+                elif len(det_stream) < bus.data.options.optimization['experiments'][exp]['sample_size']:
+                    temp_t_det = det_stream.iloc[-1]
+                    time_sheet[exp].loc[nu, 'number'] = len(det_stream)
+                else:
+                    temp_t_det = det_stream.iloc[bus.data.options.optimization['experiments'][exp]['sample_size']-1]
+                    time_sheet[exp].loc[nu, 'number'] = bus.data.options.optimization['experiments'][exp]['sample_size']
                 temp_t_dets.append(temp_t_det)
                 time_sheet[exp].loc[nu, 'detection'] = temp_t_det
-            t_det[1, t_det[0, :] == nu] = np.max(temp_t_dets)
+            t_det[1, t_det[0, :] == nu] = np.nanmax(temp_t_dets)
 
         # 2. identify the follow_up targets for each universe
         cat_det.sort_values('maxsep_snr_1h', ascending=False, inplace=True)
@@ -497,7 +528,8 @@ def compute_yields_mp(output_filename,
                       config_path,
                       uni_sel=None,
                       return_yields=False,
-                      characterization: bool = False):
+                      characterization: bool = False,
+                      opt_limit_factor: Union[None, float] = None):
 
     t = time.time()
     # create bus
@@ -506,6 +538,9 @@ def compute_yields_mp(output_filename,
     # setting the options
     bus.build_from_config(filename=config_path)
     bus.data.options.set_manual(n_cpu=1)  # speed up calculation
+
+    if opt_limit_factor is not None:
+        bus.data.options.optimization['opt_limit_factor'] = opt_limit_factor
 
     bus.data.options.set_manual(output_path=output_path)
     bus.data.options.set_manual(output_filename=output_filename)
