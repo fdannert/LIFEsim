@@ -127,6 +127,9 @@ class AhgsModule(SlopeModule):
             if self.data.options.optimization['characterization']:
                 # find the best global slope and observe star
                 no_star, ind_t = np.unravel_index(np.argmin(obs[:, 1, :]), obs[:, 1, :].shape)
+                if not np.isfinite(obs[no_star, 1, ind_t]):
+                    print('Not sufficient targets remaining to continue characterization optimization.')
+                    break
                 if (((self.tot_time + obs[no_star, 0, ind_t] * (ind_t + 1) + 0.01) > obs_time)
                         and (self.data.options.optimization['opt_limit'] == 'time')):
                     rem_time = obs_time - self.tot_time

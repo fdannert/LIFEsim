@@ -141,14 +141,14 @@ class ScienceYield:
             self._compute_snrs(output_path=f'{output_directory}/',
                               output_filename='sweep_diam_' + str(np.round(diameter, 2)).replace('.', '_'),
                               run_maxsep=False,
-                              diameter=diameter)
+                              diameter=float(diameter))
             print('[Done]')
 
             print('Commencing maxsep run... ')
             self._compute_snrs(output_path=f'{output_directory}/',
                               output_filename='sweep_diam_' + str(np.round(diameter, 2)).replace('.', '_') + '_maxsep',
                               run_maxsep=True,
-                              diameter=diameter)
+                              diameter=float(diameter))
             print('[Done]')
 
     def run_optimizer_sweep(self,
