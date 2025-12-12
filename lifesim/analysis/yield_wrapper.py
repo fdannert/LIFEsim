@@ -324,16 +324,16 @@ class ScienceYield:
                 det_stream = cat_det[np.logical_and(cat_det.nuniverse == nu, cat_det['exp_' + exp])].t_detected
                 if len(det_stream) == 0:
                     temp_t_det = np.nan
-                    time_sheet[exp].loc[nu, 'number'] = 0
                 elif len(det_stream) < bus.data.options.optimization['experiments'][exp]['sample_size']:
                     temp_t_det = det_stream.iloc[-1]
-                    time_sheet[exp].loc[nu, 'number'] = len(det_stream)
                 else:
                     temp_t_det = det_stream.iloc[bus.data.options.optimization['experiments'][exp]['sample_size']-1]
-                    time_sheet[exp].loc[nu, 'number'] = bus.data.options.optimization['experiments'][exp]['sample_size']
                 temp_t_dets.append(temp_t_det)
                 time_sheet[exp].loc[nu, 'detection'] = temp_t_det
             t_det[1, t_det[0, :] == nu] = np.nanmax(temp_t_dets)
+            for exp in exps:
+                det_stream = cat_det[np.logical_and(cat_det.nuniverse == nu, cat_det['exp_' + exp])].t_detected
+                time_sheet[exp].loc[nu, 'number'] = det_stream <= t_det[1, t_det[0, :] == nu]
 
         # 2. identify the follow_up targets for each universe
         cat_det.sort_values('maxsep_snr_1h', ascending=False, inplace=True)
