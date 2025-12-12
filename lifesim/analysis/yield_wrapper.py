@@ -307,6 +307,8 @@ class ScienceYield:
             bus.data.catalog.detected
         )].sort_values('t_detected')
 
+        cat_det['char_done'] = False
+
         # set up the time sheet that records the mission time per universe and per experiment
         time_sheet = {}
         for exp in exps:
@@ -348,7 +350,8 @@ class ScienceYield:
         for nu in np.unique(cat_det.nuniverse):
             for exp in exps:
                 mask_followup = np.logical_and.reduce(
-                    (cat_det.nuniverse == nu, cat_det['exp_' + exp], cat_det.follow_up))
+                    (cat_det.nuniverse == nu, cat_det['exp_' + exp], cat_det.follow_up, ~cat_det.char_done
+                     ))
                 time_sheet[exp].loc[nu, 'orbit'] = (((bus.data.options.optimization['snr_target']
                                                      / cat_det[mask_followup].maxsep_snr_1h) ** 2 *
                                                     (bus.data.options.optimization['n_orbits'] - 1) * 60 * 60).sum()
@@ -359,6 +362,7 @@ class ScienceYield:
                     mask_followup].maxsep_snr_1h) ** 2 * 60 * 60).sum()
                                                                + np.sum(mask_followup)
                                                                * bus.data.options.array['t_slew'])
+                cat_det.loc[mask_followup, 'char_done'] = True
 
         # 4. get total time
         for exp in exps:
