@@ -333,7 +333,7 @@ class ScienceYield:
             t_det[1, t_det[0, :] == nu] = np.nanmax(temp_t_dets)
             for exp in exps:
                 det_stream = cat_det[np.logical_and(cat_det.nuniverse == nu, cat_det['exp_' + exp])].t_detected
-                time_sheet[exp].loc[nu, 'number'] = det_stream <= t_det[1, t_det[0, :] == nu]
+                time_sheet[exp].loc[nu, 'number'] = np.sum(det_stream <= float(t_det[1, t_det[0, :] == nu]))
 
         # 2. identify the follow_up targets for each universe
         cat_det.sort_values('maxsep_snr_1h', ascending=False, inplace=True)
