@@ -307,67 +307,76 @@ class ScienceYield:
             bus.data.catalog.detected
         )].sort_values('t_detected')
 
-        cat_det['char_done'] = False
+        cat_det['follow_up'] = False
+        cat_det['t_orbit'] = 0.
+        cat_det['t_char'] = 0.
+
+        bus.data.catalog['follow_up'] = False
 
         # set up the time sheet that records the mission time per universe and per experiment
-        time_sheet = {}
+        columns = ['detection', 'orbit', 'characterization', 'total']
         for exp in exps:
-            time_sheet[exp] = pd.DataFrame(index=np.unique(cat_det.nuniverse),
-                                           columns=['detection', 'orbit', 'characterization', 'total', 'number'])
-        t_det = np.zeros((2, len(np.unique(cat_det.nuniverse))))
-        t_det[0, :] = np.unique(cat_det.nuniverse)
+            columns.append('n_' + exp)
+        time_sheet = pd.DataFrame(index=np.unique(cat_det.nuniverse),
+                                           columns=columns)
 
         # 1. get total time for detection campaign from every universe
-        for nu in np.unique(cat_det.nuniverse):
-            temp_t_dets = []
-            for exp in exps:
-                det_stream = cat_det[np.logical_and(cat_det.nuniverse == nu, cat_det['exp_' + exp])].t_detected
-                if len(det_stream) == 0:
-                    temp_t_det = np.nan
-                elif len(det_stream) < bus.data.options.optimization['experiments'][exp]['sample_size']:
-                    temp_t_det = det_stream.iloc[-1]
-                else:
-                    temp_t_det = det_stream.iloc[bus.data.options.optimization['experiments'][exp]['sample_size']-1]
-                temp_t_dets.append(temp_t_det)
-                time_sheet[exp].loc[nu, 'detection'] = temp_t_det
-            t_det[1, t_det[0, :] == nu] = np.nanmax(temp_t_dets)
-            for exp in exps:
-                det_stream = cat_det[np.logical_and(cat_det.nuniverse == nu, cat_det['exp_' + exp])].t_detected
-                time_sheet[exp].loc[nu, 'number'] = np.sum(det_stream <= float(t_det[1, t_det[0, :] == nu]))
+        t_det = bus.data.catalog.t_detected.max()
+        time_sheet['detection'] = t_det
 
         # 2. identify the follow_up targets for each universe
         cat_det.sort_values('maxsep_snr_1h', ascending=False, inplace=True)
-        cat_det['follow_up'] = False
         for nu in np.unique(cat_det.nuniverse):
             for exp in exps:
-                mask_det = np.logical_and.reduce((cat_det.nuniverse == nu, cat_det['exp_' + exp],
-                                                  cat_det.t_detected <= t_det[1, t_det[0, :] == nu][0]))
+                mask_det = np.logical_and.reduce((cat_det.nuniverse == nu,
+                                                  cat_det['exp_' + exp],
+                                                  cat_det.t_detected <= t_det))
                 # only set the top N targets to follow up where N is the sample size for the experiment
                 mask_det_indices = cat_det[mask_det].index[:bus.data.options.optimization['experiments'][exp]['sample_size']]
                 cat_det.loc[mask_det_indices, 'follow_up'] = True
+                time_sheet.loc[nu, 'n_' + exp] = len(mask_det_indices)
 
         # 3. calculate follow-up time for orbit and characterization
+        cat_det.loc[cat_det.follow_up, 't_orbit'] = (
+                (((bus.data.options.optimization['snr_target'] / cat_det[cat_det.follow_up].maxsep_snr_1h) ** 2)
+                 * 60 * 60
+                 + bus.data.options.array['t_slew'])
+                * (bus.data.options.optimization['n_orbits'] - 1)
+        )
+
+        cat_det.loc[cat_det.follow_up, 't_char'] = (
+                (((bus.data.options.optimization['snr_char'] / cat_det[cat_det.follow_up].maxsep_snr_1h) ** 2)
+                 * 60 * 60
+                 + bus.data.options.array['t_slew'])
+        )
+
         for nu in np.unique(cat_det.nuniverse):
-            for exp in exps:
-                mask_followup = np.logical_and.reduce(
-                    (cat_det.nuniverse == nu, cat_det['exp_' + exp], cat_det.follow_up, ~cat_det.char_done
-                     ))
-                time_sheet[exp].loc[nu, 'orbit'] = (((bus.data.options.optimization['snr_target']
-                                                     / cat_det[mask_followup].maxsep_snr_1h) ** 2 *
-                                                    (bus.data.options.optimization['n_orbits'] - 1) * 60 * 60).sum()
-                                                    + np.sum(mask_followup)
-                                                    * (bus.data.options.optimization['n_orbits'] - 1)
-                                                    * bus.data.options.array['t_slew'])
-                time_sheet[exp].loc[nu, 'characterization'] = (((bus.data.options.optimization['snr_char'] / cat_det[
-                    mask_followup].maxsep_snr_1h) ** 2 * 60 * 60).sum()
-                                                               + np.sum(mask_followup)
-                                                               * bus.data.options.array['t_slew'])
-                cat_det.loc[mask_followup, 'char_done'] = True
+            mask_followup = np.logical_and.reduce(
+                (cat_det.nuniverse == nu, cat_det.follow_up,
+                 ))
+            time_sheet.loc[nu, 'orbit'] = cat_det.loc[mask_followup, 't_orbit'].sum()
+            time_sheet.loc[nu, 'characterization'] = cat_det.loc[mask_followup, 't_char'].sum()
 
         # 4. get total time
-        for exp in exps:
-            time_sheet[exp]['total'] = time_sheet[exp]['detection'] + time_sheet[exp]['orbit'] + time_sheet[exp][
-                'characterization']
+        time_sheet['total'] = time_sheet['detection'] + time_sheet['orbit'] + time_sheet['characterization']
+
+        # 5. copy to original catalog
+        cols = ['follow_up', 't_orbit', 't_char']
+        mapping_df = cat_det.set_index('id')[cols]
+
+        for col, fill_value, out_type in [
+            ('follow_up', False, bool),
+            ('t_orbit', 0.0, float),
+            ('t_char', 0.0, float),
+        ]:
+            # map and infer object dtypes first
+            s = bus.data.catalog['id'].map(mapping_df[col]).infer_objects(copy=False)
+            # replace missing values without using .fillna
+            s_filled = s.where(s.notna(), other=fill_value)
+            # assign with desired type
+            bus.data.catalog[col] = s_filled.astype(out_type)
+
+        bus.save()
 
         return time_sheet
 
@@ -397,12 +406,182 @@ class ScienceYield:
                                                   config_path=config_path)
 
                 # save time_sheet to csv files, one per experiment
-                for exp in time_sheet.keys():
-                    output_csv_path = os.path.join(source_path, subdir, run_name + '_' + exp + '_mission_time.csv')
-                    time_sheet[exp].to_csv(output_csv_path)
-                    print('    Saved mission time for experiment', exp, 'to', output_csv_path)
+                output_csv_path = os.path.join(source_path, subdir, run_name + '_mission_time.csv')
+                time_sheet.to_csv(output_csv_path)
+                print('    Saved mission time to ', output_csv_path)
 
                 print('  Done processing run:', run_name, '- took', round(time.time() - t_run, 2), 's')
+
+
+    def process_mission_time(self,
+                             source_name):
+        # Start logging for this processing run (style consistent with other functions)
+        print('START OF process_mission_time: ', time.ctime())
+        source_path = os.path.join(self.output_path, source_name)
+        print('SOURCE NAME: ', source_name)
+        print('SOURCE PATH: ', source_path)
+        t_all = time.time()
+
+        subdirs = [d for d in os.listdir(source_path) if os.path.isdir(os.path.join(source_path, d))]
+        diams_float = [float('.'.join(d.split('_')[1:])) for d in subdirs]
+        diams = ['_'.join(d.split('_')[1:]) for d in subdirs]
+
+        # -- 1. CREATE TYPETABLE --
+        timetable = {}
+
+        for subdir, d in zip(subdirs, diams):
+            csv_file = [f for f in os.listdir(os.path.join(source_path, subdir))
+                        if f.endswith('.csv')]
+            if len(csv_file) != 1:
+                raise ValueError('More than one csv file found in subdir ' + subdir)
+            timetable[d] = pd.read_csv(os.path.join(source_path, subdir, csv_file[0]))
+
+        exps = [c.split('n_')[1] for c in timetable[diams[0]].columns if c.startswith('n_')]
+
+        typetable = pd.DataFrame(columns=['detection', 'orbit', 'char', 'total'], index=diams_float)
+
+        for d, df in zip(diams, diams_float):
+            typetable.loc[df, 'detection'] = np.max(timetable[d]['detection']) * 1.25
+            typetable.loc[df, 'orbit'] = np.mean(timetable[d]['orbit']) * 1.25
+            typetable.loc[df, 'char'] = np.mean(timetable[d]['characterization']) * 1.25
+            typetable.loc[df, 'total'] = typetable.loc[df, 'detection'] + typetable.loc[df, 'orbit'] + typetable.loc[
+                df, 'char']
+
+        typetable.sort_index(inplace=True, ascending=True)
+
+        # -- 2. PLOT TYPETABLE --
+        # fill under stepped line
+        columns = ['detection', 'orbit', 'char']
+        columns_label = ['Detection', 'Orbit', 'Characterization']
+        x = np.asarray(typetable.index, dtype=float)
+        y0 = np.zeros_like(x, dtype=float)
+
+        colors = ['#2066a8', '#3594cc', '#8cc5e3']
+
+        fig, ax = plt.subplots()
+
+        for i in range(len(columns)):
+            y = typetable[columns[i]].to_numpy(dtype=float) / (365.25 * 24 * 60 * 60)
+            # ax.step(x, y+y0, label=columns[i], where='mid', color=colors[i])
+            ax.fill_between(x, y0, y + y0, step='mid', alpha=1, color=colors[i], label=columns_label[i], edgecolor=None)
+
+            y0 += typetable[columns[i]].to_numpy(dtype=float) / (365.25 * 24 * 60 * 60)
+
+        ax.axhline(y=5, color='tab:blue', linestyle='--')
+        ax.set_xlabel('Mirror Diameter (m)')
+        ax.set_ylabel('Time (years)')
+        ax.legend()
+        type_fig_path = os.path.join(self.output_path, source_name, source_name + '_by_type_time.pdf')
+        fig.savefig(type_fig_path)
+        plt.close()
+
+        # Save typetable CSV and report as a single cohesive step
+        typetable_csv_path = os.path.join(self.output_path, source_name, source_name + '_typetable.csv')
+
+        # -- 3. SAVE TYPETABLE --
+        typetable /= (365.25 * 24 * 60 * 60)
+        typetable.to_csv(typetable_csv_path)
+        print('--------------------------------------------------')
+        print('Step 1/2: Typetable generated and saved.')
+        print('  Figure: ', type_fig_path)
+        print('  CSV:    ', typetable_csv_path)
+
+        # -- 4. CREATE EXPTABLE --
+        exptable = {}
+
+        for exp in exps:
+            exptable[exp] = pd.DataFrame(
+                columns=['detection', 'orbit', 'orbit-1s', 'orbit+1s', 'char', 'char-1s', 'char+1s', 'total',
+                         'total-1s', 'total+1s'], index=diams_float)
+            exptable[exp].sort_index(inplace=True)
+        for subdir in subdirs:
+            df = float('.'.join(subdir.split('_')[1:]))
+            catalog_file = [f for f in os.listdir(os.path.join(source_path, subdir))
+                        if f.endswith('.hdf5') and 'maxsep' not in f]
+            if len(catalog_file) != 1:
+                raise ValueError('More than one catalog file found in subdir ' + subdir)
+            config_file = [f for f in os.listdir(os.path.join(source_path, subdir))
+                        if f.endswith('.yaml')]
+
+            bus = lifesim.Bus()
+
+            # loading the config and catalog, make sure that the catalog is already combined with maxsep SNRs
+            bus.build_from_config(
+                filename=os.path.join(source_path, subdir, config_file[0]))
+            bus.data.import_catalog(
+                input_path=os.path.join(source_path, subdir, catalog_file[0]))
+            cat = bus.data.catalog
+
+            for exp in exps:
+                mask = np.logical_and.reduce((cat.detected, cat['exp_' + exp]))
+                exptable[exp].loc[df, 'detection'] = (np.sum(np.unique(cat[mask].int_time)) + len(
+                    np.unique(cat[mask].int_time)) * bus.data.options.array['t_slew']) * 1.25
+
+                mask = np.logical_and.reduce((cat.detected, cat['exp_' + exp], cat.follow_up))
+                temp_t_orbit = []
+                temp_t_char = []
+                temp_t_total = []
+                for nu in np.unique(cat[mask].nuniverse):
+                    temp_t_orbit.append(np.sum(cat[np.logical_and(mask, cat.nuniverse == nu)].t_orbit))
+                    temp_t_char.append(np.sum(cat[np.logical_and(mask, cat.nuniverse == nu)].t_char))
+                    temp_t_total.append(np.sum(cat[np.logical_and(mask, cat.nuniverse == nu)].t_orbit) + np.sum(
+                        cat[np.logical_and(mask, cat.nuniverse == nu)].t_char) + exptable[exp].loc[
+                                            df, 'detection'] * 0.8)
+                exptable[exp].loc[df, 'orbit'] = np.mean(temp_t_orbit) * 1.25
+                exptable[exp].loc[df, 'orbit+1s'] = np.quantile(temp_t_orbit, 0.841) * 1.25
+                exptable[exp].loc[df, 'orbit-1s'] = np.quantile(temp_t_orbit, 0.159) * 1.25
+                exptable[exp].loc[df, 'char'] = np.mean(temp_t_char) * 1.25
+                exptable[exp].loc[df, 'char+1s'] = np.quantile(temp_t_char, 0.841) * 1.25
+                exptable[exp].loc[df, 'char-1s'] = np.quantile(temp_t_char, 0.159) * 1.25
+                exptable[exp].loc[df, 'total'] = np.mean(temp_t_total) * 1.25
+                exptable[exp].loc[df, 'total+1s'] = np.quantile(temp_t_total, 0.841) * 1.25
+                exptable[exp].loc[df, 'total-1s'] = np.quantile(temp_t_total, 0.159) * 1.25
+
+            del bus
+            del cat
+
+        # -- 5. PLOT EXPTABLE --
+        colors = [['#2066a8', '#3594cc', '#8cc5e3'],
+                  ['#a00000', '#c46666', '#d8a6a6'],
+                  ['#1f6f6f', '#54a1a1', '#9fc8c8'], ]
+
+        columns = ['detection', 'orbit', 'char']
+        x = np.asarray(exptable[exps[0]].index, dtype=float)
+        y0 = np.zeros_like(x, dtype=float)
+
+        fig, ax = plt.subplots()
+
+        for j, exp in enumerate(exps):
+            for i in range(len(columns)):
+                y = exptable[exp][columns[i]].to_numpy(dtype=float) / (365.25 * 24 * 60 * 60)
+                # ax.step(x, y+y0, label=columns[i], where='mid', color=colors[i])
+                if i == 0:
+                    ax.fill_between(x, y0, y + y0, step='mid', alpha=1, color=colors[j][i], edgecolor=None, label=exp)
+                else:
+                    ax.fill_between(x, y0, y + y0, step='mid', alpha=1, color=colors[j][i], edgecolor=None)
+                y0 += y
+
+        ax.set_xlabel('Mirror Diameter (m)')
+        ax.set_ylabel('Time (years)')
+        ax.axhline(y=5, color='tab:blue', linestyle='--')
+        ax.legend()
+
+        exptable_fig_path = os.path.join(self.output_path, source_name, source_name + '_by_exp_time.pdf')
+        fig.savefig(exptable_fig_path)
+        plt.close()
+
+        # -- 6. SAVE EXPTABLE --
+        for exp in exps:
+            exptable[exp] /= (365.25 * 24 * 60 * 60)
+            exptable[exp].to_csv(os.path.join(self.output_path, source_name, source_name + '_' + exp + '_exptable.csv'))
+
+        print('--------------------------------------------------')
+        print('Step 2/2: Exptable plotted and CSVs saved.')
+        print('  Figure: ', exptable_fig_path)
+        print('  CSVs:   ', os.path.join(self.output_path, source_name))
+
+        # Final log with elapsed time
+        print('ALL process_mission_time finished. Total time:', round(time.time() - t_all, 2), 's')
 
 
     def run_covergence_test(self,
