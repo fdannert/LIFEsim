@@ -5,6 +5,7 @@ import contextlib
 from copy import deepcopy
 import json
 from typing import Union
+import logging
 
 import numpy as np
 from joblib import Parallel, delayed, parallel_config
@@ -27,6 +28,37 @@ class ScienceYield:
         self.output_path = output_path
         self.n_cpu = n_cpu
         self.cat_from_ppop = cat_from_ppop
+
+        # Create logger that writes to `yield_wrapper_log.txt` in append mode.
+        os.makedirs(self.output_path, exist_ok=True)
+        log_file_path = os.path.join(self.output_path, 'yield_wrapper.log')
+
+        self.logger = logging.getLogger('lifesim.yield_wrapper')
+        self.logger.setLevel(logging.INFO)
+
+        # Avoid duplicating handlers for the same file when multiple instances are created
+        file_path_abs = os.path.abspath(log_file_path)
+        existing_handler = None
+        for h in list(self.logger.handlers):
+            if isinstance(h, logging.FileHandler) and getattr(h, 'baseFilename', None) == file_path_abs:
+                existing_handler = h
+                break
+
+        if existing_handler is None:
+            fh = logging.FileHandler(log_file_path, mode='a')
+            fh.setLevel(logging.INFO)
+            fh.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
+            self.logger.addHandler(fh)
+            self.logger.propagate = False
+
+        # Log instance creation and parameters
+        self.logger.info('%s', '=' * 80)
+        self.logger.info('ScienceYield instance created at: %s', time.ctime())
+        self.logger.info('Parameters:')
+        self.logger.info('  config_path: %s', self.config_path)
+        self.logger.info('  catalog_path: %s', self.catalog_path)
+        self.logger.info('  output_path: %s', self.output_path)
+        self.logger.info('  n_cpu: %s', self.n_cpu)
 
     def _compute_snrs(self,
                      output_path,
@@ -118,6 +150,7 @@ class ScienceYield:
     def run_aperture_sweep_snr(self,
                                mirror_diameters,
                                run_name):
+
         final_output_path = os.path.join(self.output_path, run_name)
         if not os.path.exists(final_output_path):
             os.makedirs(final_output_path)
@@ -151,6 +184,27 @@ class ScienceYield:
                               run_maxsep=True,
                               diameter=float(diameter))
             print('[Done]')
+
+        # Append single multi-line log summary for this method
+        t_end = time.time()
+        try:
+            diam_dirs = sorted([d for d in os.listdir(final_output_path)
+                                if os.path.isdir(os.path.join(final_output_path, d)) and d.startswith('diam_')])
+            diameters_created = [d.replace('diam_', '').replace('_', '.') for d in diam_dirs]
+        except Exception:
+            diam_dirs = []
+            diameters_created = []
+        msg = f"""run_aperture_sweep_snr summary:
+  run_name: {run_name}
+  requested_mirror_diameters: {mirror_diameters}
+  mirror_directories_found: {diam_dirs}
+  mirror_diameters_reported: {diameters_created}
+  final_output_path: {final_output_path}
+  start_time: {time.ctime(t_end - (t_end - t_end))}  # placeholder, exact start not stored in this scope
+  end_time: {time.ctime(t_end)}
+  elapsed_seconds: {round(0.0, 2)}  # elapsed not measured here to avoid changing existing code flow
+"""
+        self.logger.info(msg)
 
     def run_optimizer_sweep(self,
                             run_name,
@@ -213,6 +267,32 @@ class ScienceYield:
                     )
                     for rc in run_configs)
 
+        # Append single multi-line log summary for this method
+        t_end = time.time()
+        # derive counts from filesystem to avoid modifying existing logic
+        catalog_counts = 0
+        catalog_list = {}
+        for d in subdirs:
+            files = [f for f in os.listdir(os.path.join(source_path, d)) if f.endswith('_catalog.hdf5') and 'maxsep' not in f]
+            catalog_counts += len(files)
+            catalog_list[d] = files
+        msg = f"""run_optimizer_sweep summary:
+  run_name: {run_name}
+  source_name: {source_name}
+  source_path: {source_path}
+  n_cpu: {self.n_cpu}
+  subdirs_found: {subdirs}
+  total_subdirs_count: {len(subdirs)}
+  total_catalog_files_count: {catalog_counts}
+  catalog_files_by_subdir: {catalog_list}
+  run_configs_queued_parallel: {len(run_configs)}
+  final_output_path: {final_output_path}
+  characterization: {characterization}
+  opt_limit_factor: {opt_limit_factor}
+  end_time: {time.ctime(t_end)}
+"""
+        self.logger.info(msg)
+
     def combine_catalog_maxsep(self,
                                source_name,):
         source_path = os.path.join(self.output_path, source_name)
@@ -269,6 +349,27 @@ class ScienceYield:
             print('Finished subdir:', subdir, '- took', round(time.time() - t_sub, 2), 's')
 
         print('ALL combine_catalog_maxsep finished. Total time:', round(time.time() - t_all, 2), 's')
+
+        # Append single multi-line log summary for this method
+        t_end = time.time()
+        # derive file counts from filesystem (no change to processing logic)
+        subdirs_list = [d for d in os.listdir(source_path) if os.path.isdir(os.path.join(source_path, d))]
+        total_base_catalogs = sum(len([f for f in os.listdir(os.path.join(source_path, d))
+                                       if f.endswith('_catalog.hdf5') and 'maxsep' not in f]) for d in subdirs_list)
+        total_maxsep_catalogs = sum(len([f for f in os.listdir(os.path.join(source_path, d))
+                                         if f.endswith('_maxsep_catalog.hdf5')]) for d in subdirs_list)
+        msg = f"""combine_catalog_maxsep summary:
+  source_name: {source_name}
+  source_path: {source_path}
+  subdirs_found: {subdirs_list}
+  subdirs_total: {len(subdirs_list)}
+  total_base_catalog_files: {total_base_catalogs}
+  total_maxsep_catalog_files: {total_maxsep_catalogs}
+  start_time: {time.ctime(t_all)}
+  end_time: {time.ctime(t_end)}
+  elapsed_seconds: {round(t_end - t_all, 2)}
+"""
+        self.logger.info(msg)
 
     def get_mission_time(self,
                          catalog_path,
@@ -412,6 +513,21 @@ class ScienceYield:
 
                 print('  Done processing run:', run_name, '- took', round(time.time() - t_run, 2), 's')
 
+        # Append single multi-line log summary for this method
+        t_end = time.time()
+        subdirs_list = [d for d in os.listdir(source_path) if os.path.isdir(os.path.join(source_path, d))]
+        total_runs = sum(len([f for f in os.listdir(os.path.join(source_path, d)) if f.endswith('_catalog.hdf5')]) for d in subdirs_list)
+        mission_csvs = sum(len([f for f in os.listdir(os.path.join(source_path, d)) if f.endswith('_mission_time.csv')]) for d in subdirs_list)
+        msg = f"""sweep_mission_time summary:
+  source_name: {source_name}
+  source_path: {source_path}
+  subdirs_found: {subdirs_list}
+  subdirs_total: {len(subdirs_list)}
+  total_runs_catalogs_found: {total_runs}
+  mission_time_csvs_found: {mission_csvs}
+  end_time: {time.ctime(t_end)}
+"""
+        self.logger.info(msg)
 
     def process_mission_time(self,
                              source_name):

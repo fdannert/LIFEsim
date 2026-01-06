@@ -28,10 +28,14 @@ class AhgsModule(SlopeModule):
                     - self.data.catalog['snr_current'].loc[mask] ** 2)
                    / self.data.catalog.snr_1h.loc[mask] ** 2)
 
+            # included slew time
+            # needs to be divided by the number of universes for proper optimization, since the characterization happens
+            # 'per universe'
             if self.data.options.optimization['characterization']:
                 obs_char = (60 * 60 *
                             self.data.options.optimization['snr_char'] ** 2
-                            / self.data.catalog.maxsep_snr_1h.loc[mask] ** 2)
+                            / self.data.catalog.maxsep_snr_1h.loc[mask] ** 2
+                            + self.data.options.array['t_slew']) / self.data.optm['num_universe']
 
                 # characterization time is needed for optimization, detection time is needed to understand how much
                 # mission time was used for one observation
@@ -42,7 +46,6 @@ class AhgsModule(SlopeModule):
                 met[0] -= self.data.catalog.t_slew.loc[mask]
                 met[1] += met[0]
                 met = met / np.arange(1, np.count_nonzero(mask) + 1, 1)[np.newaxis, :]
-                a=1
 
                 return met
             else:
