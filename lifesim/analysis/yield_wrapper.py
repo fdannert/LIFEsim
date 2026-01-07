@@ -195,15 +195,15 @@ class ScienceYield:
             diam_dirs = []
             diameters_created = []
         msg = f"""run_aperture_sweep_snr summary:
-  run_name: {run_name}
-  requested_mirror_diameters: {mirror_diameters}
-  mirror_directories_found: {diam_dirs}
-  mirror_diameters_reported: {diameters_created}
-  final_output_path: {final_output_path}
-  start_time: {time.ctime(t_end - (t_end - t_end))}  # placeholder, exact start not stored in this scope
-  end_time: {time.ctime(t_end)}
-  elapsed_seconds: {round(0.0, 2)}  # elapsed not measured here to avoid changing existing code flow
-"""
+                  run_name: {run_name}
+                  requested_mirror_diameters: {mirror_diameters}
+                  mirror_directories_found: {diam_dirs}
+                  mirror_diameters_reported: {diameters_created}
+                  final_output_path: {final_output_path}
+                  start_time: {time.ctime(t_end - (t_end - t_end))}  # placeholder, exact start not stored in this scope
+                  end_time: {time.ctime(t_end)}
+                  elapsed_seconds: {round(0.0, 2)}  # elapsed not measured here to avoid changing existing code flow
+                """
         self.logger.info(msg)
 
     def run_optimizer_sweep(self,
@@ -277,20 +277,20 @@ class ScienceYield:
             catalog_counts += len(files)
             catalog_list[d] = files
         msg = f"""run_optimizer_sweep summary:
-  run_name: {run_name}
-  source_name: {source_name}
-  source_path: {source_path}
-  n_cpu: {self.n_cpu}
-  subdirs_found: {subdirs}
-  total_subdirs_count: {len(subdirs)}
-  total_catalog_files_count: {catalog_counts}
-  catalog_files_by_subdir: {catalog_list}
-  run_configs_queued_parallel: {len(run_configs)}
-  final_output_path: {final_output_path}
-  characterization: {characterization}
-  opt_limit_factor: {opt_limit_factor}
-  end_time: {time.ctime(t_end)}
-"""
+                  run_name: {run_name}
+                  source_name: {source_name}
+                  source_path: {source_path}
+                  n_cpu: {self.n_cpu}
+                  subdirs_found: {subdirs}
+                  total_subdirs_count: {len(subdirs)}
+                  total_catalog_files_count: {catalog_counts}
+                  catalog_files_by_subdir: {catalog_list}
+                  run_configs_queued_parallel: {len(run_configs)}
+                  final_output_path: {final_output_path}
+                  characterization: {characterization}
+                  opt_limit_factor: {opt_limit_factor}
+                  end_time: {time.ctime(t_end)}
+                """
         self.logger.info(msg)
 
     def combine_catalog_maxsep(self,
@@ -359,16 +359,16 @@ class ScienceYield:
         total_maxsep_catalogs = sum(len([f for f in os.listdir(os.path.join(source_path, d))
                                          if f.endswith('_maxsep_catalog.hdf5')]) for d in subdirs_list)
         msg = f"""combine_catalog_maxsep summary:
-  source_name: {source_name}
-  source_path: {source_path}
-  subdirs_found: {subdirs_list}
-  subdirs_total: {len(subdirs_list)}
-  total_base_catalog_files: {total_base_catalogs}
-  total_maxsep_catalog_files: {total_maxsep_catalogs}
-  start_time: {time.ctime(t_all)}
-  end_time: {time.ctime(t_end)}
-  elapsed_seconds: {round(t_end - t_all, 2)}
-"""
+                  source_name: {source_name}
+                  source_path: {source_path}
+                  subdirs_found: {subdirs_list}
+                  subdirs_total: {len(subdirs_list)}
+                  total_base_catalog_files: {total_base_catalogs}
+                  total_maxsep_catalog_files: {total_maxsep_catalogs}
+                  start_time: {time.ctime(t_all)}
+                  end_time: {time.ctime(t_end)}
+                  elapsed_seconds: {round(t_end - t_all, 2)}
+                """
         self.logger.info(msg)
 
     def get_mission_time(self,
@@ -519,14 +519,14 @@ class ScienceYield:
         total_runs = sum(len([f for f in os.listdir(os.path.join(source_path, d)) if f.endswith('_catalog.hdf5')]) for d in subdirs_list)
         mission_csvs = sum(len([f for f in os.listdir(os.path.join(source_path, d)) if f.endswith('_mission_time.csv')]) for d in subdirs_list)
         msg = f"""sweep_mission_time summary:
-  source_name: {source_name}
-  source_path: {source_path}
-  subdirs_found: {subdirs_list}
-  subdirs_total: {len(subdirs_list)}
-  total_runs_catalogs_found: {total_runs}
-  mission_time_csvs_found: {mission_csvs}
-  end_time: {time.ctime(t_end)}
-"""
+                  source_name: {source_name}
+                  source_path: {source_path}
+                  subdirs_found: {subdirs_list}
+                  subdirs_total: {len(subdirs_list)}
+                  total_runs_catalogs_found: {total_runs}
+                  mission_time_csvs_found: {mission_csvs}
+                  end_time: {time.ctime(t_end)}
+                """
         self.logger.info(msg)
 
     def process_mission_time(self,
@@ -703,12 +703,16 @@ class ScienceYield:
     def run_covergence_test(self,
                             run_name,
                             catalog_path,
-                            output_path,
                             min_universes,
                             num_steps,
                             plot=False):
+
+        # check a directory with the name run_name already exists in output_path, otherwise create it
+        output_path = os.path.join(self.output_path, run_name)
         if not os.path.exists(output_path):
             os.makedirs(output_path)
+        else:
+            raise ValueError('Directory already exists: ' + output_path)
 
         # determine number universes
         catalog = pd.read_hdf(catalog_path, key='catalog')
