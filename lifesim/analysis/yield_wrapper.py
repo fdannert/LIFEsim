@@ -714,6 +714,8 @@ class ScienceYield:
         else:
             raise ValueError('Directory already exists: ' + output_path)
 
+        output_path += '/'
+
         # determine number universes
         catalog = pd.read_hdf(catalog_path, key='catalog')
         total_universes = np.unique(catalog.nuniverse).shape[0]
