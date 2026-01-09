@@ -887,3 +887,182 @@ def compute_yields_mp(output_filename,
         yields = get_yields(bus=bus,
                             return_yields=return_yields)
         return int(uni_sel), yields
+
+def merge_catalogs_from_csv(mapping_csv: str,
+                            merge_csv: str,
+                            output_path: str,
+                            csv_has_header: bool = True,
+                            id_prefixes: tuple = ('1', '2')) -> None:
+    """Merge pairs of HDF catalogs described by two CSV files.
+
+    Parameters
+    ----------
+    mapping_csv : str
+        Path to the first CSV that maps short names to actual catalog paths.
+        The file is expected to have at least two columns:
+          - column 0: short name for the catalog
+          - column 1: actual path to the catalog (HDF readable by pandas)
+    merge_csv : str
+        Path to the second CSV that lists merges using short names. The file is
+        expected to have at least three columns:
+          - column 0: short name for input catalog 1
+          - column 1: short name for input catalog 2
+          - column 2: output name (a filename or base name). If not ending in
+            '.hdf5' or '_catalog.hdf5' the function will append '_catalog.hdf5'.
+    output_path : str
+        Directory where merged catalogs will be written. Created if necessary.
+    csv_has_header : bool
+        Whether the CSV files have header rows (applies to both CSVs).
+    id_prefixes : tuple
+        Two string prefixes used to remap ids in catalog1 and catalog2.
+
+    Returns
+    -------
+    None
+    """
+    import datetime
+
+    # sanity checks for csvs and output dir
+    if not os.path.exists(mapping_csv):
+        raise FileNotFoundError(f"Mapping CSV file not found: {mapping_csv}")
+    if not os.path.exists(merge_csv):
+        raise FileNotFoundError(f"Merge CSV file not found: {merge_csv}")
+
+    os.makedirs(output_path, exist_ok=True)
+
+    header_arg = 0 if csv_has_header else None
+
+    # read mapping csv and build dict short_name -> path
+    mapping_df = pd.read_csv(mapping_csv, header=header_arg)
+    if mapping_df.shape[1] < 2:
+        raise ValueError("Mapping CSV must contain at least two columns: short_name, path")
+    short_names = mapping_df.iloc[:, 0].astype(str).tolist()
+    paths = mapping_df.iloc[:, 1].astype(str).tolist()
+    mapping = {}
+    for s, p in zip(short_names, paths):
+        if s in mapping:
+            # prefer first occurrence but warn
+            print(f"Warning: duplicate short name '{s}' in mapping CSV; using first occurrence.")
+            continue
+        mapping[s] = p
+
+    # read merge csv
+    merge_df = pd.read_csv(merge_csv, header=header_arg)
+    if merge_df.shape[1] < 3:
+        raise ValueError("Merge CSV must contain at least three columns: short1, short2, output_name")
+
+    input1_short = merge_df.iloc[:, 0].astype(str).tolist()
+    input2_short = merge_df.iloc[:, 1].astype(str).tolist()
+    output_names = merge_df.iloc[:, 2].astype(str).tolist()
+
+    # helper to read HDF with fallback key
+    def _read_hdf_try(path):
+        try:
+            return pd.read_hdf(path)
+        except (KeyError, ValueError):
+            try:
+                return pd.read_hdf(path, key='catalog')
+            except Exception as e:
+                raise RuntimeError(f"Failed to read HDF file {path}: {e}")
+
+    for idx, (s1, s2, out_name) in enumerate(zip(input1_short, input2_short, output_names), start=1):
+        print(f"Processing row {idx}:\n  input_short1={s1}\n  input_short2={s2}\n  output_name={out_name}")
+
+        if s1 not in mapping:
+            raise KeyError(f"Short name '{s1}' not found in mapping CSV")
+        if s2 not in mapping:
+            raise KeyError(f"Short name '{s2}' not found in mapping CSV")
+
+        p1 = mapping[s1]
+        p2 = mapping[s2]
+
+        if not os.path.exists(p1):
+            raise FileNotFoundError(f"Input catalog 1 not found: {p1}")
+        if not os.path.exists(p2):
+            raise FileNotFoundError(f"Input catalog 2 not found: {p2}")
+
+        # normalize output filename: ensure it ends with .hdf5 or _catalog.hdf5
+        out_basename = out_name
+        if out_basename.endswith('.hdf5'):
+            out_filename = out_basename
+        elif out_basename.endswith('_catalog.hdf5'):
+            out_filename = out_basename
+        else:
+            out_filename = out_basename + '_catalog.hdf5'
+
+        outp = os.path.join(output_path, out_filename)
+
+        # read catalogs
+        cat1 = _read_hdf_try(p1)
+        cat2 = _read_hdf_try(p2)
+
+        if 'id' not in cat1.columns or 'id' not in cat2.columns:
+            raise KeyError("Both input catalogs must contain an 'id' column")
+
+        # remap ids (store orig for note)
+        try:
+            cat1 = cat1.copy()
+            cat2 = cat2.copy()
+            cat1['id_orig__'] = cat1['id']
+            cat2['id_orig__'] = cat2['id']
+            cat1['id'] = cat1['id'].astype(int).astype(str).apply(lambda s: int(id_prefixes[0] + s))
+            cat2['id'] = cat2['id'].astype(int).astype(str).apply(lambda s: int(id_prefixes[1] + s))
+        except Exception as e:
+            raise ValueError(f"Error coercing or remapping 'id' columns: {e}")
+
+        if cat1['id'].duplicated().any():
+            raise ValueError("Duplicate ids found within remapped catalog1")
+        if cat2['id'].duplicated().any():
+            raise ValueError("Duplicate ids found within remapped catalog2")
+
+        merged = pd.concat([cat1, cat2], ignore_index=True, sort=False)
+
+        # ensure output directory exists (already created at function-level, but keep defensively)
+        out_dir = os.path.dirname(outp)
+        if out_dir:
+            os.makedirs(out_dir, exist_ok=True)
+
+        try:
+            merged.to_hdf(outp, key='catalog', mode='w')
+        except Exception as e:
+            raise RuntimeError(f"Failed to write merged HDF to {outp}: {e}")
+
+        # write info note
+        base_out = os.path.splitext(outp)[0]
+        note_path = base_out + '_merge_info.txt'
+        now = datetime.datetime.utcnow().isoformat() + 'Z'
+        lines = []
+        lines.append(f"Merged catalogs on: {now}")
+        lines.append("")
+        lines.append("Inputs:")
+        lines.append(f"  catalog1 (short: {s1}): {p1}")
+        lines.append(f"    original rows: {len(cat1)}")
+        lines.append(f"  catalog2 (short: {s2}): {p2}")
+        lines.append(f"    original rows: {len(cat2)}")
+        lines.append("")
+        lines.append(f"Output written to: {outp}")
+        lines.append(f"  total rows: {len(merged)}")
+        lines.append("")
+        lines.append("ID remapping applied:")
+        lines.append(f"  catalog1: new_id = int('{id_prefixes[0]}' + str(old_id))")
+        lines.append(f"  catalog2: new_id = int('{id_prefixes[1]}' + str(old_id))")
+        lines.append("")
+        try:
+            sample1 = cat1[['id_orig__', 'id']].rename(columns={'id_orig__': 'orig', 'id': 'new'}).head(5)
+            sample2 = cat2[['id_orig__', 'id']].rename(columns={'id_orig__': 'orig', 'id': 'new'}).head(5)
+            lines.append('Sample mappings catalog1 (orig -> new):')
+            for o, n in sample1.values:
+                lines.append(f"  {o} -> {n}")
+            lines.append('')
+            lines.append('Sample mappings catalog2 (orig -> new):')
+            for o, n in sample2.values:
+                lines.append(f"  {o} -> {n}")
+        except Exception:
+            pass
+
+        with open(note_path, 'w') as fh:
+            fh.write('\n'.join(lines))
+
+        print(f"Wrote merged catalog to: {outp}")
+        print(f"Wrote merge note to: {note_path}")
+
