@@ -986,7 +986,7 @@ def compute_yields_mp(output_filename,
                      'sep_p', 'albedo_geom_vis', 'z', 'photon_rate_noise', 'mass_p', 'mass_s', 'p_orb', 'flux_p',
                      'photon_rate_planet', 'albedo_bond', 'inc_p', 'lat', 'stype', 'name_s', 'lon', 'ra',
                      'albedo_geom_mir', 'large_omega_p', 'radius_s']
-        bus.data.catalog.drop(columns=to_remove, inplace=True)
+        bus.data.catalog.drop(columns=to_remove, inplace=True, errors='ignore')
 
     bus.save()
 
