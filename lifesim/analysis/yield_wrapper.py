@@ -888,37 +888,22 @@ def compute_yields_mp(output_filename,
                             return_yields=return_yields)
         return int(uni_sel), yields
 
-def merge_catalogs_from_csv(mapping_csv: str,
+def merge_runs(mapping_csv: str,
                             merge_csv: str,
                             output_path: str,
                             csv_has_header: bool = True,
                             id_prefixes: tuple = ('1', '2')) -> None:
-    """Merge pairs of HDF catalogs described by two CSV files.
+    """Merge sets of HDF catalogs described by two CSV files.
 
-    Parameters
-    ----------
-    mapping_csv : str
-        Path to the first CSV that maps short names to actual catalog paths.
-        The file is expected to have at least two columns:
-          - column 0: short name for the catalog
-          - column 1: actual path to the catalog (HDF readable by pandas)
-    merge_csv : str
-        Path to the second CSV that lists merges using short names. The file is
-        expected to have at least three columns:
-          - column 0: short name for input catalog 1
-          - column 1: short name for input catalog 2
-          - column 2: output name (a filename or base name). If not ending in
-            '.hdf5' or '_catalog.hdf5' the function will append '_catalog.hdf5'.
-    output_path : str
-        Directory where merged catalogs will be written. Created if necessary.
-    csv_has_header : bool
-        Whether the CSV files have header rows (applies to both CSVs).
-    id_prefixes : tuple
-        Two string prefixes used to remap ids in catalog1 and catalog2.
-
-    Returns
-    -------
-    None
+    Differences vs previous implementation:
+    - mapping_csv maps short name -> input directory (each input directory contains subdirectories like diam_2, diam_2_5, ...)
+    - merge_csv rows give two short names and an output name. For each row:
+        - create output_path/<output_name>/ and an info file there
+        - create output_path/<output_name>/ap_merged/
+        - verify both input directories contain exactly the same subdirs
+        - for each subdir, read the single base catalog file (ends with '_catalog.hdf5' and not containing 'maxsep') from both inputs,
+          remap ids with id_prefixes, concatenate, and write to ap_merged/<subdir>/<same_filename>
+        - do not read/merge any maxsep files
     """
     import datetime
 
@@ -932,7 +917,7 @@ def merge_catalogs_from_csv(mapping_csv: str,
 
     header_arg = 0 if csv_has_header else None
 
-    # read mapping csv and build dict short_name -> path
+    # read mapping csv and build dict short_name -> path (expected to be directories)
     mapping_df = pd.read_csv(mapping_csv, header=header_arg)
     if mapping_df.shape[1] < 2:
         raise ValueError("Mapping CSV must contain at least two columns: short_name, path")
@@ -941,7 +926,6 @@ def merge_catalogs_from_csv(mapping_csv: str,
     mapping = {}
     for s, p in zip(short_names, paths):
         if s in mapping:
-            # prefer first occurrence but warn
             print(f"Warning: duplicate short name '{s}' in mapping CSV; using first occurrence.")
             continue
         mapping[s] = p
@@ -973,96 +957,125 @@ def merge_catalogs_from_csv(mapping_csv: str,
         if s2 not in mapping:
             raise KeyError(f"Short name '{s2}' not found in mapping CSV")
 
-        p1 = mapping[s1]
-        p2 = mapping[s2]
+        dir1 = mapping[s1]
+        dir2 = mapping[s2]
 
-        if not os.path.exists(p1):
-            raise FileNotFoundError(f"Input catalog 1 not found: {p1}")
-        if not os.path.exists(p2):
-            raise FileNotFoundError(f"Input catalog 2 not found: {p2}")
+        if not os.path.exists(dir1) or not os.path.isdir(dir1):
+            raise FileNotFoundError(f"Input directory 1 not found or not a directory: {dir1}")
+        if not os.path.exists(dir2) or not os.path.isdir(dir2):
+            raise FileNotFoundError(f"Input directory 2 not found or not a directory: {dir2}")
 
-        # normalize output filename: ensure it ends with .hdf5 or _catalog.hdf5
-        out_basename = out_name
-        if out_basename.endswith('.hdf5'):
-            out_filename = out_basename
-        elif out_basename.endswith('_catalog.hdf5'):
-            out_filename = out_basename
-        else:
-            out_filename = out_basename + '_catalog.hdf5'
+        # normalize output folder and create structure
+        out_folder = os.path.join(output_path, out_name)
+        os.makedirs(out_folder, exist_ok=True)
+        ap_merged_root = os.path.join(out_folder, 'ap_merged')
+        os.makedirs(ap_merged_root, exist_ok=True)
 
-        outp = os.path.join(output_path, out_filename)
-
-        # read catalogs
-        cat1 = _read_hdf_try(p1)
-        cat2 = _read_hdf_try(p2)
-
-        if 'id' not in cat1.columns or 'id' not in cat2.columns:
-            raise KeyError("Both input catalogs must contain an 'id' column")
-
-        # remap ids (store orig for note)
-        try:
-            cat1 = cat1.copy()
-            cat2 = cat2.copy()
-            cat1['id_orig__'] = cat1['id']
-            cat2['id_orig__'] = cat2['id']
-            cat1['id'] = cat1['id'].astype(int).astype(str).apply(lambda s: int(id_prefixes[0] + s))
-            cat2['id'] = cat2['id'].astype(int).astype(str).apply(lambda s: int(id_prefixes[1] + s))
-        except Exception as e:
-            raise ValueError(f"Error coercing or remapping 'id' columns: {e}")
-
-        if cat1['id'].duplicated().any():
-            raise ValueError("Duplicate ids found within remapped catalog1")
-        if cat2['id'].duplicated().any():
-            raise ValueError("Duplicate ids found within remapped catalog2")
-
-        merged = pd.concat([cat1, cat2], ignore_index=True, sort=False)
-
-        # ensure output directory exists (already created at function-level, but keep defensively)
-        out_dir = os.path.dirname(outp)
-        if out_dir:
-            os.makedirs(out_dir, exist_ok=True)
-
-        try:
-            merged.to_hdf(outp, key='catalog', mode='w')
-        except Exception as e:
-            raise RuntimeError(f"Failed to write merged HDF to {outp}: {e}")
-
-        # write info note
-        base_out = os.path.splitext(outp)[0]
-        note_path = base_out + '_merge_info.txt'
+        info_lines = []
         now = datetime.datetime.utcnow().isoformat() + 'Z'
-        lines = []
-        lines.append(f"Merged catalogs on: {now}")
-        lines.append("")
-        lines.append("Inputs:")
-        lines.append(f"  catalog1 (short: {s1}): {p1}")
-        lines.append(f"    original rows: {len(cat1)}")
-        lines.append(f"  catalog2 (short: {s2}): {p2}")
-        lines.append(f"    original rows: {len(cat2)}")
-        lines.append("")
-        lines.append(f"Output written to: {outp}")
-        lines.append(f"  total rows: {len(merged)}")
-        lines.append("")
-        lines.append("ID remapping applied:")
-        lines.append(f"  catalog1: new_id = int('{id_prefixes[0]}' + str(old_id))")
-        lines.append(f"  catalog2: new_id = int('{id_prefixes[1]}' + str(old_id))")
-        lines.append("")
-        try:
-            sample1 = cat1[['id_orig__', 'id']].rename(columns={'id_orig__': 'orig', 'id': 'new'}).head(5)
-            sample2 = cat2[['id_orig__', 'id']].rename(columns={'id_orig__': 'orig', 'id': 'new'}).head(5)
-            lines.append('Sample mappings catalog1 (orig -> new):')
-            for o, n in sample1.values:
-                lines.append(f"  {o} -> {n}")
-            lines.append('')
-            lines.append('Sample mappings catalog2 (orig -> new):')
-            for o, n in sample2.values:
-                lines.append(f"  {o} -> {n}")
-        except Exception:
-            pass
+        info_lines.append(f"Merged catalogs run on: {now}")
+        info_lines.append(f"Input short1: {s1}")
+        info_lines.append(f"  path: {dir1}")
+        info_lines.append(f"Input short2: {s2}")
+        info_lines.append(f"  path: {dir2}")
+        info_lines.append("")
 
+        # list subdirectories (only directories)
+        subdirs1 = sorted([d for d in os.listdir(dir1) if os.path.isdir(os.path.join(dir1, d))])
+        subdirs2 = sorted([d for d in os.listdir(dir2) if os.path.isdir(os.path.join(dir2, d))])
+
+        info_lines.append(f"Subdirectories in {s1}: {subdirs1}")
+        info_lines.append(f"Subdirectories in {s2}: {subdirs2}")
+
+        if set(subdirs1) != set(subdirs2):
+            info_lines.append("")
+            info_lines.append("ERROR: Input directories do not contain the same set of subdirectories.")
+            note_path = os.path.join(out_folder, 'merge_info.txt')
+            with open(note_path, 'w') as fh:
+                fh.write('\n'.join(info_lines))
+            raise ValueError(f"Subdirectory mismatch between {dir1} and {dir2}. Merge aborted. See {note_path} for details.")
+
+        common_subdirs = sorted(subdirs1)  # they are equal sets
+
+        # process each subdir
+        for sub in common_subdirs:
+            info_lines.append("")
+            info_lines.append(f"Processing subdir: {sub}")
+            in_sub1 = os.path.join(dir1, sub)
+            in_sub2 = os.path.join(dir2, sub)
+
+            # find single base catalog file in each (ends with _catalog.hdf5 and not containing 'maxsep')
+            base_files1 = [f for f in os.listdir(in_sub1) if f.endswith('_catalog.hdf5') and 'maxsep' not in f]
+            base_files2 = [f for f in os.listdir(in_sub2) if f.endswith('_catalog.hdf5') and 'maxsep' not in f]
+
+            if len(base_files1) != 1:
+                info_lines.append(f"  ERROR: expected exactly one base catalog in {in_sub1}, found {len(base_files1)}")
+                continue
+            if len(base_files2) != 1:
+                info_lines.append(f"  ERROR: expected exactly one base catalog in {in_sub2}, found {len(base_files2)}")
+                continue
+
+            bf1 = base_files1[0]
+            bf2 = base_files2[0]
+            info_lines.append(f"  catalog file in {s1}: {bf1}")
+            info_lines.append(f"  catalog file in {s2}: {bf2}")
+
+            # ensure filenames match (same run name). If not, still proceed but preserve filenames (user expects consistent naming)
+            # create output subdir under ap_merged
+            out_sub = os.path.join(ap_merged_root, sub)
+            os.makedirs(out_sub, exist_ok=True)
+
+            path1 = os.path.join(in_sub1, bf1)
+            path2 = os.path.join(in_sub2, bf2)
+
+            try:
+                cat1 = _read_hdf_try(path1)
+                cat2 = _read_hdf_try(path2)
+            except Exception as e:
+                info_lines.append(f"  ERROR reading catalogs: {e}")
+                continue
+
+            info_lines.append(f"  rows before merge: {s1}: {len(cat1)}, {s2}: {len(cat2)}")
+
+            if 'id' not in cat1.columns or 'id' not in cat2.columns:
+                info_lines.append("  ERROR: both catalogs must contain an 'id' column. Skipping this subdir.")
+                continue
+
+            # remap ids and keep originals
+            try:
+                cat1 = cat1.copy()
+                cat2 = cat2.copy()
+                cat1['id_orig__'] = cat1['id']
+                cat2['id_orig__'] = cat2['id']
+                # coerce to int then prefix as string and convert back to int
+                cat1['id'] = cat1['id'].astype(int).astype(str).apply(lambda s: int(str(id_prefixes[0]) + s))
+                cat2['id'] = cat2['id'].astype(int).astype(str).apply(lambda s: int(str(id_prefixes[1]) + s))
+            except Exception as e:
+                info_lines.append(f"  ERROR remapping ids: {e}")
+                continue
+
+            if cat1['id'].duplicated().any():
+                info_lines.append("  ERROR: duplicate ids found within remapped catalog1. Skipping this subdir.")
+                continue
+            if cat2['id'].duplicated().any():
+                info_lines.append("  ERROR: duplicate ids found within remapped catalog2. Skipping this subdir.")
+                continue
+
+            merged = pd.concat([cat1, cat2], ignore_index=True, sort=False)
+
+            out_catalog_path = os.path.join(out_sub, bf1)  # preserve filename of first input's base file
+            try:
+                merged.to_hdf(out_catalog_path, key='catalog', mode='w')
+            except Exception as e:
+                info_lines.append(f"  ERROR writing merged catalog to {out_catalog_path}: {e}")
+                continue
+
+            info_lines.append(f"  wrote merged catalog to: {out_catalog_path}")
+            info_lines.append(f"  rows after merge: {len(merged)}")
+
+        # write info file
+        note_path = os.path.join(out_folder, 'merge_info.txt')
         with open(note_path, 'w') as fh:
-            fh.write('\n'.join(lines))
+            fh.write('\n'.join(info_lines))
 
-        print(f"Wrote merged catalog to: {outp}")
-        print(f"Wrote merge note to: {note_path}")
-
+        print(f"Finished processing merge row {idx}. Info written to: {note_path}")
