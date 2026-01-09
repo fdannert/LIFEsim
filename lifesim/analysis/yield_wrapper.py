@@ -6,6 +6,7 @@ from copy import deepcopy
 import json
 from typing import Union
 import logging
+import yaml
 
 import numpy as np
 from joblib import Parallel, delayed, parallel_config
@@ -210,7 +211,8 @@ class ScienceYield:
                             run_name,
                             source_name,
                             characterization: bool = False,
-                            opt_limit_factor: Union[None, float] = None):
+                            opt_limit_factor: Union[None, float] = None,
+                            reduce_catalog: bool = False):
         source_path = os.path.join(self.output_path, source_name)
         # get the names of all subdirectories in output_path (which contain subdirectories for different mirror diameters)
         subdirs = [d for d in os.listdir(source_path) if os.path.isdir(os.path.join(source_path, d))]
@@ -241,7 +243,8 @@ class ScienceYield:
                         catalog_path=os.path.join(source_path, subdir, catalog_file + '_catalog.hdf5'),
                         config_path=self.config_path,
                         characterization=characterization,
-                        opt_limit_factor=opt_limit_factor
+                        opt_limit_factor=opt_limit_factor,
+                        reduce_catalog=reduce_catalog,
                     )
                 else:
                     run_configs.append({'output_filename': catalog_file,
@@ -263,7 +266,8 @@ class ScienceYield:
                         catalog_path=rc['catalog_path'],
                         config_path=self.config_path,
                         characterization=characterization,
-                        opt_limit_factor=opt_limit_factor
+                        opt_limit_factor=opt_limit_factor,
+                        reduce_catalog=reduce_catalog,
                     )
                     for rc in run_configs)
 
@@ -699,6 +703,100 @@ class ScienceYield:
         # Final log with elapsed time
         print('ALL process_mission_time finished. Total time:', round(time.time() - t_all, 2), 's')
 
+    def mange_optimizations(self,
+                            scenario_csv: str,
+                            source_name: str,
+                            csv_has_header: bool = True):
+
+        header_arg = 0 if csv_has_header else None
+
+        scenario_df = pd.read_csv(scenario_csv, header=header_arg)
+
+        def _create_short_name(row):
+            parts = []
+
+            # 1. Handle Booleans: Add tag only if True
+            if row['Experiment_1']:
+                parts.append("e1")
+            if row['Experiment_2']:
+                parts.append("e2")
+
+            # 2. Handle Float: Add 'f' prefix and remove decimal (0.5 -> 05)
+            # converting to string and replacing '.' is a robust way to handle this
+            factor_str = str(row['opt_limit_factor']).replace('.', '')
+            parts.append(f"f{factor_str}")
+
+            # 3. Handle Characterization
+            if row['characterization']:
+                parts.append("char")
+
+            # Join all parts with underscores
+            return "_".join(parts)
+
+        # Apply the function row by row
+        scenario_df['filename'] = scenario_df.apply(_create_short_name, axis=1)
+
+        # load base config file
+        with open(self.config_path, 'r') as f:
+            base_config = yaml.safe_load(f)
+        original_config_path = deepcopy(self.config_path)
+
+        for i in range(len(scenario_df)):
+            run_name = 'opt_' + scenario_df.iloc[i]['filename']
+
+            # check if a directory with the name run_name already exists in output_path, otherwise create it
+            final_output_path = os.path.join(self.output_path, run_name)
+
+            row = scenario_df.iloc[i]
+
+            # create the custom config file based on the existing config file
+            custom_config = base_config.copy()
+
+            # Loop through the items in the row
+            for key, value in row.items():
+                # CASE A: It is an Experiment toggle
+                if key.startswith('Experiment'):
+                    if not value:
+                        # If False, remove it from the dictionary safely
+                        # .pop(key, None) prevents a KeyError if the key is already gone
+                        custom_config['optimization']['experiments'].pop(key, None)
+                    # If True, we do nothing (keep it)
+
+                # CASE B: It is a parameter update (e.g., opt_limit_factor)
+                # We check if this key exists in the 'optimization' block to overwrite it
+                elif key in custom_config['optimization']:
+                    custom_config['optimization'][key] = float(value)
+
+            # save the custom config file to a temporary location
+            temp_config_path = os.path.join(self.output_path, 'temp_config_' + run_name + '.yaml')
+            with open(temp_config_path, 'w') as f:
+                yaml.dump(custom_config, f)
+            self.config_path = temp_config_path
+
+            print('Starting optimization for run:', run_name)
+
+            self.run_optimizer_sweep(
+                run_name=run_name,
+                source_name=source_name,
+                characterization=row['characterization'],
+                opt_limit_factor=row['opt_limit_factor'],
+                reduce_catalog=True
+            )
+
+            # save the custom config file to final_output_path
+            custom_config_path = os.path.join(final_output_path, 'config_' + run_name + '.yaml')
+            with open(custom_config_path, 'w') as f:
+                yaml.dump(custom_config, f)
+
+            print('Finished optimization for run:', run_name)
+            print('----------------------------------------')
+
+            #delete the temporary config file
+            os.remove(temp_config_path)
+
+        self.config_path = original_config_path
+
+
 
     def run_covergence_test(self,
                             run_name,
@@ -834,7 +932,8 @@ def compute_yields_mp(output_filename,
                       uni_sel=None,
                       return_yields=False,
                       characterization: bool = False,
-                      opt_limit_factor: Union[None, float] = None):
+                      opt_limit_factor: Union[None, float] = None,
+                      reduce_catalog: bool = False):
 
     t = time.time()
     # create bus
@@ -881,6 +980,14 @@ def compute_yields_mp(output_filename,
 
     # with contextlib.redirect_stdout(None):
     opt.ahgs()
+
+    if reduce_catalog:
+        to_remove = ['planet_flux_use', 'ecc_p', 'noise_astro', 'fp', 'small_omega_p', 'semimajor_p', 'dec', 'theta_p',
+                     'sep_p', 'albedo_geom_vis', 'z', 'photon_rate_noise', 'mass_p', 'mass_s', 'p_orb', 'flux_p',
+                     'photon_rate_planet', 'albedo_bond', 'inc_p', 'lat', 'stype', 'name_s', 'lon', 'ra',
+                     'albedo_geom_mir', 'large_omega_p', 'radius_s']
+        bus.data.catalog.drop(columns=to_remove, inplace=True)
+
     bus.save()
 
     if return_yields:
