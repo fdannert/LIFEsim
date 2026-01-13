@@ -486,52 +486,67 @@ class ScienceYield:
         return time_sheet
 
     def sweep_mission_time(self,
-                           source_name):
-        source_path = os.path.join(self.output_path, source_name)
-        subdirs = [d for d in os.listdir(source_path) if os.path.isdir(os.path.join(source_path, d))]
+                           source_name,
+                           all_runs: bool = False):
+        if all_runs:
+            # an optimized run directory always starts with 'opt_'
+            # run_names = [d for d in os.listdir(self.output_path) if os.path.isdir(os.path.join(self.output_path, d))]
 
-        for subdir in subdirs:
-            print('--------------------------------------------------')
-            print('Processing subdir: ', subdir)
-            t_sub = time.time()
-
-            # make a list of all files ending in .hdf5 in subdir, then keep only the part of the filename before '_catalog.hdf5' and only if the sting does not contain 'maxsep'
-            run_names = [f.split('_catalog.hdf5')[0] for f in os.listdir(os.path.join(source_path, subdir))
-                                  if f.endswith('_catalog.hdf5')]
+            run_names = [d for d in os.listdir(self.output_path)
+                         if os.path.isdir(os.path.join(self.output_path, d))
+                         and d.startswith('opt_')]
 
             for run_name in run_names:
-                print('  ----------------------------------------------')
-                print('  Processing run: ', run_name)
-                t_run = time.time()
+                self.sweep_mission_time(source_name=run_name,
+                                        all_runs=False)
+                self.process_mission_time(source_name=run_name)
 
-                catalog_path = os.path.join(source_path, subdir, run_name + '_catalog.hdf5')
-                config_path = os.path.join(source_path, subdir, run_name + '.yaml')
+        else:
+            source_path = os.path.join(self.output_path, source_name)
+            subdirs = [d for d in os.listdir(source_path) if os.path.isdir(os.path.join(source_path, d))]
 
-                time_sheet = self.get_mission_time(catalog_path=catalog_path,
-                                                  config_path=config_path)
+            for subdir in subdirs:
+                print('--------------------------------------------------')
+                print('Processing subdir: ', subdir)
+                t_sub = time.time()
 
-                # save time_sheet to csv files, one per experiment
-                output_csv_path = os.path.join(source_path, subdir, run_name + '_mission_time.csv')
-                time_sheet.to_csv(output_csv_path)
-                print('    Saved mission time to ', output_csv_path)
+                # make a list of all files ending in .hdf5 in subdir, then keep only the part of the filename before '_catalog.hdf5' and only if the sting does not contain 'maxsep'
+                run_names = [f.split('_catalog.hdf5')[0] for f in os.listdir(os.path.join(source_path, subdir))
+                                      if f.endswith('_catalog.hdf5')]
 
-                print('  Done processing run:', run_name, '- took', round(time.time() - t_run, 2), 's')
+                for run_name in run_names:
+                    print('  ----------------------------------------------')
+                    print('  Processing run: ', run_name)
+                    t_run = time.time()
 
-        # Append single multi-line log summary for this method
-        t_end = time.time()
-        subdirs_list = [d for d in os.listdir(source_path) if os.path.isdir(os.path.join(source_path, d))]
-        total_runs = sum(len([f for f in os.listdir(os.path.join(source_path, d)) if f.endswith('_catalog.hdf5')]) for d in subdirs_list)
-        mission_csvs = sum(len([f for f in os.listdir(os.path.join(source_path, d)) if f.endswith('_mission_time.csv')]) for d in subdirs_list)
-        msg = f"""sweep_mission_time summary:
-                  source_name: {source_name}
-                  source_path: {source_path}
-                  subdirs_found: {subdirs_list}
-                  subdirs_total: {len(subdirs_list)}
-                  total_runs_catalogs_found: {total_runs}
-                  mission_time_csvs_found: {mission_csvs}
-                  end_time: {time.ctime(t_end)}
-                """
-        self.logger.info(msg)
+                    catalog_path = os.path.join(source_path, subdir, run_name + '_catalog.hdf5')
+                    config_path = os.path.join(source_path, subdir, run_name + '.yaml')
+
+                    time_sheet = self.get_mission_time(catalog_path=catalog_path,
+                                                      config_path=config_path)
+
+                    # save time_sheet to csv files, one per experiment
+                    output_csv_path = os.path.join(source_path, subdir, run_name + '_mission_time.csv')
+                    time_sheet.to_csv(output_csv_path)
+                    print('    Saved mission time to ', output_csv_path)
+
+                    print('  Done processing run:', run_name, '- took', round(time.time() - t_run, 2), 's')
+
+            # Append single multi-line log summary for this method
+            t_end = time.time()
+            subdirs_list = [d for d in os.listdir(source_path) if os.path.isdir(os.path.join(source_path, d))]
+            total_runs = sum(len([f for f in os.listdir(os.path.join(source_path, d)) if f.endswith('_catalog.hdf5')]) for d in subdirs_list)
+            mission_csvs = sum(len([f for f in os.listdir(os.path.join(source_path, d)) if f.endswith('_mission_time.csv')]) for d in subdirs_list)
+            msg = f"""sweep_mission_time summary:
+                      source_name: {source_name}
+                      source_path: {source_path}
+                      subdirs_found: {subdirs_list}
+                      subdirs_total: {len(subdirs_list)}
+                      total_runs_catalogs_found: {total_runs}
+                      mission_time_csvs_found: {mission_csvs}
+                      end_time: {time.ctime(t_end)}
+                    """
+            self.logger.info(msg)
 
     def process_mission_time(self,
                              source_name):
@@ -666,7 +681,10 @@ class ScienceYield:
                   ['#1f6f6f', '#54a1a1', '#9fc8c8'], ]
 
         columns = ['detection', 'orbit', 'char']
-        x = np.asarray(exptable[exps[0]].index, dtype=float)
+        try:
+            x = np.asarray(exptable[exps[0]].index, dtype=float)
+        except:
+            x = np.asarray(exptable[exps].index, dtype=float)
         y0 = np.zeros_like(x, dtype=float)
 
         fig, ax = plt.subplots()
@@ -750,7 +768,7 @@ class ScienceYield:
             row = scenario_df.iloc[i]
 
             # create the custom config file based on the existing config file
-            custom_config = base_config.copy()
+            custom_config = deepcopy(base_config)
 
             # Loop through the items in the row
             for key, value in row.items():
@@ -778,8 +796,8 @@ class ScienceYield:
             self.run_optimizer_sweep(
                 run_name=run_name,
                 source_name=source_name,
-                characterization=row['characterization'],
-                opt_limit_factor=row['opt_limit_factor'],
+                characterization=bool(row['characterization']),
+                opt_limit_factor=float(row['opt_limit_factor']),
                 reduce_catalog=True
             )
 
