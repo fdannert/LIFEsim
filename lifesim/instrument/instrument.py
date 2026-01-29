@@ -172,10 +172,11 @@ class Instrument(InstrumentModule):
     # TODO does not take the inclination into account!
     def adjust_bl_to_hz(self,
                         hz_center: float,
-                        distance_s: float):
+                        distance_s: float,
+                        l_sun: float):
         """
         Adjusts the baseline of the array to be optimal for observations in the habitable zone of
-        the target star for the selected optimal wavelength.
+        the target star for the given optimisation model.
 
         Parameters
         ----------
@@ -184,14 +185,43 @@ class Instrument(InstrumentModule):
         distance_s : float
             Distance between the observed star and the LIFE array in [pc].
         """
+        opt_model = self.data.options.models["baseline_optimisation"]
 
         # convert the habitable zone to radians
         hz_center_rad = hz_center / distance_s / (3600 * 180) * np.pi  # in rad
 
-        # put first transmission peak of optimal wl on center of HZ
-        # for the origin of the value 0.5.. see Dannert+2022
-        baseline = (0.589645 / hz_center_rad
-                                * self.data.options.other['wl_optimal'] * 10 ** (-6))
+        if opt_model == "ref_wl":
+            # put first transmission peak of optimal wl on center of HZ
+            # for the origin of the value 0.5.. see Ottiger+2021
+            k = 0.589645 * self.data.options.other['wl_optimal'] * 10 ** (-6)
+                                    
+        elif opt_model == "Kepler":
+            # Baseline optimisation considering the semi-major axis distribution of the Kepler 
+            # occurance rates (SAG13/Bryson Hab2Max) and orbit projection effects, 
+            # approximated via a polynomial fit to an MC analysis
+            sqL = l_sun**0.5
+            if sqL > 0.28: #FGKs
+                cs = np.array([-2.5655e-1,2.0727e-1,4.8682e-2,-4.0867e-4,-2.1587e-2,9.3433])*1e-6
+            else:
+                cs = np.array([-7.4078,1.4269e1,1.1875e-1,-2.3090e-3,-6.9372e-3,9.7141])*1e-6
+            k = cs[0]*sqL + cs[1]*sqL**2 + cs[2]*distance_s + cs[3]*distance_s**2 + cs[4]*sqL*distance_s + cs[5]
+
+        elif opt_model == "Uniform":
+            # Baseline optimisation considering a uniform semi-major axis distribution and orbit 
+            # projection effects, approximated via a polynomial fit to an MC analysis
+            sqL = l_sun**0.5
+            if sqL > 0.28: #FGKs
+                cs = np.array([1.9934e-1,6.4546e-2,2.6083e-2,-8.1794e-5,-1.7035e-2,8.3007])*1e-6
+            else: #Ms
+                cs = np.array([-2.9216,4.4454,6.5858e-2,-1.4577e-3,2.8476e-2,8.4299])*1e-6
+            k = cs[0]*sqL + cs[1]*sqL**2 + cs[2]*distance_s + cs[3]*distance_s**2 + cs[4]*sqL*distance_s + cs[5]
+
+        baseline = k / hz_center_rad
+
+        # If discrete, set baseline to nearest value
+        if self.data.options.models["discrete_baselines"]:
+            bls = np.array(self.data.options.array['bl_discrete'])
+            baseline = bls[np.abs(bls-baseline).argmin()]
 
         self.apply_baseline(baseline=baseline)
 
@@ -292,7 +322,8 @@ class Instrument(InstrumentModule):
 
             # adjust baseline of array and give new baseline to transmission generator plugin
             self.adjust_bl_to_hz(hz_center=float(self.data.catalog.hz_center.iloc[n]),
-                                 distance_s=float(self.data.catalog.distance_s.iloc[n]))
+                                 distance_s=float(self.data.catalog.distance_s.iloc[n]),
+                                 l_sun=float(self.data.catalog.l_sun.iloc[n]),)
 
             # get transmission map
             _, _, self.data.inst['t_map'], _, _ = self.run_socket(s_name='transmission',
@@ -573,7 +604,8 @@ class Instrument(InstrumentModule):
             else:
                 # adjust baseline to HZ
                 self.adjust_bl_to_hz(hz_center=hz_center,
-                                     distance_s=distance_s)
+                                     distance_s=distance_s,
+                                     l_sun=l_sun)
 
         # calculate the transmission map
         _, _, self.data.inst['t_map'], _, _ = self.run_socket(s_name='transmission',
@@ -748,7 +780,8 @@ class Instrument(InstrumentModule):
 
         # adjust baseline to habitable zone
         self.adjust_bl_to_hz(hz_center=hz_center,
-                             distance_s=distance_s)
+                             distance_s=distance_s,
+                             l_sun=l_sun)
 
         # use spectres to rescale the spectrum onto the correct wl bins
         flux_planet_spectrum_input = flux_planet_spectrum

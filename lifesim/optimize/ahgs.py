@@ -92,7 +92,8 @@ class AhgsModule(SlopeModule):
                     self.data.catalog.loc[idx, 't_detected'] = deepcopy(self.tot_time + int_time)
                     exp_cols = [col for col in self.data.catalog.columns if col.startswith('exp_')]
                     true_experiments = [col[4:] for col in exp_cols if self.data.catalog.loc[idx, col]]
-                    for exp in true_experiments:
+
+                    for exp in true_experiments[1:]:
                         self.data.optm['exp_detected'][exp] += 1
                         self.data.optm['exp_detected_uni'][exp][
                             1,

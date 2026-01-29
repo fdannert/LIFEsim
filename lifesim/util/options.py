@@ -24,6 +24,8 @@ class Options(object):
             - ``'baseline'`` : Length of the shorter nulling baseline in [m].
             - ``'bl_min'`` : Minimum allowed length of the shorter nulling baseline in [m].
             - ``'bl_max'`` : Maximum allowed length of the shorter nulling baseline in [m].
+            - ``'bl_discrete'``: Array of discrete baselines for use with "discrete" baseline
+              mode in [m].
             - ``'ratio'`` : Ratio between the nulling and the imaging baseline. E.g. if the imaging
               baseline is twice as long as the nulling baseline, the ratio will be 2.
             - ``'t_slew'`` : Slew time required for the array to shift from one target system to
@@ -44,6 +46,12 @@ class Options(object):
               ``'darwinsim'``
             - ``'habitable'`` : Model used for calculating the habitable zone, possible options are
               ``'MS'`` and ``'POST_MS'``
+            - ``'fov_taper'`` : Model used for tapering the field of view, possible options are
+              ``'gaussian'`` and ``'none'``
+            - ``'baseline_optimisation'`` : Model used for optimising the baseline, possible options are
+              ``'ref_wl'``, ``'Kepler'``, ``'Uniform'``.
+            - ``'discrete_baselines'``: Boolean as to whether to use discrete baselines in the simulation
+              given by 'bl_discrete'.
     optimization : dict
         Options concerning the methods used to optimally distribute the observing time.
             - ``'N_pf'`` : Number of sampling locations per orbit.
@@ -67,6 +75,7 @@ class Options(object):
                       'baseline': 0.,
                       'bl_min': 0.,
                       'bl_max': 0.,
+                      'bl_discrete': [0.],
                       'ratio': 0.,
                       't_slew': 0.,
                       't_efficiency': 0.}
@@ -81,7 +90,9 @@ class Options(object):
 
         self.models = {'localzodi': '',
                        'habitable': '',
-                       'fov_taper': ''}
+                       'fov_taper': '',
+                       'baseline_optimisation': '',
+                       'discrete_baselines': False}
 
         self.optimization = {'N_pf': 0.,
                              'snr_target': 0.,
@@ -123,6 +134,8 @@ class Options(object):
         self.models['localzodi'] = 'darwinsim'
         self.models['habitable'] = 'MS'
         self.models['fov_taper'] = 'gaussian'
+        self.models['baseline_optimisation'] = 'ref_wl'
+        self.models['discrete_baselines'] = False
 
         self.optimization['N_pf'] = 25
         self.optimization['snr_target'] = 7
