@@ -97,7 +97,12 @@ class Options(object):
         self.optimization = {'N_pf': 0.,
                              'snr_target': 0.,
                              'experiments': None,
-                             't_search': 0.}
+                             't_search': 0.,
+                             'characterization': False,
+                             'snr_char': 0.,
+                             'opt_limit': 'time',
+                             'opt_limit_factor': 0.5,
+                             'n_orbits': 1}
 
     def set_scenario(self,
                      case: str):
@@ -134,6 +139,8 @@ class Options(object):
 
         self.optimization['N_pf'] = 25
         self.optimization['snr_target'] = 7
+        self.optimization['snr_char'] = 44.1
+        self.optimization['n_orbits'] = 5
         self.optimization['limit'] = {'F': np.inf,
                                       'G': np.inf,
                                       'K': np.inf,

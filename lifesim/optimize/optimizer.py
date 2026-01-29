@@ -98,6 +98,7 @@ class Optimizer(OptimizationModule):
             self.data.catalog['is_interesting'] = False
             self.data.optm['hit_limit'] = {}
             self.data.optm['exp_detected'] = {}
+            self.data.optm['exp_detected_uni'] = {}
             for exp in self.data.options.optimization['experiments'].keys():
                 mask_exp = ((self.data.catalog.radius_p
                              >= self.data.options.optimization['experiments'][exp]['radius_p_min'])
