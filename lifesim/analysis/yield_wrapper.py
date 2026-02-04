@@ -1014,10 +1014,10 @@ def compute_yields_mp(output_filename,
         return int(uni_sel), yields
 
 def merge_runs(mapping_csv: str,
-                            merge_csv: str,
-                            output_path: str,
-                            csv_has_header: bool = True,
-                            id_prefixes: tuple = ('1', '2')) -> None:
+               merge_csv: str,
+               output_path: str,
+               csv_has_header: bool = True,
+               id_prefixes: tuple = ('1', '2')) -> None:
     """Merge sets of HDF catalogs described by two CSV files.
 
     Differences vs previous implementation:
@@ -1185,6 +1185,11 @@ def merge_runs(mapping_csv: str,
             if cat2['id'].duplicated().any():
                 info_lines.append("  ERROR: duplicate ids found within remapped catalog2. Skipping this subdir.")
                 continue
+
+            # find the maximum of nstar in cat1 and offset cat2's nstar accordingly
+            if 'nstar' in cat1.columns and 'nstar' in cat2.columns:
+                max_nstar1 = cat1['nstar'].max()
+                cat2['nstar'] = cat2['nstar'] + max_nstar1
 
             merged = pd.concat([cat1, cat2], ignore_index=True, sort=False)
 
