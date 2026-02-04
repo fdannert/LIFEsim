@@ -469,7 +469,7 @@ class Instrument(InstrumentModule):
             Spectrum of the planet. In the first element of the list `flux_planet_spectrum[0]`, the
             wavelength bins of the spectrum must be given in [m]. In the second element
             `flux_planet_spectrum[1]`, the photon count within the spectral bin must be given in
-            [photons m-2 s-1].
+            [photons m-3 s-1].
         integration_time : float
             Time that the LIFE array spends for integrating on the observed planet in [s].
         pbar
