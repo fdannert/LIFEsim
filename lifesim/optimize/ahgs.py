@@ -62,7 +62,7 @@ class AhgsModule(SlopeModule):
                 if (not self.data.catalog.detected.iloc[i]) and \
                         (self.data.catalog.snr_current.iloc[i]
                          >= self.data.options.optimization['snr_target']):
-                    self.data.catalog.detected.iat[i] = True
+                    self.data.catalog.loc[i, 'detected'] = True
                     if self.data.catalog.habitable.iloc[i]:
                         self.data.optm['sum_detected'][
                             np.where(np.array(list(self.data.options.optimization['limit'].keys()))
