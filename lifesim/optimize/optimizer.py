@@ -81,12 +81,12 @@ class Optimizer(OptimizationModule):
                 rmax = np.inf
             for stype, limit in self.data.options.optimization['limit'].items():
                 self.data.options.optimization['experiments'][stype] = {
-                    'radius_p_min': rmin,
-                    'radius_p_max': rmax,
-                    'temp_s_min': self.data.catalog[self.data.catalog.stype==stype].temp_s.min(),
-                    'temp_s_max': self.data.catalog[self.data.catalog.stype==stype].temp_s.max(),
+                    'radius_p_min': float(rmin),
+                    'radius_p_max': float(rmax),
+                    'temp_s_min': float(self.data.catalog[self.data.catalog.stype==stype].temp_s.min()),
+                    'temp_s_max': float(self.data.catalog[self.data.catalog.stype==stype].temp_s.max()),
                     'in_HZ': self.data.options.optimization['habitable'],
-                    'sample_size': self.data.options.optimization['limit'][stype],
+                    'sample_size': float(self.data.options.optimization['limit'][stype]),
                 }
 
         if self.data.options.optimization['experiments'] is None:
@@ -98,6 +98,8 @@ class Optimizer(OptimizationModule):
             self.data.catalog['is_interesting'] = False
             self.data.optm['hit_limit'] = {}
             self.data.optm['exp_detected'] = {}
+            self.data.optm['exp_detected_uni'] = {}
+            print(self.data.options.optimization['experiments'].keys())
             for exp in self.data.options.optimization['experiments'].keys():
                 mask_exp = ((self.data.catalog.radius_p
                              >= self.data.options.optimization['experiments'][exp]['radius_p_min'])
@@ -118,6 +120,22 @@ class Optimizer(OptimizationModule):
 
                 self.data.optm['hit_limit'][exp] = False
                 self.data.optm['exp_detected'][exp] = 0
+                self.data.optm['exp_detected_uni'][exp] = np.zeros((2,
+                                                                    len(np.unique(self.data.catalog.nuniverse))))
+                self.data.optm['exp_detected_uni'][exp][0, :] = np.unique(self.data.catalog.nuniverse,
+                                                                                  return_counts=False)
+
+        if (self.data.options.optimization['characterization']) and ('maxsep_snr_1h' not in self.data.catalog.columns):
+            raise ValueError('Characterization optimization selected but catalog does not contain '
+                             'maxsep_snr_1h column.')
+
+        if ((self.data.options.optimization['opt_limit'] == 'experiments')
+                and not all(np.isfinite([exp['sample_size']
+                                     for exp in self.data.options.optimization['experiments'].values()]))):
+            raise ValueError('Optimization limit set to experiments but no finite limits given.')
+
+        # self.data.optm['uni_counts'] = np.zeros((2, len(np.unique(self.data.catalog.nuniverse))))
+        # self.data.optm['uni_counts'][0, :] = np.unique(self.data.catalog.nuniverse, return_counts=False)
 
         self.data.optm['tot_time'] = 0  # in sec
 
