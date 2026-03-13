@@ -75,16 +75,23 @@ class Options(object):
                       'wl_optimal': 0.,
                       'n_plugins': 0,
                       'output_path': None,
-                      'output_filename': None}
+                      'output_filename': None,
+                      'fov_threshold': 0.,
+                      'n_cpu': 1}
 
         self.models = {'localzodi': '',
-                       'habitable': ''}
+                       'habitable': '',
+                       'fov_taper': ''}
 
         self.optimization = {'N_pf': 0.,
                              'snr_target': 0.,
-                             'limit': None,
-                             'habitable': False,
-                             't_search': 0.}
+                             'experiments': None,
+                             't_search': 0.,
+                             'characterization': False,
+                             'snr_char': 0.,
+                             'opt_limit': 'time',
+                             'opt_limit_factor': 0.5,
+                             'n_orbits': 1}
 
     def set_scenario(self,
                      case: str):
@@ -111,18 +118,36 @@ class Options(object):
         self.other['image_size'] = 256  # TODO: or 512?
         self.other['wl_optimal'] = 15
         self.other['n_plugins'] = 5
+        self.other['fov_threshold'] = 0.01
 
         self.models['localzodi'] = 'darwinsim'
         self.models['habitable'] = 'MS'
+        self.models['fov_taper'] = 'gaussian'
 
         self.optimization['N_pf'] = 25
         self.optimization['snr_target'] = 7
-        self.optimization['limit'] = {'A': np.inf,
-                                      'F': np.inf,
+        self.optimization['snr_char'] = 44.1
+        self.optimization['n_orbits'] = 5
+        self.optimization['limit'] = {'F': np.inf,
                                       'G': np.inf,
                                       'K': np.inf,
                                       'M': np.inf}
         self.optimization['habitable'] = True
+        self.optimization['limit_mode'] = 'legacy'
+
+        self.optimization['experiments'] = {'Experiment_1': {'radius_p_min': 0.5,
+                                                             'radius_p_max': 1.5,
+                                                             'temp_s_min': 4370.,
+                                                             'temp_s_max': 7310.,
+                                                             'in_HZ': True,
+                                                             'sample_size': 30},
+                                            'Experiment_2': {'radius_p_min': 0.5,
+                                                                'radius_p_max': 1.5,
+                                                                'temp_s_min': 3320.,
+                                                                'temp_s_max': 4370.,
+                                                                'in_HZ': True,
+                                                                'sample_size': 15},
+        }
         self.optimization['t_search'] = 2.5 * 365. * 24. * 60. * 60.
 
         if case == 'baseline':

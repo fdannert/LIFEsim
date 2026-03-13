@@ -6,7 +6,7 @@ import warnings
 import os
 
 import yaml
-from numpy import ndarray, array
+from numpy import ndarray, array, float64, float32, int64, int32, int16
 import git
 
 from lifesim.core.data import Data
@@ -442,6 +442,8 @@ class Bus(object):
         module.data = self.data
 
     def write_config(self):
+        add_numpy_representers()
+
         module_dict = {key: str(type(module)) for (key, module) in self.modules.items()}
 
         # fetch version number and git commit hash if available
@@ -520,3 +522,14 @@ def convert_to_np(inp: dict):
         else:
             out[k] = inp[k]
     return out
+
+def add_numpy_representers():
+    def numpy_repr(dumper, data):
+        return dumper.represent_data(data.item())
+
+    # Add for various numpy types
+    for dtype in [float64, float32, int64, int32, int16]:
+        yaml.add_representer(dtype, numpy_repr)
+
+    # Handle numpy arrays specifically
+    yaml.add_representer(ndarray, lambda dumper, data: dumper.represent_list(data.tolist()))

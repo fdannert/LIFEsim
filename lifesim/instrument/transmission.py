@@ -24,7 +24,7 @@ class TransmissionMap(TransmissionModule):
                          direct_mode: bool = False,
                          d_alpha: np.ndarray = None,
                          d_beta: np.ndarray = None,
-                         hfov: np.ndarray = None,
+                         image_angle: np.ndarray = None,
                          image_size: int = None):
         """
         Return the transmission map of a double-Bracewell configuration for the LIFE array.
@@ -44,9 +44,9 @@ class TransmissionMap(TransmissionModule):
         d_beta: np.ndarray
             The y-positions of the points to be evaluated measured from the central viewing axis in
             [rad].
-        hfov : np.ndarray
-            Contains the half field of view of the observatory in [rad] for each of the spectral
-            bins. If no value is given, `data.inst['hfov']` is used.
+        image_angle : np.ndarray
+            Contains the maximum image angle that should be simulated in [rad] for each of the spectral
+            bins. If no value is given, `data.inst['image_angle']` is used.
         image_size : int
             Number of pixels on one axis of a square detector (dimensionless). I.e. for a 512x512
             detector this value is 512. If no value is given, `data.options.other['image_size']` is
@@ -77,10 +77,21 @@ class TransmissionMap(TransmissionModule):
         data.options.array['ratio'] : float
             Ratio between the nulling and the imaging baseline. E.g. if the imaging baseline is
             twice as long as the nulling baseline, the ratio will be 2.
+        data.options.models['fov_taper'] : str
+            Specifies the type of FoV tapering applied to the transmission maps. Possible options
+            are 'gaussian' and 'none'.
         """
 
-        if hfov is None:
-            hfov = self.data.inst['hfov']
+        hfov = self.data.inst['hfov']
+        hfov = np.array([hfov])  # wavelength in m
+        if hfov.shape[-1] > 1:
+            hfov = np.reshape(hfov, (hfov.shape[-1], 1, 1))
+
+        if image_angle is None:
+            image_angle = self.data.inst['image_angle']
+            image_angle = np.array([image_angle])  # wavelength in m
+            if image_angle.shape[-1] > 1:
+                image_angle = np.reshape(image_angle, (image_angle.shape[-1], 1, 1))
         if image_size is None:
             image_size = self.data.options.other['image_size']
 
@@ -93,10 +104,6 @@ class TransmissionMap(TransmissionModule):
             alpha = d_alpha
             beta = d_beta
         else:
-            hfov = np.array([hfov])  # wavelength in m
-            if hfov.shape[-1] > 1:
-                hfov = np.reshape(hfov, (hfov.shape[-1], 1, 1))
-
             # generare 1D array that spans field of view
             angle = np.linspace(-1, 1, image_size)
 
@@ -107,8 +114,8 @@ class TransmissionMap(TransmissionModule):
             beta = alpha.T
 
             # convert angle matrices to fov units
-            alpha = alpha * hfov
-            beta = beta * hfov
+            alpha = alpha * image_angle
+            beta = beta * image_angle
 
         # smaller distance of apertures from center line
         L = self.data.inst['bl'] / 2
@@ -134,6 +141,17 @@ class TransmissionMap(TransmissionModule):
         if 'tm4' in map_selection:
             tm4 = np.sin(2 * np.pi * L * alpha / wl_bins) ** 2 * np.cos(
                 2 * self.data.options.array['ratio'] * np.pi * L * beta / wl_bins + np.pi / 4) ** 2
+
+        # add FoV taper
+        for tm in [tm1, tm2, tm3, tm4]:
+            if tm is not None:
+                if self.data.options.models['fov_taper'] == 'gaussian':
+                    fov_taper = np.exp(- (np.pi / 4 / hfov * np.sqrt(alpha ** 2 + beta ** 2)) ** 2)
+                    tm *= fov_taper
+                elif self.data.options.models['fov_taper'] == 'none':
+                    pass
+                else:
+                    raise ValueError('Nonexistent FoV tapering function')
 
         # difference of transmission maps 3 and 4 = "chopped transmission"
         if 'tm_chop' in map_selection:

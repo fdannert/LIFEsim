@@ -92,8 +92,13 @@ class PhotonNoiseLocalzodi(PhotonNoiseStarModule):
         long = 3 / 4 * np.pi
         lat = lat_s
 
-        ap = np.where(self.data.inst['radius_map']
-                      <= self.data.options.other['image_size'] / 2, 1, 0)
+        if self.data.options.models['fov_taper'] == 'gaussian':
+            ap = np.ones_like(self.data.inst['radius_map'])
+        elif self.data.options.models['fov_taper'] == 'none':
+            ap = np.where(self.data.inst['radius_map']
+                          <= self.data.options.other['image_size'] / 2, 1, 0)
+        else:
+            raise ValueError('Nonexistent fov taper model')
 
         # calculate the localzodi flux depending on the correct model
         if self.data.options.models['localzodi'] == 'glasse':
@@ -126,7 +131,7 @@ class PhotonNoiseLocalzodi(PhotonNoiseStarModule):
                  + (0.6 * (self.data.inst['wl_bins'] / 11e-6) ** (-0.4) * np.cos(lat)) ** 2)
             )
 
-        lz_flux = lz_flux_sr * (np.pi * self.data.inst['hfov'] ** 2)
+        lz_flux = lz_flux_sr * (np.pi * self.data.inst['image_angle'] ** 2)
 
         # calculate the leakage contribution to the measurement
         lz_leak = (ap * self.data.inst['t_map']).sum(axis=(-2, -1)) / ap.sum() * lz_flux \

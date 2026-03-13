@@ -96,7 +96,7 @@ class PhotonNoiseStar(PhotonNoiseStarModule):
         tm_star = self.run_socket(method='transmission_map',
                                   s_name='transmission_star',
                                   map_selection=[map_selection],
-                                  hfov=Rs_rad,
+                                  image_angle=Rs_rad,
                                   image_size=image_size)[int(map_selection[-1]) - 1]
 
         x_map = np.tile(np.array(range(0, image_size)), (image_size, 1))
