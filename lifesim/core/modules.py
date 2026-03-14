@@ -31,6 +31,9 @@ class InstrumentModule(Module):
         self.add_socket(s_name='photon_noise_universe',
                         s_type=PhotonNoiseUniverseModule,
                         s_number=5)
+        self.add_socket(s_name='photon_noise_instrument',
+                        s_type=PhotonNoiseInstrumentModule,
+                        s_number=5)
 
     @abc.abstractmethod
     def get_snr(self):
@@ -105,6 +108,25 @@ class PhotonNoiseUniverseModule(Module):
     """
     Module for simulating astrophysical sources and their photon shot noise contribution specific
     to a single universe to the interferometric measurement.
+    """
+    @abc.abstractmethod
+    def noise(self,
+              index: Union[int, type(None)]):
+        """
+        Calculates the photon shot noise contribution.
+
+        Parameters
+        ----------
+        index : Union[int, type(None)]
+            If an integer is given, the photon noise of the planet corresponding to the respective
+            interger row position in the catalog is given. If `None` is given, the photon noise is
+            calculated for the parameters found in `bus.data.single`.
+        """
+        pass
+
+class PhotonNoiseInstrumentModule(Module):
+    """
+    Module for simulating instrument sources and their photon shot noise contribution to the interferometric measurement.
     """
     @abc.abstractmethod
     def noise(self,
