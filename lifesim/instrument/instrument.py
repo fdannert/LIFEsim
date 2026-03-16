@@ -647,10 +647,7 @@ class Instrument(InstrumentModule):
         noise_bg = ((noise_bg_star + noise_bg_universe)
                     * integration_time * self.data.inst['eff_tot'] * 2)
         
-        noise_bg = ((noise_bg_star + noise_bg_universe)
-                    * integration_time * self.data.inst['eff_tot'] * 2)
-        
-        # calculate the noise from the instrument
+        # calculate the thermal noise from the instrument
         noise_list_inst = self.run_socket(s_name='photon_noise_instrument',
                                                  method='noise',
                                                  index=None)
@@ -665,8 +662,11 @@ class Instrument(InstrumentModule):
         else:
             noise_inst = noise_list_inst
 
+        # careful! output is two arrays so combine like this
+        noise_bg_inst = (noise_inst[0] * integration_time * self.data.inst['eff_tot'] * 2) + (noise_inst[1] * integration_time * 2)
+
         # Add up the noise and calculate the SNR
-        noise = (noise_bg + noise_planet + noise_inst)
+        noise = (noise_bg + noise_planet + noise_bg_inst)
         snr_spec = np.sqrt((flux_planet ** 2 / noise))
 
         if not safe_mode:
@@ -676,7 +676,7 @@ class Instrument(InstrumentModule):
         else:
             return ([self.data.inst['wl_bins'], snr_spec],
                     flux_planet,
-                    [noise, noise_bg_list_star, noise_bg_list_universe, noise_list_inst])
+                    [noise, noise_bg_list_star, noise_bg_list_universe, noise_inst])
 
 
     def get_signal(self,

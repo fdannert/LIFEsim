@@ -56,24 +56,27 @@ class PhotonNoiseThermal(PhotonNoiseInstrumentModule):
     
         """
         # read data on mirror
-        mirror_temp = 40
+        emissivity = 0.01
+        mirror_temp = 48
         mirror_area = self.data.inst['telescope_area']
-        emissivity = 0.9
+        solid_angle = 0.01
+        angle_correction = 1
+        
 
         # calculate noise from the mirror
         # calculate the black body radiation emitted by the mirror
         # emissivity per wavelength bin?
-        mirror_bb = emissivity * black_body(mode='wavelength',
+        mirror_bb = black_body(mode='wavelength',
                                             bins=self.data.inst['wl_bins'],
                                             width=self.data.inst['wl_bin_widths'],
                                             temp=mirror_temp)
 
         # integrate over area and solid angle
-        tm_leak = mirror_bb * mirror_area * np.pi
+        tm_leak = emissivity * mirror_bb * mirror_area * solid_angle * angle_correction
 
         # calculate noise from the detector WIP
         detector_temp = 23
         td_leak = np.full(self.data.inst['wl_bins'].shape, detector_temp, dtype=float)
 
 
-        return tm_leak
+        return tm_leak, td_leak
