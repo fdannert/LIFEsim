@@ -31,6 +31,11 @@ class Options(object):
             - ``'t_efficiency'`` : Time efficiency of the observation accounting for overheads.
               E.g. if the time efficiency is 0.8, 80% of the on-target observation time will be
               actually spend integrating photons.
+            - ``'m_temp'`` : Temperature of the mirror in [K].
+            - ``'m_emissivity'`` : Emissivity of the mirror (dimensionless).
+            - ``'d_temp'`` : Temperature of the detector environment in [K].
+            - ``'pixel_size'`` : Size of the pixels in [m]. (length of one side of the square pixel)
+            - ``'beam_size'`` : Diameter of the beam in [m].
     other : dict
         Options concerning simulation parameters. They are
             - ``'image_size'`` : Number of pixels (in one axis) which will be simulated.
@@ -69,7 +74,12 @@ class Options(object):
                       'bl_max': 0.,
                       'ratio': 0.,
                       't_slew': 0.,
-                      't_efficiency': 0.}
+                      't_efficiency': 0.,
+                      'm_temp': 0.,
+                      'm_emissivity': 0.,
+                      'd_temp': 0.,
+                      'pixel_size': 0.,
+                      'beam_size': 0.}
 
         self.other = {'image_size': 0,
                       'wl_optimal': 0.,
@@ -114,6 +124,11 @@ class Options(object):
         self.array['ratio'] = 6.
         self.array['t_slew'] = 10. * 60. * 60.
         self.array['t_efficiency'] = 0.8
+        self.array['m_temp'] = 48
+        self.array['m_emissivity'] = 0.01
+        self.array['d_temp'] = 23
+        self.array['pixel_size'] = 23 * 1e-6
+        self.array['beam_size'] = 0.001
 
         self.other['image_size'] = 256  # TODO: or 512?
         self.other['wl_optimal'] = 15

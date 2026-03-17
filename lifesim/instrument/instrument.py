@@ -662,8 +662,8 @@ class Instrument(InstrumentModule):
         else:
             noise_inst = noise_list_inst
 
-        # careful! output is two arrays so combine like this
-        noise_bg_inst = (noise_inst[0] * integration_time * self.data.inst['eff_tot'] * 2) + (noise_inst[1] * integration_time * 2)
+        # output is two arrays (due to mirror and detector leakage) so combine like this
+        noise_bg_inst = (noise_inst[0] * integration_time * self.data.inst['eff_tot'] * 2) + (noise_inst[1] * integration_time * self.data.options.array['quantum_eff'] * 2)
 
         # Add up the noise and calculate the SNR
         noise = (noise_bg + noise_planet + noise_bg_inst)

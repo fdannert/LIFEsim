@@ -53,30 +53,45 @@ class PhotonNoiseThermal(PhotonNoiseInstrumentModule):
             Widths of the spectral wavelength bins in [m].
         data.inst['telescope_area'] : float
             Area of all array apertures combined in [m^2].
-    
+        data.options.array['diameter'] : float
+            Diameter of the array in [m].
+        data.options.array['m_temp'] : float
+            Temperature of the mirror in [K].
+        data.options.array['m_emissivity'] : float
+            Emissivity of the mirror (dimensionless).
+        data.options.array['d_temp'] : float
+            Temperature of the detector in [K].
         """
         # read data on mirror
-        emissivity = 0.01
-        mirror_temp = 48
+        mirror_emissivity = self.data.options.array['m_emissivity']
+        mirror_temp = self.data.options.array['m_temp']
         mirror_area = self.data.inst['telescope_area']
-        solid_angle = 0.01
+        beam_size = self.data.options.array['beam_size']
+        distance = 2.5 * self.data.options.array['diameter']
+
+        solid_angle = (np.pi * beam_size ** 2) / (distance ** 2)
         angle_correction = 1
         
-
         # calculate noise from the mirror
-        # calculate the black body radiation emitted by the mirror
-        # emissivity per wavelength bin?
         mirror_bb = black_body(mode='wavelength',
                                             bins=self.data.inst['wl_bins'],
                                             width=self.data.inst['wl_bin_widths'],
                                             temp=mirror_temp)
 
-        # integrate over area and solid angle
-        tm_leak = emissivity * mirror_bb * mirror_area * solid_angle * angle_correction
+        tm_leak = mirror_emissivity * mirror_bb * mirror_area * solid_angle * angle_correction
+
+
+        # read data on detector
+        detector_temp = self.data.options.array['d_temp']
+        pixel_area = self.data.options.array['pixel_size'] ** 2
+        total_area = pixel_area * self.data.options.other['image_size'] ** 2
 
         # calculate noise from the detector WIP
-        detector_temp = 23
-        td_leak = np.full(self.data.inst['wl_bins'].shape, detector_temp, dtype=float)
-
+        detector_bb = black_body(mode='wavelength',
+                                   bins=self.data.inst['wl_bins'],
+                                   width=self.data.inst['wl_bin_widths'],
+                                   temp=detector_temp)
+        
+        td_leak = np.pi * total_area * detector_bb
 
         return tm_leak, td_leak
