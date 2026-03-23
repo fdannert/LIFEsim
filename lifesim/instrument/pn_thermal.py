@@ -61,16 +61,19 @@ class PhotonNoiseThermal(PhotonNoiseInstrumentModule):
             Emissivity of the mirror (dimensionless).
         data.options.array['d_temp'] : float
             Temperature of the detector in [K].
+        data.options.array['pixel_size'] : float
+            Size of the pixels in [m]. (length of one side of the square pixel)
+        data.options.array['beam_size'] : float
+            Diameter of the beam in [m].
         """
+
         # read data on mirror
         mirror_emissivity = self.data.options.array['m_emissivity']
         mirror_temp = self.data.options.array['m_temp']
-        mirror_area = self.data.inst['telescope_area']
-        beam_size = self.data.options.array['beam_size']
+        mirror_area = self.data.inst['telescope_area']/4
+        beam_size = self.data.options.array['beam_size']/2
         distance = 2.5 * self.data.options.array['diameter']
-
         solid_angle = (np.pi * beam_size ** 2) / (distance ** 2)
-        angle_correction = 1
         
         # calculate noise from the mirror
         mirror_bb = black_body(mode='wavelength',
@@ -78,7 +81,7 @@ class PhotonNoiseThermal(PhotonNoiseInstrumentModule):
                                             width=self.data.inst['wl_bin_widths'],
                                             temp=mirror_temp)
 
-        tm_leak = mirror_emissivity * mirror_bb * mirror_area * solid_angle * angle_correction
+        tm_leak = mirror_emissivity * mirror_bb * mirror_area * solid_angle
 
 
         # read data on detector
