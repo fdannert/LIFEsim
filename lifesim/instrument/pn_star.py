@@ -67,7 +67,7 @@ class PhotonNoiseStar(PhotonNoiseStarModule):
             If the specified transmission map does not exits.
         """
 
-        image_size = 50
+        image_size = 50 # should be self.data.options.other['image_size'] ?
         map_selection = 'tm3'
 
         if index is None:

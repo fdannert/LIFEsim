@@ -649,8 +649,8 @@ class Instrument(InstrumentModule):
         
         # calculate the thermal noise from the instrument
         noise_list_thermal = self.run_socket(s_name='photon_noise_instrument',
-                                                 method='noise',
-                                                 index=None)
+                                             method='noise',
+                                             index=None)
 
         if type(noise_list_thermal) == list:
             if not noise_list_thermal:

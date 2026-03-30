@@ -123,8 +123,8 @@ class Options(object):
         self.array['ratio'] = 6.
         self.array['t_slew'] = 10. * 60. * 60.
         self.array['t_efficiency'] = 0.8
-        self.array['m_temp'] = 35
-        self.array['m_emissivity'] = 0.01
+        self.array['m_temp'] = 48
+        self.array['m_emissivity'] = 0.025
         self.array['d_temp'] = 23
         self.array['pixel_size'] = 23 * 1e-6
         self.array['dc_per_pix'] = 1

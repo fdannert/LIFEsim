@@ -33,10 +33,10 @@ class InstrumentModule(Module):
                         s_number=5)
         self.add_socket(s_name='photon_noise_instrument',
                         s_type=PhotonNoiseInstrumentModule,
-                        s_number=1)
+                        s_number=2)
         self.add_socket(s_name='electron_noise_detector',
                         s_type=ElectronNoiseDetectorModule,
-                        s_number=1)
+                        s_number=2)
 
     @abc.abstractmethod
     def get_snr(self):

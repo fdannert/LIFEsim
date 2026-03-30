@@ -70,10 +70,10 @@ class PhotonNoiseThermal(PhotonNoiseInstrumentModule):
         # read data on mirror
         mirror_emissivity = self.data.options.array['m_emissivity']
         mirror_temp = self.data.options.array['m_temp']
-        mirror_area = self.data.inst['telescope_area']/4
-        beam_size = self.data.options.array['beam_size']/2
+        mirror_area = np.pi *(self.data.options.array['diameter'] / 2.) ** 2
+        beam_radius = self.data.options.array['beam_size']/2
         distance = 2.5 * self.data.options.array['diameter']
-        solid_angle = (np.pi * beam_size ** 2) / (distance ** 2)
+        solid_angle = (np.pi * beam_radius ** 2) / (distance ** 2)
         
         # calculate noise from the mirror
         mirror_bb = black_body(mode='wavelength',
@@ -87,9 +87,9 @@ class PhotonNoiseThermal(PhotonNoiseInstrumentModule):
         # read data on detector
         detector_temp = self.data.options.array['d_temp']
         pixel_area = self.data.options.array['pixel_size'] ** 2
-        total_area = pixel_area * self.data.options.other['image_size'] ** 2
+        total_area = pixel_area * 2 * len(self.data.inst['wl_bins']) # minimum number of detector pixels (nyquist rate)
 
-        # calculate noise from the detector WIP
+        # calculate noise from the detector
         detector_bb = black_body(mode='wavelength',
                                    bins=self.data.inst['wl_bins'],
                                    width=self.data.inst['wl_bin_widths'],
