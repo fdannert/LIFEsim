@@ -333,7 +333,7 @@ class Instrument(InstrumentModule):
                                       / self.data.catalog.z.iloc[n])
 
                 noise_bg = ((noise_bg_star + noise_bg_universe_temp)
-                        * integration_time * self.data.inst['eff_tot'] * 2)
+                        * integration_time * self.data.inst['eff_tot'] * self.data.options.array['num_outputs'])
 
                 # go through all planets for the chosen star
                 for _, n_p in enumerate(np.argwhere(
@@ -366,7 +366,7 @@ class Instrument(InstrumentModule):
                                     * integration_time
                                     * self.data.inst['eff_tot']
                                     * self.data.inst['telescope_area']
-                                    * 2)
+                                    * self.data.options.array['num_outputs'])
 
                     # Add up the noise and caluclate the SNR
                     noise = noise_bg + noise_planet
@@ -598,7 +598,7 @@ class Instrument(InstrumentModule):
                         * self.data.inst['eff_tot']
                         * self.data.inst['telescope_area']
                         * self.data.inst['wl_bin_widths']
-                        * 2)
+                        * self.data.options.array['num_outputs'])
 
         # calculate the noise from the background sources
         # noise_bg_list = self.run_socket(s_name='photon_noise',
@@ -645,7 +645,7 @@ class Instrument(InstrumentModule):
             noise_bg_universe = noise_bg_list_universe
 
         noise_bg = ((noise_bg_star + noise_bg_universe)
-                    * integration_time * self.data.inst['eff_tot'] * 2)
+                    * integration_time * self.data.inst['eff_tot'] * self.data.options.array['num_outputs'])
         
         # calculate the thermal noise from the instrument
         noise_list_thermal = self.run_socket(s_name='photon_noise_instrument',
@@ -663,8 +663,8 @@ class Instrument(InstrumentModule):
             noise_thermal = noise_list_thermal
 
         # output is two arrays (due to mirror and detector leakage) so combine like this
-        noise_inst = (noise_thermal[0] * integration_time * self.data.inst['eff_tot'] * 2) \
-                         + (noise_thermal[1] * integration_time * self.data.options.array['quantum_eff'] * 2)
+        noise_inst = (noise_thermal[0] * integration_time * self.data.inst['eff_tot'] * self.data.options.array['num_outputs']) \
+                         + (noise_thermal[1] * integration_time * self.data.options.array['quantum_eff'] * self.data.options.array['num_outputs'])
 
         # calculate the dark current noise from the detector
         noise_dc_list = self.run_socket(s_name='electron_noise_detector',
@@ -850,7 +850,7 @@ class Instrument(InstrumentModule):
             noise_bg_universe = noise_bg_list_star
 
         noise_bg = ((noise_bg_star + noise_bg_universe)
-                    * integration_time / phi_n * self.data.inst['eff_tot'] * 2)
+                    * integration_time / phi_n * self.data.inst['eff_tot'] * self.data.options.array['num_outputs'])
 
         noise = (noise_bg[:, np.newaxis] + noise_planet)
 

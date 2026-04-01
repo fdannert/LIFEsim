@@ -67,34 +67,42 @@ class PhotonNoiseThermal(PhotonNoiseInstrumentModule):
             Diameter of the beam in [m].
         """
 
-        # read data on mirror
-        mirror_emissivity = self.data.options.array['m_emissivity']
-        mirror_temp = self.data.options.array['m_temp']
-        mirror_area = np.pi *(self.data.options.array['diameter'] / 2.) ** 2
-        beam_radius = self.data.options.array['beam_size']/2
-        distance = 2.5 * self.data.options.array['diameter']
-        solid_angle = (np.pi * beam_radius ** 2) / (distance ** 2)
+        # solid angle is governed by the fiber pick-up, which for single mode is lambda / D
+        solid_angle = np.pi * (self.data.inst['hfov'])**2
         
         # calculate noise from the mirror
         mirror_bb = black_body(mode='wavelength',
                                             bins=self.data.inst['wl_bins'],
                                             width=self.data.inst['wl_bin_widths'],
-                                            temp=mirror_temp)
+                                            temp=self.data.options.array['primary_temp'])
 
-        tm_leak = mirror_emissivity * mirror_bb * mirror_area * solid_angle
+        tm_leak = (solid_angle
+                   * self.data.options.array['primary_emissivity']
+                   * self.data.inst['telescope_area']
+                   * mirror_bb)
 
+        # detector collects thermal noise photons across its whole sensitivity range (at least from the detector
+        # housing). Define temporary wl bins. Delta_wl is chosen to be small enough to capture the shape of the black
+        # body curve and does not need to be adjusted
 
-        # read data on detector
-        detector_temp = self.data.options.array['d_temp']
-        pixel_area = self.data.options.array['pixel_size'] ** 2
-        total_area = pixel_area * 2 * len(self.data.inst['wl_bins']) # minimum number of detector pixels (nyquist rate)
+        delta_wl = 1e-7
+        total_area = self.data.options.array['pixel_size'] ** 2 * self.data.options.array['pix_per_wl'] # minimum number of detector pixels (nyquist rate)
+        solid_angle = 2 * np.pi  # half sphere, since the detector can receive photons from all directions
+
+        wl_bins = np.arange(self.data.options.array['detector_wl_min'],
+                            self.data.options.array['detector_wl_max'],
+                            step=delta_wl)
+        wl_bin_widths = np.full_like(wl_bins, delta_wl)
 
         # calculate noise from the detector
         detector_bb = black_body(mode='wavelength',
-                                   bins=self.data.inst['wl_bins'],
-                                   width=self.data.inst['wl_bin_widths'],
-                                   temp=detector_temp)
-        
-        td_leak = np.pi * total_area * detector_bb
+                                 bins=wl_bins,
+                                 width=wl_bin_widths,
+                                 temp=self.data.options.array['d_temp']) / wl_bin_widths
+
+        # integral over all wavelengths
+        detector_bb_int = np.trapezoid(y=detector_bb, x=wl_bins)
+
+        td_leak = solid_angle * total_area * detector_bb_int * np.ones_like(self.data.inst['wl_bins'])
 
         return tm_leak, td_leak
