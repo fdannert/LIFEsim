@@ -7,6 +7,8 @@ from lifesim.instrument.transmission import TransmissionMap
 from lifesim.instrument.pn_exozodi import PhotonNoiseExozodi
 from lifesim.instrument.pn_localzodi import PhotonNoiseLocalzodi
 from lifesim.instrument.pn_star import PhotonNoiseStar
+from lifesim.instrument.pn_thermal import PhotonNoiseThermal
+from lifesim.instrument.en_darkcurrent import ElectronNoiseDarkCurrent
 
 from lifesim.util.importer import SpectrumImporter
 
