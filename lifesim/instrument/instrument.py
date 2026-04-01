@@ -82,7 +82,7 @@ class Instrument(InstrumentModule):
         # Get array parameters from options for faster calculation
         self.data.inst['bl'] = self.data.options.array['baseline']
 
-        self.data.inst['telescope_area'] = 4. * np.pi \
+        self.data.inst['telescope_area'] = self.data.options.array['num_apertures'] * np.pi \
                                            * (self.data.options.array['diameter'] / 2.) ** 2
         self.data.inst['eff_tot'] = self.data.options.array['quantum_eff'] \
                                     * self.data.options.array['throughput']
