@@ -106,7 +106,7 @@ class PhotonNoiseThermal(PhotonNoiseInstrumentModule):
                                  temp=self.data.options.array['d_temp']) / wl_bin_widths
 
         # integral over all wavelengths
-        detector_bb_int = np.trapezoid(y=detector_bb, x=wl_bins)
+        detector_bb_int = np.trapz(y=detector_bb, x=wl_bins)
 
         td_leak = solid_angle * total_area * detector_bb_int * np.ones_like(self.data.inst['wl_bins'])
 
