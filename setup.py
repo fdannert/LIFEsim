@@ -45,7 +45,7 @@ setup(
     license='GPLv3',
     zip_safe=False,
     keywords='lifesim',
-    python_requires='~=3.12',
+    python_requires='>=3.8',
     classifiers=[
         'Development Status :: 3 - Alpha',
         'Intended Audience :: Science/Research',
