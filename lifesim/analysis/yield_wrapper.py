@@ -979,7 +979,7 @@ class ScienceYield:
                      output_path,
                      output_filename,
                      run_maxsep,
-                     option_name='',
+                     option_name,
                      option_value=None):
 
         print('START OF RUN: ', time.ctime())
@@ -995,7 +995,7 @@ class ScienceYield:
         bus.data.options.set_manual(n_cpu=self.n_cpu) # speed up calculation
 
         if option_value is not None:
-            bus.data.options.set_manual(option_name=option_value)
+            bus.data.options.set_manual(**{option_name: option_value})
 
         bus.data.options.set_manual(
             output_path=output_path)
