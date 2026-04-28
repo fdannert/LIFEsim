@@ -1023,12 +1023,18 @@ class ScienceYield:
         bus.add_module(local)
         star = lifesim.PhotonNoiseStar(name='star')
         bus.add_module(star)
+        mirror = lifesim.PhotonNoiseThermal(name='mirror')
+        bus.add_module(mirror)
+        # darkcurrent = lifesim.ElectronNoiseDarkCurrent(name='darkcurrent')
+        # bus.add_module(darkcurrent)
 
         # connect all modules
         bus.connect(('inst', 'transm'))
         bus.connect(('inst', 'exo'))
         bus.connect(('inst', 'local'))
         bus.connect(('inst', 'star'))
+        bus.connect(('inst', 'mirror'))
+        # bus.connect(('inst', 'darkcurrent'))
 
         bus.connect(('star', 'transm'))
 
