@@ -162,6 +162,12 @@ project folder.
     with open('path/ppop_catalog.txt', 'wb') as file:
         file.write(data.content)
 
+        
+At the moment, the ``TestPlanetPopulation.txt`` file is not available directly on the P-Pop GitHub repository anymore.
+Instead, follow the instructions on |p-pop| to clone the repository and create the file locally on your computer.
+Then rename the file from ``TestPlanetPopulation.txt`` to ``ppop_catalog.txt`` and save it in the desired location.
+
+
 Loading the Catalog
 ~~~~~~~~~~~~~~~~~~~
 
