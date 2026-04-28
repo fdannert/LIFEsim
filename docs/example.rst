@@ -186,8 +186,8 @@ remove all A-type stars and every M-type at a distance larger than 10 pc away fr
 .. code-block:: python
     :lineno-start: 26
 
-    bus.data.catalog_remove_distance(stype=0, mode='larger', dist=0.)
-    bus.data.catalog_remove_distance(stype=4, mode='larger', dist=10.)
+    bus.data.catalog_remove_distance(stype='A', mode='larger', dist=0.)
+    bus.data.catalog_remove_distance(stype='M', mode='larger', dist=10.)
 
 .. Hint::
 
