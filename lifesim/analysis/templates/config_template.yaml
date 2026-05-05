@@ -56,13 +56,13 @@ optimization:
     G: .inf
     K: .inf
     M: .inf
-  limit_mode: experiments  # must always be on experiments! Will make LIFEsim use ‘experiments’ instead of ‘limit’ 
+  limit_mode: experiments  # must always be on experiments! Will make LIFEsim use â€˜experimentsâ€™ instead of â€˜limitâ€™ 
   opt_limit: experiments  # must always be on experiments! 
   opt_limit_factor: 0.95  # the fraction of mission realizations that reach the sample_size
   snr_target: 7  # bulk S/N at which planet is counted as detected
   snr_char: 44.1  # bulk S/N at which planet is counted as characterized
   n_orbits: 5  # number of visits required before a planet can be characterized 
-  t_search: 78840000.0  # total mission time in s, not used in ‘experiment’ mode
+  t_search: 78840000.0  # total mission time in s, not used in â€˜experimentâ€™ mode
 other:  # these are parameters to set-up the simulation 
   fov_threshold: 0.01  # set the angular extend to which the astrophysical sources are simulated 
   image_size: 512  # image_size**2 is the number of pixels used in simulation of the astrophysical sources 
