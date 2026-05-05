@@ -1,4 +1,5 @@
 # imports
+import os
 import sys
 import shutil
 import subprocess
@@ -8,8 +9,6 @@ import importlib.util
 from string import Template
 class BashTemplate(Template):
     delimiter = "@"
-
-current_working_directory = Path.cwd()
 
 def read_template(name: str) -> str:
     """Read a bundled template file from lifesim/analysis/templates/."""
@@ -190,7 +189,7 @@ def run(config_path: str):
     print(f"  Optimisation job submitted: {opt_job_id}")
 
 def init_config():
-    out = current_working_directory / "yield_config.py"
+    out = Path("yield_config.py")
     if out.exists():
         print(f"!!! {out} already exists, not overwriting.")
         return
@@ -199,6 +198,7 @@ def init_config():
     print(f" Created {out} — edit it with your cluster paths and run settings.")
 
 def cli():
+    os.chdir(os.environ.get("PWD", os.getcwd()))
     if len(sys.argv) < 2 or sys.argv[1] == "init":
         init_config()
     else:
