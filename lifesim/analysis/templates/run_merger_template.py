@@ -1,4 +1,5 @@
 from pathlib import Path
+import shutil
 from lifesim.analysis.yield_wrapper import merge_runs
 
 merge_runs(mapping_csv='$mapping_csv',

@@ -88,7 +88,7 @@ def run(config_path: str):
         content = template_launchscript.substitute(
             job_name    = f"{today}_{short_name}",
             output_path = run_folder / "logs" / "python_%j.log",
-        python_run  = run_folder / "run_yields.py",
+            python_run  = run_folder / "run_yields.py",
             venv_path   = venv_path)
         (run_folder / "launch_script.slurm.sh").write_text(content)
 
