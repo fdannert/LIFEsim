@@ -33,6 +33,11 @@ setup(
               'lifesim.util', 
               'lifesim.analysis'],
     include_package_data=True,
+    entry_points={
+        'console_scripts': [
+            'lifesim-yieldanalysis = lifesim.analysis.submit:cli',
+        ],
+    },
     install_requires=['astropy>=5.2.1',
                       'matplotlib>=3.7.0',
                       'numpy>=1.24.2',
@@ -46,7 +51,7 @@ setup(
     license='GPLv3',
     zip_safe=False,
     keywords='lifesim',
-    python_requires='>=3.8',
+    python_requires='>=3.9',
     classifiers=[
         'Development Status :: 3 - Alpha',
         'Intended Audience :: Science/Research',
