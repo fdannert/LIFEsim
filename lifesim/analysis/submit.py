@@ -54,6 +54,9 @@ def run(config_path: str):
     option_values       = cfg.option_values
     run_name            = cfg.run_name
 
+    # optional configs
+    lifesim_config_path   = getattr(cfg, "lifesim_config_path", None)
+
     # catalogs
     catalog_folders = [f for f in (yields / "catalogs" / catalog_source_date).iterdir() if f.is_dir()]
     catalogs        = [(f.name, f.name.split("_", 3)[-1]) for f in catalog_folders]
@@ -89,7 +92,7 @@ def run(config_path: str):
             venv_path   = venv_path)
         (run_folder / "launch_script.slurm.sh").write_text(content)
 
-    content = read_template("config_template.yaml")
+    content = Path(lifesim_config_path).read_text() if lifesim_config_path else read_template("config_template.yaml")
     (yields / "runs" / today / "custom_config.yaml").write_text(content)
 
     snr_job_ids = []
@@ -165,7 +168,7 @@ def run(config_path: str):
         f.write(f"True,False,False,0.9,True\n")
         f.write(f"False,True,False,0.9,True\n")
 
-    content = read_template("config_template.yaml")
+    content = Path(lifesim_config_path).read_text() if lifesim_config_path else read_template("config_template.yaml")
     (merge_folder / "config_files" / "optimizer_config.yaml").write_text(content)
 
     template_launchopt = Template(read_template("launch_optimizer_template.py"))
