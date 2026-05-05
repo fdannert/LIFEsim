@@ -9,6 +9,8 @@ from string import Template
 class BashTemplate(Template):
     delimiter = "@"
 
+current_working_directory = Path.cwd()
+
 def read_template(name: str) -> str:
     """Read a bundled template file from lifesim/analysis/templates/."""
     return (files("lifesim.analysis") / "templates" / name).read_text()
@@ -188,7 +190,7 @@ def run(config_path: str):
     print(f"  Optimisation job submitted: {opt_job_id}")
 
 def init_config():
-    out = Path("yield_config.py")
+    out = current_working_directory / "yield_config.py"
     if out.exists():
         print(f"!!! {out} already exists, not overwriting.")
         return
