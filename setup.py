@@ -33,6 +33,9 @@ setup(
               'lifesim.util', 
               'lifesim.analysis'],
     include_package_data=True,
+    package_data={
+    'lifesim.analysis': ['templates/*'],
+    },
     entry_points={
         'console_scripts': [
             'lifesim-yieldanalysis = lifesim.analysis.submit:cli',
