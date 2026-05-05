@@ -114,7 +114,7 @@ def run(config_path: str):
             mapping_csv = merge_folder / "config_files" / "catalog_files.csv",
             merge_csv   = merge_folder / "config_files" / "catalog_merge.csv",
             output_path = str(merge_folder) + "/",
-            output_path = str(merge_folder))
+            output_path2 = str(merge_folder))
     (merge_folder / "config_files" / "run_merger.py").write_text(content)
 
     basepath = (yields / "runs" / today)
