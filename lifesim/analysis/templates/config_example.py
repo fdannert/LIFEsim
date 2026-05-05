@@ -15,6 +15,9 @@ run_name =      "primarymirror_sweep" # name of the run, used for naming folders
 lifesim_config_path = None # eg. "/cluster/home/YOUR_USERNAME/LIFEsim/custom_config.yaml"
 # important: must be utf-8 encoded! 
 # use lifesim-yieldanalysis lifesim_config to generate a template
+catalog_merge_path = None # eg. "/cluster/home/YOUR_USERNAME/LIFEsim/catalog_merge.csv" 
+# important: catalog names must fit the pattern of the template
+# use lifesim-yieldanalysis catalog_merge to generate a template
 optimizer_scenarios_path = None # eg. "/cluster/home/YOUR_USERNAME/LIFEsim/optimizer_scenarios.csv" 
 # use lifesim-yieldanalysis optimizer_scenarios to generate a template
 

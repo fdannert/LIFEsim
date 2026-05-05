@@ -57,6 +57,7 @@ def run(config_path: str):
     # optional configs
     lifesim_config_path   = getattr(cfg, "lifesim_config_path", None)
     optimizer_scenarios_path   = getattr(cfg, "optimizer_scenarios_path", None)
+    catalog_merge_path   = getattr(cfg, "catalog_merge_path", None)
 
     # catalogs
     catalog_folders = [f for f in (yields / "catalogs" / catalog_source_date).iterdir() if f.is_dir()]
@@ -129,21 +130,18 @@ def run(config_path: str):
         for full_name, short_name in catalogs:
             f.write(f"{short_name},{basepath}/{today}_{short_name}/{endpath}\n")
 
-    with open(merge_folder / "config_files" / "catalog_merge.csv", "w") as f:
-        f.write("Input 1,Input 2,Output\n")
-        f.write(f"SAG13_baseline,Dressing2015_baseline,{today}_SAGxDressing_baseline\n")
-        f.write(f"SAG13_optimistic,Dressing2015_optimistic,{today}_SAGxDressing_optimistic\n")
-        f.write(f"SAG13_pessimistic,Dressing2015_pessimistic,{today}_SAGxDressing_pessimistic\n")
-        f.write(f"Bryson2021_hab2high,Dressing2015_optimistic,{today}_BrysonxDressing_optimistic\n")
-        f.write(f"Bryson2021_hab2high,Dressing2015_baseline,{today}_BrysonxDressing_baseline_plus\n")
-        f.write(f"Bryson2021_hab2low,Dressing2015_baseline,{today}_BrysonxDressing_baseline_minus\n")
-        f.write(f"Bryson2021_hab2low,Dressing2015_pessimistic,{today}_BrysonxDressing_pessimistic\n")
+    if catalog_merge_path is not None:
+        raw = Path(catalog_merge_path).read_text()
+    else:
+        raw = read_template("catalog_merge_template.csv")
+    content = Template(raw).safe_substitute(today=today)
+    (merge_folder / "config_files" / "catalog_merge.csv").write_text(content, encoding="us-ascii")
 
     template_launchmerger = Template(read_template("launch_merger_template.slurm.sh"))
     content = template_launchmerger.substitute(
             job_name    = f"{today}_merger",
             output_path = merge_folder / "logs" / "%x_%j.log",
-        python_run  = merge_folder / "config_files" / "run_merger.py",
+            python_run  = merge_folder / "config_files" / "run_merger.py",
             venv_path = venv_path)
     (merge_folder / "config_files" / "launch_merger.slurm.sh").write_text(content)
 
@@ -190,6 +188,7 @@ command_templates = {
     "init": ("config_example.py", "yield_config.py", "cluster paths and run settings.", None),
     "lifesim_config": ("config_template.yaml", "lifesim_config.yaml", "lifesim and experiment settings. Make sure to keep the file utf-8!", "utf-8"),
     "optimizer_scenarios": ("optimizer_scenarios_template.csv", "optimizer_scenarios.csv", "optimizer scenarios.", None),
+    "catalog_merge": ("catalog_merge_template.csv", "catalog_merge.csv", "catalog merge options.", None)
 }
 
 def _copy_template(template_name: str, out_name: str, message: str, encoding: str = None):
