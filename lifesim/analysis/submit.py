@@ -200,10 +200,21 @@ def init_config():
     out.write_text(content)
     print(f" Created {out} — edit it with your cluster paths and run settings.")
 
+def lifesim_config():
+    out = Path("lifesim_config.yaml")
+    if out.exists():
+        print(f"!!! {out} already exists, not overwriting.")
+        return
+    content = (files("lifesim.analysis") / "templates" / "config_template.yaml").read_text()
+    out.write_text(content)
+    print(f" Created {out} — edit it with your lifesim and experiment settings. Make sure to keep the file utf-8!")
+
 def cli():
     os.chdir(os.environ.get("PWD", os.getcwd()))
     if len(sys.argv) < 2 or sys.argv[1] == "init":
         init_config()
+    if sys.argv[1] == "lifesim_config":
+        lifesim_config()
     else:
         run(sys.argv[1])
 

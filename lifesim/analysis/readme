@@ -11,6 +11,11 @@ AUTOMATION:
 - run lifesim-yieldanalysis config_file.py
 - wait :)
 
+COMMANDS: 
+- lifesim-yieldanalysis or lifesim-yieldanalysis init: creates yield_config template
+- lifesim-yieldanalysis lifesim_config: creates lifesim config template
+- lifesim-yieldanalysis yield_config.py: runs the yield calculation
+
 WHAT THE AUTOMATION DOES:
 - creates all necessary files to go through the entire yields process
 - creates directories per catalog and calculates the snr_1h, merges data from the catalogs, optimises mission time
