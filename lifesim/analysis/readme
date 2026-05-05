@@ -14,6 +14,7 @@ AUTOMATION:
 COMMANDS: 
 - lifesim-yieldanalysis or lifesim-yieldanalysis init: creates yield_config template
 - lifesim-yieldanalysis lifesim_config: creates lifesim config template
+- lifesim-yieldanalysis optimizer_scenarios: creates optimizer_scenarios csv template
 - lifesim-yieldanalysis yield_config.py: runs the yield calculation
 
 WHAT THE AUTOMATION DOES:

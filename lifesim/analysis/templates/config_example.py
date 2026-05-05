@@ -11,5 +11,11 @@ option_name =   "primary_temp"        # name of the option to sweep over
 option_values = "np.arange(44,50)"    # values to sweep over
 run_name =      "primarymirror_sweep" # name of the run, used for naming folders and files
 
-# optional LIFEsim and optimizer configuration (leave as none if not needed)
+# optional LIFEsim and optimizer configuration (leave as none if not using default template)
 lifesim_config_path = None # eg. "/cluster/home/YOUR_USERNAME/LIFEsim/custom_config.yaml"
+# important: must be utf-8 encoded! 
+# use lifesim-yieldanalysis lifesim_config to generate a template
+optimizer_scenarios_path = None # eg. "/cluster/home/YOUR_USERNAME/LIFEsim/optimizer_scenarios.csv" 
+# use lifesim-yieldanalysis optimizer_scenarios to generate a template
+
+

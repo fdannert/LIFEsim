@@ -56,6 +56,7 @@ def run(config_path: str):
 
     # optional configs
     lifesim_config_path   = getattr(cfg, "lifesim_config_path", None)
+    optimizer_scenarios_path   = getattr(cfg, "optimizer_scenarios_path", None)
 
     # catalogs
     catalog_folders = [f for f in (yields / "catalogs" / catalog_source_date).iterdir() if f.is_dir()]
@@ -157,16 +158,9 @@ def run(config_path: str):
     ###################################
     print("\n=== step 3: optimisation ===")
 
-    with open(merge_folder / "config_files" / "optimizer_scenarios.csv", "w") as f:
-        f.write("Experiment_1,Experiment_2,Experiment_3,opt_limit_factor,characterization\n")
-        f.write(f"True,True,False,0.5,True\n")
-        f.write(f"True,True,False,0.5,False\n")
-        f.write(f"True,False,False,0.5,True\n")
-        f.write(f"False,True,False,0.5,True\n")
-        f.write(f"True,True,False,0.9,True\n")
-        f.write(f"True,True,False,0.9,False\n")
-        f.write(f"True,False,False,0.9,True\n")
-        f.write(f"False,True,False,0.9,True\n")
+    optimizer_scenarios_destination = merge_folder / "config_files" / "optimizer_scenarios.csv"
+    default_optimizer_scenarios_path = files("lifesim.analysis") / "templates" / "optimizer_scenarios_template.csv"
+    shutil.copy(optimizer_scenarios_path if optimizer_scenarios_path is not None else default_optimizer_scenarios_path, optimizer_scenarios_destination)
 
     content = Path(lifesim_config_path).read_text() if lifesim_config_path else read_template("config_template.yaml")
     (merge_folder / "config_files" / "optimizer_config.yaml").write_text(content)
@@ -191,34 +185,30 @@ def run(config_path: str):
         dependency_ids=[merge_job_id])
     print(f"  Optimisation job submitted: {opt_job_id}")
 
-def init_config():
-    out = Path("yield_config.py")
-    if out.exists():
-        print(f"!!! {out} already exists, not overwriting.")
-        return
-    content = (files("lifesim.analysis") / "templates" / "config_example.py").read_text()
-    out.write_text(content)
-    print(f" Created {out} — edit it with your cluster paths and run settings.")
 
-def lifesim_config():
-    out = Path("lifesim_config.yaml")
+command_templates = {
+    "init": ("config_example.py", "yield_config.py", "cluster paths and run settings.", None),
+    "lifesim_config": ("config_template.yaml", "lifesim_config.yaml", "lifesim and experiment settings. Make sure to keep the file utf-8!", "utf-8"),
+    "optimizer_scenarios": ("optimizer_scenarios_template.csv", "optimizer_scenarios.csv", "optimizer scenarios.", None),
+}
+
+def _copy_template(template_name: str, out_name: str, message: str, encoding: str = None):
+    out = Path(out_name)
     if out.exists():
         print(f"!!! {out} already exists, not overwriting.")
         return
-    content = (files("lifesim.analysis") / "templates" / "config_template.yaml").read_text()
-    out.write_text(content)
-    print(f" Created {out} — edit it with your lifesim and experiment settings. Make sure to keep the file utf-8!")
+    content = (files("lifesim.analysis") / "templates" / template_name).read_text(encoding=encoding)
+    out.write_text(content, encoding=encoding)
+    print(f" Created {out} — edit it with your {message}")
+
 
 def cli():
     os.chdir(os.environ.get("PWD", os.getcwd()))
-    if len(sys.argv) < 2 or sys.argv[1] == "init":
-        init_config()
-    if sys.argv[1] == "lifesim_config":
-        lifesim_config()
+    cmd = sys.argv[1] if len(sys.argv) >= 2 else "init"
+    if cmd in command_templates:
+        _copy_template(*command_templates[cmd])
     else:
-        run(sys.argv[1])
-
-
+        run(cmd)
 
 
 
