@@ -209,14 +209,18 @@ class Instrument(InstrumentModule):
             If set to true, function will print a warning if the specified baseline lies outside
             the allow baseline range.
         """
+        if self.data.options.array['fixed_baseline']:
+            self.data.inst['bl'] = self.data.options.array['baseline']
+
+        else:
         # make sure that the baseline does not exeed the set baseline limits
-        self.data.inst['bl'] = np.maximum(baseline,
-                                          self.data.options.array['bl_min'])
-        self.data.inst['bl'] = np.minimum(self.data.inst['bl'],
-                                          self.data.options.array['bl_max'])
-        if (self.data.inst['bl'] != baseline) and print_warning:
-            warn('Specified baseline exceeded baseline limits. Baseline fixed to '
-                 'respective limit')
+            self.data.inst['bl'] = np.maximum(baseline,
+                                              self.data.options.array['bl_min'])
+            self.data.inst['bl'] = np.minimum(self.data.inst['bl'],
+                                              self.data.options.array['bl_max'])
+            if (self.data.inst['bl'] != baseline) and print_warning:
+                warn('Specified baseline exceeded baseline limits. Baseline fixed to '
+                     'respective limit')
 
         # update the position of the apertures
         self.data.inst['apertures'] = np.array([
@@ -403,12 +407,19 @@ class Instrument(InstrumentModule):
                                     * self.data.inst['telescope_area']
                                     * self.data.options.array['num_outputs'])
 
-                    # Add up the noise and caluclate the SNR
+                    # Add up the noise and calculate the SNR
                     noise = noise_bg + noise_planet + noise_inst + noise_dc
 
                     # use index label to avoid chained assignment / view-copy problems
                     idx_label = self.data.catalog.index[n_p]
                     self.data.catalog.loc[idx_label, 'snr_1h'] = np.sqrt((flux_planet ** 2 / noise).sum())
+
+                    if self.data.options.optimization['iwa_cut'] is not None:
+                        curve_chop, _ = self.run_socket(s_name='transmission',
+                                                        method='transmission_curve',
+                                                        angsep=self.data.catalog.angsep.iloc[n_p])
+                        if np.min(np.max(curve_chop[:, 0, :], axis=1)) < self.data.options.optimization['iwa_cut']:
+                            self.data.catalog.loc[idx_label, 'snr_1h'] = 0.
 
                     # save baseline
                     self.data.catalog.loc[idx_label, 'baseline'] = self.data.inst['bl']

@@ -20,7 +20,10 @@ def etc(
     instrument = lifesim.Instrument(name='inst')
     bus.add_module(instrument)
 
-    transm = lifesim.TransmissionMapSBW(name='transm')
+    if bus.data.options.array['num_apertures'] == 2:
+        transm = lifesim.TransmissionMapSBW(name='transm')
+    elif bus.data.options.array['num_apertures'] == 4:
+        transm = lifesim.TransmissionMap(name='transm')
     bus.add_module(transm)
 
     exo = lifesim.PhotonNoiseExozodi(name='exo')

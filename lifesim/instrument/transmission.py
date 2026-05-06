@@ -25,7 +25,8 @@ class TransmissionMap(TransmissionModule):
                          d_alpha: np.ndarray = None,
                          d_beta: np.ndarray = None,
                          image_angle: np.ndarray = None,
-                         image_size: int = None):
+                         image_size: int = None,
+                         fov_taper: Union[str, None] = None):
         """
         Return the transmission map of a double-Bracewell configuration for the LIFE array.
 
@@ -155,6 +156,9 @@ class TransmissionMap(TransmissionModule):
                     4 * self.data.options.array['ratio'] * np.pi * L * beta / wl_bins)
 
         # add FoV taper
+        if fov_taper is None:
+            fov_taper = self.data.options.models['fov_taper']
+
         for tm in [tm1, tm2, tm3, tm4, tm_chop]:
             if tm is not None:
                 if self.data.options.models['fov_taper'] == 'gaussian':

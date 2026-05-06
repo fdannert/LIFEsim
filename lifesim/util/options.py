@@ -82,7 +82,8 @@ class Options(object):
                       'detector_wl_max': 0.,
                       'pix_per_wl': 0.,
                       'num_apertures': 0,
-                      'num_outputs': 0}
+                      'num_outputs': 0,
+                      'fixed_baseline': False,}
 
         self.other = {'image_size': 0,
                       'wl_optimal': 0.,
@@ -104,7 +105,8 @@ class Options(object):
                              'snr_char': 0.,
                              'opt_limit': 'time',
                              'opt_limit_factor': 0.5,
-                             'n_orbits': 1}
+                             'n_orbits': 1,
+                             'iwa_cut': None}
 
     def set_scenario(self,
                      case: str):
