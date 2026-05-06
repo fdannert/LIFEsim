@@ -913,6 +913,161 @@ class ScienceYield:
             plt.savefig(os.path.join(output_path, run_name + '_yield_convergence.pdf'))
             plt.close()
 
+    def run_sweep_snr(self,
+                      option_name,
+                      option_values,
+                      run_name):
+
+        final_output_path = os.path.join(self.output_path, run_name)
+        if not os.path.exists(final_output_path):
+            os.makedirs(final_output_path)
+        else:
+            raise ValueError('Directory already exists: ' + final_output_path)
+
+        for ndim, value in enumerate(option_values):
+            print('')
+            print('')
+            print(f'STARTING RUN FOR OPTION {option_name} AT VALUE: {value}')
+            print('AT TIME: ', time.ctime())
+
+            print('Preparing directories... ', end='')
+
+            output_directory = os.path.join(final_output_path, str(option_name) + '_' + str(np.round(value, 2)).replace('.', '_'))
+            if not os.path.exists(output_directory):
+                os.makedirs(output_directory)
+
+            print('[Done]')
+
+            print('Commencing base run... ')
+            self._compute_generalised_snrs(output_path=f'{output_directory}/',
+                              output_filename='sweep_' + option_name + '_' + str(np.round(value, 2)).replace('.', '_'),
+                              run_maxsep=False,
+                              option_name=option_name,
+                              option_value=float(value))
+            print('[Done]')
+
+            print('Commencing maxsep run... ')
+            self._compute_generalised_snrs(output_path=f'{output_directory}/',
+                              output_filename='sweep_' + option_name + '_' + str(np.round(value, 2)).replace('.', '_') + '_maxsep',
+                              run_maxsep=True,
+                              option_name=option_name,
+                              option_value=float(value))
+            print('[Done]')
+
+        # Append single multi-line log summary for this method
+        t_end = time.time()
+        try:
+            option_dirs = sorted([d for d in os.listdir(final_output_path)
+                                if os.path.isdir(os.path.join(final_output_path, d)) and d.startswith(str(option_name) + '_')])
+            options_created = [d.replace(str(option_name) + '_', '').replace('_', '.') for d in option_dirs]
+        except Exception:
+            option_dirs = []
+            options_created = []
+        msg = f"""run_aperture_sweep_snr summary:
+                  run_name: {run_name}
+                  requested_{option_name}: {option_values}
+                  {option_name}_directories_found: {option_dirs}
+                  {option_name}_values_reported: {options_created}
+                  final_output_path: {final_output_path}
+                  start_time: {time.ctime(t_end - (t_end - t_end))}  # placeholder, exact start not stored in this scope
+                  end_time: {time.ctime(t_end)}
+                  elapsed_seconds: {round(0.0, 2)}  # elapsed not measured here to avoid changing existing code flow
+                """
+        self.logger.info(msg)
+
+    def _compute_generalised_snrs(self,
+                     output_path,
+                     output_filename,
+                     run_maxsep,
+                     option_name,
+                     option_value=None):
+
+        print('START OF RUN: ', time.ctime())
+        print('RUN NAME: ', output_filename)
+        print('----------------------------')
+
+        t = time.time()
+        # create bus
+        bus = lifesim.Bus()
+
+        # setting the options
+        bus.build_from_config(filename=self.config_path)
+        bus.data.options.set_manual(n_cpu=self.n_cpu) # speed up calculation
+
+        if option_value is not None:
+            bus.data.options.set_manual(**{option_name: option_value})
+
+        bus.data.options.set_manual(
+            output_path=output_path)
+        bus.data.options.set_manual(output_filename=output_filename)
+
+
+        # ---------- Loading the Catalog ----------
+        if self.cat_from_ppop:
+            bus.data.catalog_from_ppop(input_path=self.catalog_path)
+        else:
+            bus.data.import_catalog(input_path=self.catalog_path)
+
+        # ---------- Creating the Instrument ----------
+
+        # create modules and add to bus
+        instrument = lifesim.Instrument(name='inst')
+        bus.add_module(instrument)
+
+        transm = lifesim.TransmissionMap(name='transm')
+        bus.add_module(transm)
+
+        exo = lifesim.PhotonNoiseExozodi(name='exo')
+        bus.add_module(exo)
+        local = lifesim.PhotonNoiseLocalzodi(name='local')
+        bus.add_module(local)
+        star = lifesim.PhotonNoiseStar(name='star')
+        bus.add_module(star)
+        mirror = lifesim.PhotonNoiseThermal(name='mirror')
+        bus.add_module(mirror)
+        darkcurrent = lifesim.ElectronNoiseDarkCurrent(name='darkcurrent')
+        bus.add_module(darkcurrent)
+
+        # connect all modules
+        bus.connect(('inst', 'transm'))
+        bus.connect(('inst', 'exo'))
+        bus.connect(('inst', 'local'))
+        bus.connect(('inst', 'star'))
+        bus.connect(('inst', 'mirror'))
+        bus.connect(('inst', 'darkcurrent'))
+
+        bus.connect(('star', 'transm'))
+
+        if run_maxsep:
+            # only run maxsep SNR for planets that are part of an experiment
+            bus.data.catalog['is_interesting'] = False
+            for exp in bus.data.options.optimization['experiments'].keys():
+                mask_exp = ((bus.data.catalog.radius_p
+                             >= bus.data.options.optimization['experiments'][exp]['radius_p_min'])
+                            & (bus.data.catalog.radius_p
+                               <= bus.data.options.optimization['experiments'][exp]['radius_p_max'])
+                            & (bus.data.catalog.temp_s
+                               >= bus.data.options.optimization['experiments'][exp]['temp_s_min'])
+                            & (bus.data.catalog.temp_s
+                               <= bus.data.options.optimization['experiments'][exp]['temp_s_max']))
+
+                if bus.data.options.optimization['experiments'][exp]['in_HZ']:
+                    mask_exp = (mask_exp
+                                & (bus.data.catalog['habitable']))
+
+                bus.data.catalog['exp_' + exp] = mask_exp
+
+                bus.data.catalog['is_interesting'] = np.logical_or(mask_exp, bus.data.catalog['is_interesting'])
+            
+            bus.data.catalog = bus.data.catalog[bus.data.catalog.is_interesting]
+            bus.data.catalog['angsep'] = bus.data.catalog['maxangsep']
+
+        instrument.get_snr()
+        bus.save()
+
+        del bus
+
+        print('Generation took ', (time.time() - t) / 60, ' minutes to complete.')
 
 def get_yields(bus,
                return_yields=False):

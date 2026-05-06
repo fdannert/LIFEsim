@@ -1,0 +1,9 @@
+Experiment_1,Experiment_2,Experiment_3,opt_limit_factor,characterization
+True,True,False,0.5,True
+True,True,False,0.5,False
+True,False,False,0.5,True
+False,True,False,0.5,True
+True,True,False,0.9,True
+True,True,False,0.9,False
+True,False,False,0.9,True
+False,True,False,0.9,True

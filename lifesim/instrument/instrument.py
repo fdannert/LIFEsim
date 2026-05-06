@@ -279,6 +279,41 @@ class Instrument(InstrumentModule):
         # time
         integration_time = 60 * 60
 
+        # calculate instrument noise once, since it is the same for all planets
+        noise_list_thermal = self.run_socket(s_name='photon_noise_instrument',
+                                             method='noise',
+                                             index=None)
+        
+        if type(noise_list_thermal) == list:
+            if not noise_list_thermal:
+                noise_thermal = np.zeros_like(self.data.inst['wl_bins'])
+            else:
+                noise_thermal = np.zeros_like(noise_list_thermal[0])
+                for _, noise in enumerate(noise_list_thermal):
+                    noise_thermal += noise
+        else:
+            noise_thermal = noise_list_thermal
+        
+        noise_inst = (noise_thermal[0] * integration_time * self.data.inst['eff_tot'] * self.data.options.array['num_outputs']) \
+                         + (noise_thermal[1] * integration_time * self.data.options.array['quantum_eff'] * self.data.options.array['num_outputs'])
+        
+        # calculate the dark current noise from the detector once, since it is the same for all planets
+        noise_dc_list = self.run_socket(s_name='electron_noise_detector',
+                                        method='noise',
+                                        index=None)
+        
+        if type(noise_dc_list) == list:
+            if not noise_dc_list:
+                noise_dc_d = np.zeros_like(self.data.inst['wl_bins'])
+            else:
+                noise_dc_d = np.zeros_like(noise_dc_list[0])
+                for _, noise in enumerate(noise_dc_list):
+                    noise_dc_d += noise
+        else:
+            noise_dc_d = noise_dc_list
+        
+        noise_dc = noise_dc_d * integration_time
+
         # create mask returning only unique stars
         _, temp = np.unique(self.data.catalog.nstar, return_index=True)
         star_mask = np.zeros_like(self.data.catalog.nstar, dtype=bool)
@@ -369,7 +404,7 @@ class Instrument(InstrumentModule):
                                     * self.data.options.array['num_outputs'])
 
                     # Add up the noise and caluclate the SNR
-                    noise = noise_bg + noise_planet
+                    noise = noise_bg + noise_planet + noise_inst + noise_dc
 
                     # use index label to avoid chained assignment / view-copy problems
                     idx_label = self.data.catalog.index[n_p]
