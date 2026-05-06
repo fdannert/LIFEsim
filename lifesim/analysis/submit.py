@@ -48,6 +48,7 @@ def run(config_path: str):
     # run dates
     today               = cfg.today
     catalog_source_date = cfg.catalog_source_date
+    queue = cfg.queue
 
     # sweep options
     option_name         = cfg.option_name
@@ -91,7 +92,8 @@ def run(config_path: str):
             job_name    = f"{today}_{short_name}",
             output_path = run_folder / "logs" / "python_%j.log",
             python_run  = run_folder / "run_yields.py",
-            venv_path   = venv_path)
+            venv_path   = venv_path,
+            queue       = queue)
         (run_folder / "launch_script.slurm.sh").write_text(content)
 
     content = Path(lifesim_config_path).read_text() if lifesim_config_path else read_template("config_template.yaml")
@@ -139,10 +141,11 @@ def run(config_path: str):
 
     template_launchmerger = Template(read_template("launch_merger_template.slurm.sh"))
     content = template_launchmerger.substitute(
-            job_name    = f"{today}_merger",
-            output_path = merge_folder / "logs" / "%x_%j.log",
-            python_run  = merge_folder / "config_files" / "run_merger.py",
-            venv_path = venv_path)
+        job_name    = f"{today}_merger",
+        output_path = merge_folder / "logs" / "%x_%j.log",
+        python_run  = merge_folder / "config_files" / "run_merger.py",
+        venv_path   = venv_path,
+        queue       = queue)
     (merge_folder / "config_files" / "launch_merger.slurm.sh").write_text(content)
 
     merge_job_id = submit(
@@ -171,11 +174,12 @@ def run(config_path: str):
 
     template_masterlaunch = BashTemplate(read_template("master_launch_template.slurm.sh"))
     content = template_masterlaunch.substitute(
-            job_name     = f"{today}_optimizer",
-            output_path  = merge_folder / "logs" / "%x_%A_%a.out",
-            optjobs_path = merge_folder / "config_files" / "optimizer_jobs.csv",
-            python_run   = merge_folder / "config_files" / "launch_optimizer.py",
-            venv_path    = venv_path)
+        job_name     = f"{today}_optimizer",
+        output_path  = merge_folder / "logs" / "%x_%A_%a.out",
+        optjobs_path = merge_folder / "config_files" / "optimizer_jobs.csv",
+        python_run   = merge_folder / "config_files" / "launch_optimizer.py",
+        venv_path    = venv_path,
+        queue        = queue)
     (merge_folder / "config_files" / "master_launch.slurm.sh").write_text(content)
 
     opt_job_id = submit(

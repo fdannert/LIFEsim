@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --account=public     # alternatively es_quanz
+#SBATCH --account=@queue
 #SBATCH --job-name=@job_name
 #SBATCH --array=1-7%7        # Run tasks 1 through 7, allow 7 to run at once
 #SBATCH --ntasks=1

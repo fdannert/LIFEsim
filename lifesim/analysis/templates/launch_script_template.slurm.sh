@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --account=public # alternatively es_quanz
+#SBATCH --account=$queue
 #SBATCH --job-name=$job_name
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=48
