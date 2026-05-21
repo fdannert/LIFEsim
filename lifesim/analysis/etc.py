@@ -1,9 +1,11 @@
 import os
+import sys
 import warnings
 from typing import Union
 from importlib.resources import files
 from io import BytesIO
 import requests
+import contextlib
 
 import yaml
 import astropy.units as u
@@ -16,6 +18,11 @@ import pandas as pd
 import whereistheplanet
 from astropy.io.votable import parse_single_table
 from astropy.constants import h, c
+from rich.console import Console
+from rich.panel import Panel
+from rich.table import Table
+from rich import box as rich_box
+from rich.text import Text
 
 import lifesim
 from lifesim.core.core import add_numpy_representers
@@ -63,17 +70,24 @@ def etc(
 
     # ---------- Creating the planet ----------
 
-    fgamma = (black_body(mode='planet',
-                         bins=bus.data.inst['wl_bins'],
-                         width=bus.data.inst['wl_bin_widths'],
-                         temp=sources['planet']['temperature'],
-                         radius=sources['planet']['radius'],
-                         distance=sources['star']['distance'],
-                         )
-              / bus.data.inst['wl_bin_widths']
-              * u.photon / u.second / (u.meter ** 3))
+    if 'ph_flux' in sources['planet']:
+        flux_planet_spectrum = [
+            bus.data.inst['wl_bins'] * u.meter,
+            np.ones_like(bus.data.inst['wl_bins']) * sources['planet']['ph_flux'] * 1e6 * u.photon / u.second / (u.meter ** 3)
+        ]
 
-    flux_planet_spectrum = [bus.data.inst['wl_bins'] * u.meter, fgamma]
+    else:
+        fgamma = (black_body(mode='planet',
+                             bins=bus.data.inst['wl_bins'],
+                             width=bus.data.inst['wl_bin_widths'],
+                             temp=sources['planet']['temperature'],
+                             radius=sources['planet']['radius'],
+                             distance=sources['star']['distance'],
+                             )
+                  / bus.data.inst['wl_bin_widths']
+                  * u.photon / u.second / (u.meter ** 3))
+
+        flux_planet_spectrum = [bus.data.inst['wl_bins'] * u.meter, fgamma]
     #
     # bus.modules['inst'].adjust_bl_to_hz(hz_center=sources['planet']['separation'],
     #                                     distance_s=sources['star']['distance'],)
@@ -122,43 +136,105 @@ def etc(
 
     return integration_time_new, bus
 
+@contextlib.contextmanager
+def _suppress_output():
+    """Suppresses all stdout and stderr within the context."""
+    with open(os.devnull, 'w') as devnull:
+        old_stdout, old_stderr = sys.stdout, sys.stderr
+        sys.stdout, sys.stderr = devnull, devnull
+        try:
+            yield
+        finally:
+            sys.stdout, sys.stderr = old_stdout, old_stderr
+
+
 class SourceConfig(object):
 
     def __init__(self,
-                 sources_config_file: str):
+                 sources_config_file: str,
+                 verbose: bool = True):
+        self._console = Console()
+        self._verbose = verbose
         self.sources_config_file = sources_config_file
         if os.path.isfile(sources_config_file):
-            # parse the system from the sources config file (yaml)
             with open(sources_config_file) as file:
                 self.sources = yaml.load(file, Loader=yaml.FullLoader)
-
             warnings.warn('You have opened an existing config file which will be overwritten.')
-
         else:
             self.sources = {}
+
+    def _print(self, *args, **kwargs):
+        if self._verbose:
+            self._console.print(*args, **kwargs)
+
+    def _status(self, message: str):
+        """Print a single-line status update with a leading indicator."""
+        self._print(f"  [dim]›[/dim] {message}")
 
     def save(self):
         add_numpy_representers()
         with open(self.sources_config_file, 'w') as file:
             yaml.dump(self.sources, file)
 
+        # --- Overview panel after saving ---
+        star = self.sources.get('star', {})
+        planet = self.sources.get('planet', {})
+
+        overview = Table(
+            box=rich_box.ROUNDED,
+            border_style="bright_blue",
+            show_header=True,
+            # header_style="bold bright_white",
+            title=f"[bold]Saved[/bold] [dim]{self.sources_config_file}[/dim]"
+        )
+        overview.add_column("Parameter", min_width=26)
+        overview.add_column("Value")
+
+        if star:
+            overview.add_section()
+            overview.add_row("[bold cyan]Star[/bold cyan]", "")
+            overview.add_row("  Name",        str(star.get('name', '—')))
+            overview.add_row("  Temperature", f"{star.get('temperature', '—')} K")
+            overview.add_row("  Radius",      f"{star.get('radius', '—')} R☉")
+            overview.add_row("  Distance",    f"{star.get('distance', '—')} pc")
+            overview.add_row("  Luminosity",  f"{star.get('l_sun', '—')} L☉")
+
+        if planet:
+            overview.add_section()
+            overview.add_row("[bold green]Planet[/bold green]", "")
+            overview.add_row("  Name",                str(planet.get('name', '—')))
+            if 'temperature' in planet:
+                overview.add_row("  Temperature",     f"{planet.get('temperature')} K")
+            if 'radius' in planet:
+                overview.add_row("  Radius",          f"{planet.get('radius')} R⊕")
+            overview.add_row("  Semi-major axis",     f"{planet.get('sma', '—')} AU")
+            if 'geom_albedo' in planet:
+                overview.add_row("  Geometric albedo",f"{planet.get('geom_albedo')}")
+            if 'angsep' in planet:
+                overview.add_row("  Angular sep.",    f"{planet.get('angsep')} arcsec")
+            if 'ph_flux' in planet:
+                overview.add_row("  Photon flux",     f"{planet.get('ph_flux')}")
+
+        self._print(overview)
+
     def add_star(self, star_name: str):
 
-        print(f"--- Searching for: {star_name} ---")
+        self._print(Panel(
+            f"[bold white]Star:[/bold white] [cyan]{star_name}[/cyan]",
+            border_style="bright_blue", expand=False
+        ))
 
         if star_name.casefold() == 'sol':
-            print('Selecting 10 pc Sun Twin')
-
+            self._status("Using 10 pc Sun Twin")
             self.sources['star'] = {'temperature': 5778,
                                     'radius': 1.,
                                     'distance': 10.,
                                     'latitude': 0.78,
                                     'l_sun': 1.,
-                                    'name': 'Sol'}
+                                    'name': 'Sol',}
         else:
-
-            # 1. Resolve Name to Coordinates
             try:
+                self._status("Resolving coordinates via SIMBAD/NED...")
                 coord = SkyCoord.from_name(star_name)
             except Exception:
                 raise ValueError("Error: Name not recognized by SIMBAD/NED.")
@@ -166,45 +242,31 @@ class SourceConfig(object):
             custom_simbad = Simbad()
             custom_simbad.add_votable_fields('sp_type')
 
-            print(f"Resolving {star_name} in SIMBAD...")
+            self._status("Querying SIMBAD for spectral type...")
             simbad_result = custom_simbad.query_object(star_name)
-
-            # Extract Spectral Type and Coordinates
             spec_type = simbad_result['sp_type'][0]
 
-            # 2. Configure Vizier to search the TESS Input Catalog (TIC)
-            # This catalog is specifically aggregated to avoid "empty" values for bright stars
+            self._status("Querying TESS Input Catalog (TIC) via Vizier...")
             v = Vizier(
                 catalog="IV/38",
                 columns=['TIC', 'Teff', 'Rad', 'Dist', 'SpType', 'Vmag', 'ELAT', '_r'],
             )
-            # This is the correct way to sort by distance from the center coordinates
             v.ucd = "pos.angDistance"
             v.ROW_LIMIT = 500
-
-            # 3. Search with a wider radius (30 arcseconds)
             result = v.query_region(coord, radius=30 * u.arcsec)
 
             if not result:
                 return f"No matches found in TIC for {star_name} within 30 arcsec."
 
-            # 4. Sort by V-magnitude to get the brightest (most likely) star
             table = result[0]
             table.sort('_r')
-
-            # Extract the top match
             best_match = table[0]
 
-            print(f"Found: TIC {best_match['TIC']}")
-            print(f"Spectral Type: {spec_type}")
-            print(f"Temperature:   {best_match['Teff']} K")
-            print(f"Radius:        {best_match['Rad']} Solar Radii")
-            print(f"Distance:      {best_match['Dist']} pc")
+            self._status(f"Best match: TIC {best_match['TIC']}  |  SpT {spec_type}  |  "
+                         f"Teff {best_match['Teff']:.0f} K  |  "
+                         f"d {best_match['Dist']:.1f} pc")
 
             lum_s = best_match['Rad'] ** 2 * (best_match['Teff'] / 5780) ** 4
-
-            print('Luminosity:     {:.2f} L_sun'.format(lum_s))
-            print('')
 
             self.sources['star'] = {'temperature': best_match['Teff'],
                                     'radius': best_match['Rad'],
@@ -214,33 +276,16 @@ class SourceConfig(object):
                                     'name': star_name}
 
     def planet_solar_system(self,
-                            planet_name: str,):
-        # NASA Official Effective Temperatures (K)
-        # Source: https://nssdc.gsfc.nasa.gov/planetary/factsheet/
+                            planet_name: str):
         eff_temps = {
-            'mercury': 437,
-            'venus': 232,
-            'earth': 255,
-            'mars': 209,
-            'jupiter': 88,
-            'saturn': 95,
-            'uranus': 58,
-            'neptune': 55.5,
+            'mercury': 437, 'venus': 232, 'earth': 255, 'mars': 209,
+            'jupiter': 88, 'saturn': 95, 'uranus': 58, 'neptune': 55.5,
         }
-
         geom_albedos = {
-            'mercury': 0.142,
-            'venus': 0.689,
-            'earth': 0.24,
-            'mars': 0.17,
-            'jupiter': 0.538,
-            'saturn': 0.499,
-            'uranus': 0.488,
-            'neptune': 0.442,
+            'mercury': 0.142, 'venus': 0.689, 'earth': 0.24, 'mars': 0.17,
+            'jupiter': 0.538, 'saturn': 0.499, 'uranus': 0.488, 'neptune': 0.442,
         }
 
-        print('--- Resolving: {} ---'.format(planet_name))
-        # Mapping for flexibility: handles full names and common abbreviations
         lookup = {
             'mercury': planets.Mercury, 'm': planets.Mercury,
             'venus': planets.Venus, 'v': planets.Venus,
@@ -252,66 +297,82 @@ class SourceConfig(object):
             'neptune': planets.Neptune, 'n': planets.Neptune,
         }
 
-        # Normalize input: lowercase and strip whitespace
+        self._print(Panel(
+            f"[bold white]Planet:[/bold white] [cyan]{planet_name}[/cyan]",
+            border_style="green", expand=False
+        ))
+
         key = str(planet_name).strip().lower()
 
-        if key in lookup:
-            p = lookup[key]
-            print('Name: {}'.format(key.capitalize()))
-            print('Effective Temperature: {} K'.format(eff_temps[key]))
-            print('Radius: {} Earth radii'.format(p.R / planets.Earth.R))
-            print('Semi-Major Axis: {} AU'.format(p.rAU))
-            print('Geometric Albedo: {}'.format(geom_albedos[key]))
-        else:
+        if key not in lookup:
             return f"Error: '{planet_name}' not found. Are you sure that's a planet?"
 
-        # if self.lum_s is None:
-        #     print('Warning: Stellar luminosity not set. Cannot calculate scaled semimajor axis.')
+        self._status(f"Looking up ephemeris data for {key.capitalize()}...")
+        p = lookup[key]
+
         try:
-            # Calculate scaled semimajor axis (a/R_star)
+            self._status("Computing scaled semi-major axis from stellar luminosity...")
             sma = p.rAU * np.sqrt(self.sources['star']['l_sun'])
-            print('Scaled Semi-Major Axis: {:.2f} AU'.format(sma))
         except:
             sma = p.rAU
             warnings.warn('Stellar luminosity not set. Will use solar reference.')
 
+        self._status(f"Teff {eff_temps[key]} K  |  R {p.R / planets.Earth.R:.3f} R⊕  |  "
+                     f"a {p.rAU} AU  |  albedo {geom_albedos[key]}")
+
         self.sources['planet'] = {'radius': p.R / planets.Earth.R,
-                                'temperature': eff_temps[key],
-                                'sma': sma,
-                                'geom_albedo': geom_albedos[key],
-                                'name': key}
+                                  'temperature': eff_temps[key],
+                                  'separation': sma,
+                                  'geom_albedo': geom_albedos[key],
+                                  'name': key}
 
     def from_lband(self,
                    planet_name: str,
                    date: str):
+
+        self._print(Panel(
+            f"[bold white]L-band photometry:[/bold white] [cyan]{planet_name}[/cyan]",
+            border_style="yellow", expand=False
+        ))
+
+        self._status("Loading photometry catalog...")
         catalog = pd.read_csv(str(files("lifesim.analysis") / "etc_data" / "reliable_photometry.csv"))
         planet = catalog.loc[catalog['planet_name'] == planet_name]
         if len(planet) == 0:
             raise ValueError('Could not find planet named {}'.format(planet_name))
-        star_name = ' '.join(planet['planet_name'].values[0].split(' ')[:-1])
 
+        star_name = ' '.join(planet['planet_name'].values[0].split(' ')[:-1])
         self.add_star(star_name=star_name)
 
-        # retrieve the angular separation of the planet
         if planet['witp_name'].values[0] == 'None':
-            print('No orbit data available, taking last known angular separation.')
+            self._status("No orbit data available — using last known angular separation.")
             angsep = planet['angsep_arcsep'].values[0]
         else:
-            print('Retrieving angular separation using WhereIsThePlanet.')
-            _, _, sep_args, _ = whereistheplanet.predict_planet(planet['witp_name'].values[0], date)
+            self._status("Retrieving angular separation via WhereIsThePlanet...")
+            with _suppress_output():
+                _, _, sep_args, _ = whereistheplanet.predict_planet(
+                    planet['witp_name'].values[0], date
+                )
             angsep = sep_args[0] * 1e-3
-        print('Using angular separation: {}'.format(angsep))
 
-        # retrieve the photon flux of the planet
-        ph_flux = get_flux_filter(filter_id=planet['filter_id'].values[0], magnitude=planet['l_band_mag'].values[0])
-        print('L-band magnitude of {} resulting in photon flux of {}'.format(planet['l_band_mag'].values[0], ph_flux))
+        self._status(f"Angular separation: {angsep}")
+
+        self._status("Converting L-band magnitude to photon flux...")
+        ph_flux = get_flux_filter(
+            filter_id=planet['filter_id'].values[0],
+            magnitude=planet['l_band_mag'].values[0]
+        )
+        self._status(f"L-band mag {planet['l_band_mag'].values[0]}  →  flux {ph_flux}")
 
         self.sources['planet'] = {'name': planet_name,
                                   'angsep': angsep,
-                                  'sma': angsep * self.sources['star']['distance'],
-                                  'ph_flux': ph_flux,  # in ph s-1 m-2 µm-1
+                                  'separation': angsep * self.sources['star']['distance'],
+                                  'ph_flux': ph_flux.value,
                                   }
-        a=1
+    def add_exozodi(self,
+                    z: float):
+        self.sources['exozodi'] = {'z': z,}
+        self._status("Adding exozodi...")
 
 
 # Get filter metadata (zero point, central wavelength, etc.)
