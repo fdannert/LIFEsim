@@ -103,7 +103,7 @@ def black_body(mode: str,
     Returns
     -------
     fgamma : np.ndarray
-        The photon flux at the respective wavelengths or frequencies
+        The photon flux at the respective wavelengths or frequencies in units [ph / s / m2 / sr]
     """
 
     if mode == 'star':
