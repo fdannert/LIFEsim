@@ -31,11 +31,14 @@ class Options(object):
             - ``'t_efficiency'`` : Time efficiency of the observation accounting for overheads.
               E.g. if the time efficiency is 0.8, 80% of the on-target observation time will be
               actually spend integrating photons.
+            - ``'primary_temp'`` : Temperature of the mirror in [K].
+            - ``'primary_emissivity'`` : Emissivity of the mirror (dimensionless).
+            - ``'d_temp'`` : Temperature of the detector environment in [K].
+            - ``'pixel_size'`` : Size of the pixels in [m]. (length of one side of the square pixel)
+            - ``'beam_size'`` : Diameter of the beam in [m].
     other : dict
         Options concerning simulation parameters. They are
             - ``'image_size'`` : Number of pixels (in one axis) which will be simulated.
-              Corresponds to the pixel resolution of the detector. I.e. if image size is 512, the
-              detector will be simulated with 512^2 pixels.
             - ``'wl_optimal'`` : The wavelength to which the baseline is optimized in [micron].
             - ``'n_plugins'`` : Number of sockets the instrument class will feature.
     models : dict
@@ -69,7 +72,18 @@ class Options(object):
                       'bl_max': 0.,
                       'ratio': 0.,
                       't_slew': 0.,
-                      't_efficiency': 0.}
+                      't_efficiency': 0.,
+                      'primary_temp': 0.,
+                      'primary_emissivity': 0.,
+                      'd_temp': 0.,
+                      'pixel_size': 0.,
+                      'dc_per_pix': 0.,
+                      'detector_wl_min': 0.,
+                      'detector_wl_max': 0.,
+                      'pix_per_wl': 0.,
+                      'num_apertures': 0,
+                      'num_outputs': 0,
+                      'fixed_baseline': False,}
 
         self.other = {'image_size': 0,
                       'wl_optimal': 0.,
@@ -91,7 +105,8 @@ class Options(object):
                              'snr_char': 0.,
                              'opt_limit': 'time',
                              'opt_limit_factor': 0.5,
-                             'n_orbits': 1}
+                             'n_orbits': 1,
+                             'iwa_cut': None}
 
     def set_scenario(self,
                      case: str):
@@ -114,6 +129,16 @@ class Options(object):
         self.array['ratio'] = 6.
         self.array['t_slew'] = 10. * 60. * 60.
         self.array['t_efficiency'] = 0.8
+        self.array['primary_temp'] = 48
+        self.array['primary_emissivity'] = 0.025
+        self.array['d_temp'] = 23
+        self.array['pixel_size'] = 23 * 1e-6
+        self.array['dc_per_pix'] = 1
+        self.array['detector_wl_min'] = 5e-6
+        self.array['detector_wl_max'] = 28e-6
+        self.array['pix_per_wl'] = 2.2
+        self.array['num_apertures'] = 4
+        self.array['num_outputs'] = 2
 
         self.other['image_size'] = 256  # TODO: or 512?
         self.other['wl_optimal'] = 15

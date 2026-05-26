@@ -4,9 +4,9 @@ from typing import Union
 from lifesim.core.modules import TransmissionModule
 
 
-class TransmissionMap(TransmissionModule):
+class TransmissionMapSBW(TransmissionModule):
     """
-    Module for calculating nulling interferometer transmission maps.
+    Module for calculating single bracewell nulling interferometer transmission maps.
     """
     def __init__(self,
                  name: str):
@@ -25,8 +25,7 @@ class TransmissionMap(TransmissionModule):
                          d_alpha: np.ndarray = None,
                          d_beta: np.ndarray = None,
                          image_angle: np.ndarray = None,
-                         image_size: int = None,
-                         fov_taper: Union[str, None] = None):
+                         image_size: int = None):
         """
         Return the transmission map of a double-Bracewell configuration for the LIFE array.
 
@@ -118,48 +117,28 @@ class TransmissionMap(TransmissionModule):
             alpha = alpha * image_angle
             beta = beta * image_angle
 
-        # smaller distance of apertures from center line
-        L = self.data.inst['bl'] / 2
-
         tm1, tm2, tm3, tm4, tm_chop = None, None, None, None, None
+
+        tm = np.sin(np.pi * self.data.inst['bl'] * alpha / wl_bins) ** 2
 
         # transmission map of mode 1
         if 'tm1' in map_selection:
-            tm1 = np.cos(2 * np.pi * L * alpha / wl_bins) ** 2 * np.cos(
-                2 * self.data.options.array['ratio'] * np.pi * L * beta / wl_bins - np.pi / 4) ** 2
+            tm1 = tm
 
         # transmission map of mode 2
         if 'tm2' in map_selection:
-            tm2 = np.cos(2 * np.pi * L * alpha / wl_bins) ** 2 * np.cos(
-                2 * self.data.options.array['ratio'] * np.pi * L * beta / wl_bins + np.pi / 4) ** 2
+            tm2 = tm
 
         # transmission map of mode 3
         if 'tm3' in map_selection:
-            tm3 = np.sin(2 * np.pi * L * alpha / wl_bins) ** 2 * np.cos(
-                2 * self.data.options.array['ratio'] * np.pi * L * beta / wl_bins - np.pi / 4) ** 2
+            tm3 = tm
 
         # transmission map of mode 4
         if 'tm4' in map_selection:
-            tm4 = np.sin(2 * np.pi * L * alpha / wl_bins) ** 2 * np.cos(
-                2 * self.data.options.array['ratio'] * np.pi * L * beta / wl_bins + np.pi / 4) ** 2
-
-        # difference of transmission maps 3 and 4 = "chopped transmission"
-        if 'tm_chop' in map_selection:
-            # if tm3 and tm4 exist, calculate the chopped transmission directly from the difference
-            if (tm3 is not None) and (tm4 is not None):
-                tm_chop = tm3 - tm4
-
-            # if they don't exist, calculate the chopped transmission from formula
-            else:
-                # chopped transm. map
-                tm_chop = np.sin(2 * np.pi * L * alpha / wl_bins) ** 2 * np.sin(
-                    4 * self.data.options.array['ratio'] * np.pi * L * beta / wl_bins)
+            tm4 = tm
 
         # add FoV taper
-        if fov_taper is None:
-            fov_taper = self.data.options.models['fov_taper']
-
-        for tm in [tm1, tm2, tm3, tm4, tm_chop]:
+        for tm in [tm1, tm2, tm3, tm4]:
             if tm is not None:
                 if self.data.options.models['fov_taper'] == 'gaussian':
                     fov_taper = np.exp(- (np.pi / 4 / hfov * np.sqrt(alpha ** 2 + beta ** 2)) ** 2)
@@ -168,6 +147,11 @@ class TransmissionMap(TransmissionModule):
                     pass
                 else:
                     raise ValueError('Nonexistent FoV tapering function')
+
+        # difference of transmission maps 3 and 4 = "chopped transmission"
+        if 'tm_chop' in map_selection:
+
+            tm_chop = tm
 
         return tm1, tm2, tm3, tm4, tm_chop
 

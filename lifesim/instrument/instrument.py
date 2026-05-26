@@ -82,7 +82,7 @@ class Instrument(InstrumentModule):
         # Get array parameters from options for faster calculation
         self.data.inst['bl'] = self.data.options.array['baseline']
 
-        self.data.inst['telescope_area'] = 4. * np.pi \
+        self.data.inst['telescope_area'] = self.data.options.array['num_apertures'] * np.pi \
                                            * (self.data.options.array['diameter'] / 2.) ** 2
         self.data.inst['eff_tot'] = self.data.options.array['quantum_eff'] \
                                     * self.data.options.array['throughput']
@@ -209,14 +209,18 @@ class Instrument(InstrumentModule):
             If set to true, function will print a warning if the specified baseline lies outside
             the allow baseline range.
         """
+        if self.data.options.array['fixed_baseline']:
+            self.data.inst['bl'] = self.data.options.array['baseline']
+
+        else:
         # make sure that the baseline does not exeed the set baseline limits
-        self.data.inst['bl'] = np.maximum(baseline,
-                                          self.data.options.array['bl_min'])
-        self.data.inst['bl'] = np.minimum(self.data.inst['bl'],
-                                          self.data.options.array['bl_max'])
-        if (self.data.inst['bl'] != baseline) and print_warning:
-            warn('Specified baseline exceeded baseline limits. Baseline fixed to '
-                 'respective limit')
+            self.data.inst['bl'] = np.maximum(baseline,
+                                              self.data.options.array['bl_min'])
+            self.data.inst['bl'] = np.minimum(self.data.inst['bl'],
+                                              self.data.options.array['bl_max'])
+            if (self.data.inst['bl'] != baseline) and print_warning:
+                warn('Specified baseline exceeded baseline limits. Baseline fixed to '
+                     'respective limit')
 
         # update the position of the apertures
         self.data.inst['apertures'] = np.array([
@@ -279,6 +283,41 @@ class Instrument(InstrumentModule):
         # time
         integration_time = 60 * 60
 
+        # calculate instrument noise once, since it is the same for all planets
+        noise_list_thermal = self.run_socket(s_name='photon_noise_instrument',
+                                             method='noise',
+                                             index=None)
+        
+        if type(noise_list_thermal) == list:
+            if not noise_list_thermal:
+                noise_thermal = np.zeros_like(self.data.inst['wl_bins'])
+            else:
+                noise_thermal = np.zeros_like(noise_list_thermal[0])
+                for _, noise in enumerate(noise_list_thermal):
+                    noise_thermal += noise
+        else:
+            noise_thermal = noise_list_thermal
+        
+        noise_inst = (noise_thermal[0] * integration_time * self.data.inst['eff_tot'] * self.data.options.array['num_outputs']) \
+                         + (noise_thermal[1] * integration_time * self.data.options.array['quantum_eff'] * self.data.options.array['num_outputs'])
+        
+        # calculate the dark current noise from the detector once, since it is the same for all planets
+        noise_dc_list = self.run_socket(s_name='electron_noise_detector',
+                                        method='noise',
+                                        index=None)
+        
+        if type(noise_dc_list) == list:
+            if not noise_dc_list:
+                noise_dc_d = np.zeros_like(self.data.inst['wl_bins'])
+            else:
+                noise_dc_d = np.zeros_like(noise_dc_list[0])
+                for _, noise in enumerate(noise_dc_list):
+                    noise_dc_d += noise
+        else:
+            noise_dc_d = noise_dc_list
+        
+        noise_dc = noise_dc_d * integration_time
+
         # create mask returning only unique stars
         _, temp = np.unique(self.data.catalog.nstar, return_index=True)
         star_mask = np.zeros_like(self.data.catalog.nstar, dtype=bool)
@@ -333,7 +372,7 @@ class Instrument(InstrumentModule):
                                       / self.data.catalog.z.iloc[n])
 
                 noise_bg = ((noise_bg_star + noise_bg_universe_temp)
-                        * integration_time * self.data.inst['eff_tot'] * 2)
+                        * integration_time * self.data.inst['eff_tot'] * self.data.options.array['num_outputs'])
 
                 # go through all planets for the chosen star
                 for _, n_p in enumerate(np.argwhere(
@@ -366,14 +405,21 @@ class Instrument(InstrumentModule):
                                     * integration_time
                                     * self.data.inst['eff_tot']
                                     * self.data.inst['telescope_area']
-                                    * 2)
+                                    * self.data.options.array['num_outputs'])
 
-                    # Add up the noise and caluclate the SNR
-                    noise = noise_bg + noise_planet
+                    # Add up the noise and calculate the SNR
+                    noise = noise_bg + noise_planet + noise_inst + noise_dc
 
                     # use index label to avoid chained assignment / view-copy problems
                     idx_label = self.data.catalog.index[n_p]
                     self.data.catalog.loc[idx_label, 'snr_1h'] = np.sqrt((flux_planet ** 2 / noise).sum())
+
+                    if self.data.options.optimization['iwa_cut'] is not None:
+                        curve_chop, _ = self.run_socket(s_name='transmission',
+                                                        method='transmission_curve',
+                                                        angsep=self.data.catalog.angsep.iloc[n_p])
+                        if np.min(np.max(curve_chop[:, 0, :], axis=1)) < self.data.options.optimization['iwa_cut']:
+                            self.data.catalog.loc[idx_label, 'snr_1h'] = 0.
 
                     # save baseline
                     self.data.catalog.loc[idx_label, 'baseline'] = self.data.inst['bl']
@@ -598,7 +644,7 @@ class Instrument(InstrumentModule):
                         * self.data.inst['eff_tot']
                         * self.data.inst['telescope_area']
                         * self.data.inst['wl_bin_widths']
-                        * 2)
+                        * self.data.options.array['num_outputs'])
 
         # calculate the noise from the background sources
         # noise_bg_list = self.run_socket(s_name='photon_noise',
@@ -642,13 +688,48 @@ class Instrument(InstrumentModule):
                 for _, noise in enumerate(noise_bg_list_universe):
                     noise_bg_universe += noise
         else:
-            noise_bg_universe = noise_bg_list_star
+            noise_bg_universe = noise_bg_list_universe
 
         noise_bg = ((noise_bg_star + noise_bg_universe)
-                    * integration_time * self.data.inst['eff_tot'] * 2)
+                    * integration_time * self.data.inst['eff_tot'] * self.data.options.array['num_outputs'])
+        
+        # calculate the thermal noise from the instrument
+        noise_list_thermal = self.run_socket(s_name='photon_noise_instrument',
+                                             method='noise',
+                                             index=None)
 
-        # Add up the noise and caluclate the SNR
-        noise = (noise_bg + noise_planet)
+        if type(noise_list_thermal) == list:
+            if not noise_list_thermal:
+                noise_thermal = np.zeros_like(self.data.inst['wl_bins'])
+            else:
+                noise_thermal = np.zeros_like(noise_list_thermal[0])
+                for _, noise in enumerate(noise_list_thermal):
+                    noise_thermal += noise
+        else:
+            noise_thermal = noise_list_thermal
+
+        # output is two arrays (due to mirror and detector leakage) so combine like this
+        noise_inst = (noise_thermal[0] * integration_time * self.data.inst['eff_tot'] * self.data.options.array['num_outputs']) \
+                         + (noise_thermal[1] * integration_time * self.data.options.array['quantum_eff'] * self.data.options.array['num_outputs'])
+
+        # calculate the dark current noise from the detector
+        noise_dc_list = self.run_socket(s_name='electron_noise_detector',
+                                                 method='noise',
+                                                 index=None)
+        if type(noise_dc_list) == list:
+            if not noise_dc_list:
+                noise_dc_d = np.zeros_like(self.data.inst['wl_bins'])
+            else:
+                noise_dc_d = np.zeros_like(noise_dc_list[0])
+                for _, noise in enumerate(noise_dc_list):
+                    noise_dc_d += noise
+        else:
+            noise_dc_d = noise_dc_list
+        
+        noise_dc = noise_dc_d * integration_time
+
+        # Add up the noise and calculate the SNR
+        noise = (noise_bg + noise_planet + noise_inst + noise_dc)
         snr_spec = np.sqrt((flux_planet ** 2 / noise))
 
         if not safe_mode:
@@ -658,7 +739,7 @@ class Instrument(InstrumentModule):
         else:
             return ([self.data.inst['wl_bins'], snr_spec],
                     flux_planet,
-                    [noise, noise_bg_list_star, noise_bg_list_universe])
+                    [noise, noise_bg_list_star, noise_bg_list_universe, noise_thermal, noise_dc_list])
 
 
     def get_signal(self,
@@ -815,7 +896,7 @@ class Instrument(InstrumentModule):
             noise_bg_universe = noise_bg_list_star
 
         noise_bg = ((noise_bg_star + noise_bg_universe)
-                    * integration_time / phi_n * self.data.inst['eff_tot'] * 2)
+                    * integration_time / phi_n * self.data.inst['eff_tot'] * self.data.options.array['num_outputs'])
 
         noise = (noise_bg[:, np.newaxis] + noise_planet)
 

@@ -1,0 +1,73 @@
+array:
+  baseline: 20.0  # deprecated but must be in included for compatibility 
+  bl_max: 100.0  # maximum nulling baseline in m
+  bl_min: 10.0  # maximum nulling baseline in m
+  diameter: 2.0  # single collector mirror diameter in m 
+  quantum_eff: 0.6  # quantum efficiency of the detector 
+  ratio: 6.0  # ratio between the nulling and the imaging baseline 
+  spec_res: 100.0  # spectral resolution R 
+  t_efficiency: 0.8  # duty cycle of the mission, i.e. here 80% of on-target time is spend integrating photons 
+  t_slew: 36000.0  # slew time in s 
+  throughput: 0.15  # total system throughput 
+  wl_max: 18.5  # long wavelength cutoff in microm 
+  wl_min: 4.0  # short wavelength cutoff in microm 
+  num_apertures: 4
+  num_outputs: 2
+  primary_temp: 48
+  primary_emissivity: 0.025
+  d_temp: 23
+  pixel_size: 23e-6
+  dc_per_pix: 1
+  detector_wl_min: 5e-6
+  detector_wl_max: 28e-6
+  pix_per_wl: 2.2
+models:
+  fov_taper: gaussian  # type of FoV taper, I recommend Gaussian 
+  habitable: MS  # type of habitable zone mode (MS = main sequence). Does not matter at this stage 
+  localzodi: darwinsim  # localzodi model
+optimization:
+  N_pf: 25  # deprecated but must be in included for compatibility
+  experiments:  # this defines the experiments that LIFE should run. Does not matter at this stage
+    Experiment_1:  # first experiment	
+      in_HZ: true  # only consider planets in the habitable zone? 
+      radius_p_max: 1.5  # largest planet radius to consider in Earth radii 
+      radius_p_min: 0.5  # smallest planet radius to consider in Earth radii 
+      sample_size: 50  # how many planets should LIFE detect and characterize in this box
+      temp_s_max: 7310.0  # hottest star around which to search 
+      temp_s_min: 4370.0  # coldest star around which to search 
+    Experiment_2:
+      in_HZ: true
+      radius_p_max: 1.5
+      radius_p_min: 0.5
+      sample_size: 25
+      temp_s_max: 4369.0
+      temp_s_min: 3320.0
+    Experiment_3:
+      in_HZ: true
+      radius_p_max: 1.5
+      radius_p_min: 0.5
+      sample_size: 20
+      temp_s_max: 3319.0
+      temp_s_min: 2350.0
+  habitable: true  # deprecated but must be in included for compatibility 
+  limit:  # deprecated but must be in included for compatibility 
+    A: .inf
+    F: .inf
+    G: .inf
+    K: .inf
+    M: .inf
+  limit_mode: experiments  # must always be on experiments! Will make LIFEsim use ‘experiments’ instead of ‘limit’ 
+  opt_limit: experiments  # must always be on experiments! 
+  opt_limit_factor: 0.95  # the fraction of mission realizations that reach the sample_size
+  snr_target: 7  # bulk S/N at which planet is counted as detected
+  snr_char: 44.1  # bulk S/N at which planet is counted as characterized
+  n_orbits: 5  # number of visits required before a planet can be characterized 
+  t_search: 78840000.0  # total mission time in s, not used in ‘experiment’ mode
+other:  # these are parameters to set-up the simulation 
+  fov_threshold: 0.01  # set the angular extend to which the astrophysical sources are simulated 
+  image_size: 512  # image_size**2 is the number of pixels used in simulation of the astrophysical sources 
+  n_cpu: 4  # number of CPU-cores to be used, will be overwritten later
+  n_plugins: 5  # maximum number of plugins a module can have 
+  output_filename: none
+  output_path: none
+  wl_optimal: 15  # wavelength for which the detection is optimized 
