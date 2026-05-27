@@ -29,54 +29,81 @@ from lifesim.core.core import add_numpy_representers
 from lifesim.util.radiation import black_body
 
 def etc(
-        instrument_config_file:str,
-        sources_config_file:str,
+        instrument_config_file: str,
+        sources_config_file: str,
         target_snr: float,
         wl_optimized: Union[str, float] = 'bulk',
+        verbose: bool = True,
+        additional_options: dict = None
 ):
-    bus = lifesim.Bus()
+    console = Console()
 
+    def _print(*args, **kwargs):
+        if verbose:
+            console.print(*args, **kwargs)
+
+    def _status(message: str):
+        _print(f"  [dim]›[/dim] {message}")
+
+    _print(Panel(
+        f"[bold white]Exposure Time Calculator[/bold white]  [dim]target SNR {target_snr}[/dim]",
+        border_style="bright_blue", expand=False
+    ))
+
+    # ---------- Build bus ----------
+    _status("Building instrument from config...")
+    bus = lifesim.Bus()
     bus.build_from_config(instrument_config_file)
+
+    if additional_options is not None:
+        bus.data.options.set_manual(**additional_options)
 
     instrument = lifesim.Instrument(name='inst')
     bus.add_module(instrument)
 
+    _status("Configuring transmission map...")
     if bus.data.options.array['num_apertures'] == 2:
         transm = lifesim.TransmissionMapSBW(name='transm')
     elif bus.data.options.array['num_apertures'] == 4:
         transm = lifesim.TransmissionMap(name='transm')
     bus.add_module(transm)
 
-    exo = lifesim.PhotonNoiseExozodi(name='exo')
-    bus.add_module(exo)
+    _status("Adding noise modules (exozodi, localzodi, star)...")
+    exo   = lifesim.PhotonNoiseExozodi(name='exo')
     local = lifesim.PhotonNoiseLocalzodi(name='local')
+    star  = lifesim.PhotonNoiseStar(name='star')
+    bus.add_module(exo)
     bus.add_module(local)
-    star = lifesim.PhotonNoiseStar(name='star')
     bus.add_module(star)
 
-    # connect all modules
+    if (bus.data.options.array['primary_temp'] != 0.) or (bus.data.options.array['d_temp'] != 0.):
+        _status("Adding therman noise modules...")
+        mirror = lifesim.PhotonNoiseThermal(name='mirror')
+        bus.add_module(mirror)
+        bus.connect(('inst', 'mirror'))
+
     bus.connect(('inst', 'transm'))
     bus.connect(('inst', 'exo'))
     bus.connect(('inst', 'local'))
     bus.connect(('inst', 'star'))
-
     bus.connect(('star', 'transm'))
 
     instrument.apply_options()
 
-    # parse the system from the sources config file (yaml)
+    # ---------- Load sources ----------
+    _status(f"Loading source config: [dim]{sources_config_file}[/dim]")
     with open(sources_config_file) as file:
         sources = yaml.load(file, Loader=yaml.FullLoader)
 
-    # ---------- Creating the planet ----------
-
+    # ---------- Planet flux ----------
     if 'ph_flux' in sources['planet']:
+        _status("Using measured L-band photon flux for planet spectrum...")
         flux_planet_spectrum = [
             bus.data.inst['wl_bins'] * u.meter,
             np.ones_like(bus.data.inst['wl_bins']) * sources['planet']['ph_flux'] * 1e6 * u.photon / u.second / (u.meter ** 3)
         ]
-
     else:
+        _status("Computing planet blackbody spectrum...")
         fgamma = (black_body(mode='planet',
                              bins=bus.data.inst['wl_bins'],
                              width=bus.data.inst['wl_bin_widths'],
@@ -86,13 +113,12 @@ def etc(
                              )
                   / bus.data.inst['wl_bin_widths']
                   * u.photon / u.second / (u.meter ** 3))
-
         flux_planet_spectrum = [bus.data.inst['wl_bins'] * u.meter, fgamma]
-    #
-    # bus.modules['inst'].adjust_bl_to_hz(hz_center=sources['planet']['separation'],
-    #                                     distance_s=sources['star']['distance'],)
+
     bus.modules['inst'].apply_options()
 
+    # ---------- 1h integration ----------
+    _status("Running 1h integration to estimate SNR...")
     snr, _, _ = instrument.get_spectrum(temp_s=sources['star']['temperature'],
                                         radius_s=sources['star']['radius'],
                                         distance_s=sources['star']['distance'],
@@ -104,17 +130,24 @@ def etc(
                                         safe_mode=False)
 
     snr_fundamental = snr[1]
+    bulk_snr_1h = np.round(np.sqrt(np.sum(snr_fundamental ** 2)), 2)
+    _status(f"Bulk SNR in 1h = [bold]{bulk_snr_1h}[/bold]")
 
-    print('In 1h of integration time:')
-    print('Bulk SNR = ' + str(np.round(np.sqrt(np.sum(snr_fundamental ** 2)), 2)))
+    # ---------- Required integration time ----------
     if wl_optimized == 'bulk':
         integration_time_new = 60 * 60 * (target_snr / np.sqrt(np.sum(snr_fundamental ** 2))) ** 2
+        _status(f"Optimising for bulk SNR → target integration time: "
+                f"[bold]{np.round(integration_time_new / (24 * 60 * 60), 2)}d[/bold]")
     else:
-        # find appropriate wavelength bin from wl_optimized
         wl_id = np.argmin(np.abs(snr[0] - wl_optimized))
-        print('SNR @ ' + str(np.round(snr[0][wl_id] * 1e6, 2)) + 'µm = ' + str(np.round(snr_fundamental[wl_id], 2)))
+        wl_actual = np.round(snr[0][wl_id] * 1e6, 2)
+        snr_at_wl  = np.round(snr_fundamental[wl_id], 2)
         integration_time_new = 60 * 60 * (target_snr / snr_fundamental[wl_id]) ** 2
+        _status(f"SNR @ {wl_actual}µm in 1h = [bold]{snr_at_wl}[/bold]  →  "
+                f"target integration time: [bold]{np.round(integration_time_new / (24 * 60 * 60), 2)}d[/bold]")
 
+    # ---------- Final integration ----------
+    _status(f"Running final integration ({np.round(integration_time_new / (24 * 60 * 60), 2)}d)...")
     snr, _, _ = instrument.get_spectrum(temp_s=sources['star']['temperature'],
                                         radius_s=sources['star']['radius'],
                                         distance_s=sources['star']['distance'],
@@ -127,12 +160,44 @@ def etc(
 
     snr_fundamental = snr[1]
 
-    print('In ' + str(np.round(integration_time_new / (24 * 60 * 60), 2)) + 'd of integration time:')
-    print('Bulk SNR = ' + str(np.round(np.sqrt(np.sum(snr_fundamental ** 2)), 2)))
-    if not wl_optimized == 'bulk':
-        print('SNR @ ' + str(np.round(snr[0][wl_id] * 1e6, 2)) + 'µm = ' + str(np.round(snr_fundamental[wl_id], 2)))
+    # ---------- Results table ----------
+    result_table = Table(
+        box=rich_box.ROUNDED,
+        border_style="bright_blue",
+        show_header=True,
+        header_style="bold bright_white",
+        title="[bold]Results[/bold]"
+    )
+    result_table.add_column("Parameter", min_width=28)
+    result_table.add_column("Value")
 
-    print('Nulling baseline used: ' + str(np.round(bus.data.inst['bl'], 1)) + ' m')
+    int_time_seconds = integration_time_new
+    if int_time_seconds >= 365.25 * 24 * 60 * 60:
+        int_time_val = np.round(int_time_seconds / (365.25 * 24 * 60 * 60), 2)
+        int_time_unit = "yrs"
+    elif int_time_seconds >= 24 * 60 * 60:
+        int_time_val = np.round(int_time_seconds / (24 * 60 * 60), 2)
+        int_time_unit = "d"
+    elif int_time_seconds >= 60 * 60:
+        int_time_val = np.round(int_time_seconds / (60 * 60), 2)
+        int_time_unit = "h"
+    elif int_time_seconds >= 60:
+        int_time_val = np.round(int_time_seconds / 60, 2)
+        int_time_unit = "min"
+    else:
+        int_time_val = np.round(int_time_seconds, 2)
+        int_time_unit = "s"
+
+    result_table.add_row("Integration time", f"{int_time_val} {int_time_unit}")
+
+    result_table.add_row("Bulk SNR",
+                         f"{np.round(np.sqrt(np.sum(snr_fundamental ** 2)), 2)}")
+    if not wl_optimized == 'bulk':
+        result_table.add_row(f"SNR @ {wl_actual} µm",
+                             f"{np.round(snr_fundamental[wl_id], 2)}")
+    result_table.add_row("Nulling baseline", f"{np.round(bus.data.inst['bl'], 1)} m")
+
+    _print(result_table)
 
     return integration_time_new, bus
 
@@ -344,9 +409,9 @@ class SourceConfig(object):
         star_name = ' '.join(planet['planet_name'].values[0].split(' ')[:-1])
         self.add_star(star_name=star_name)
 
-        if planet['witp_name'].values[0] == 'None':
+        if planet['witp_name'].values[0] == 'noorbit':
             self._status("No orbit data available — using last known angular separation.")
-            angsep = planet['angsep_arcsep'].values[0]
+            angsep = planet['angsep_arcsec'].values[0]
         else:
             self._status("Retrieving angular separation via WhereIsThePlanet...")
             with _suppress_output():

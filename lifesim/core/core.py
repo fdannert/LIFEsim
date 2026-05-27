@@ -478,6 +478,7 @@ class Bus(object):
                           filename: str):
         with open(filename) as file:
             config_dict = yaml.load(file, Loader=yaml.FullLoader)
+            # config_dict = yaml.safe_load(file)
 
         self.data.options.array = convert_to_np(config_dict['array'])
         self.data.options.optimization = convert_to_np(config_dict['optimization'])

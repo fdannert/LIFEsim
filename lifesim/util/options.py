@@ -139,6 +139,7 @@ class Options(object):
         self.array['pix_per_wl'] = 2.2
         self.array['num_apertures'] = 4
         self.array['num_outputs'] = 2
+        self.array['on_axis_null_depth'] = None
 
         self.other['image_size'] = 256  # TODO: or 512?
         self.other['wl_optimal'] = 15
