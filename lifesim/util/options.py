@@ -155,7 +155,7 @@ class Options(object):
         self.other['fov_threshold'] = 0.01
 
         self.models['localzodi'] = 'darwinsim'
-        self.models['habitable'] = 'MS'
+        self.models['hz_model'] = 'MS'
         self.models['fov_taper'] = 'gaussian'
 
         self.optimization['N_pf'] = 25

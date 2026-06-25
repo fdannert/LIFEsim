@@ -582,7 +582,7 @@ class Instrument(InstrumentModule):
         # calculate the habitable zone of the specified star
         s_in, s_out, l_sun, \
             hz_in, hz_out, \
-            hz_center = single_habitable_zone(model=self.data.options.models['habitable'],
+            hz_center = single_habitable_zone(model=self.data.options.models['hz_model'],
                                               temp_s=temp_s,
                                               radius_s=radius_s)
 
@@ -857,7 +857,7 @@ class Instrument(InstrumentModule):
         # calculate the habitable zone of the specified star
         s_in, s_out, l_sun, \
             hz_in, hz_out, \
-            hz_center = single_habitable_zone(model=self.data.options.models['habitable'],
+            hz_center = single_habitable_zone(model=self.data.options.models['hz_model'],
                                               temp_s=temp_s,
                                               radius_s=radius_s)
 

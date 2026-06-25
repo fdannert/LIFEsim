@@ -362,7 +362,7 @@ class Data(object):
             hz_in[self.catalog.nstar == self.catalog.nstar[n]], \
             hz_out[self.catalog.nstar == self.catalog.nstar[n]], \
             hz_center[self.catalog.nstar == self.catalog.nstar[n]] \
-                = single_habitable_zone(model=self.options.models['habitable'],
+                = single_habitable_zone(model=self.options.models['hz_model'],
                                         temp_s=self.catalog.temp_s[n],
                                         radius_s=self.catalog.radius_s[n])
 
