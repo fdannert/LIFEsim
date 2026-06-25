@@ -234,6 +234,24 @@ class Instrument(InstrumentModule):
              self.data.options.array['ratio'] * self.data.inst['bl'] / 2., 1.]
         ])
 
+    def _unpack_socket(self,
+                       socket_return):
+        """
+        Checks if the object returned from the socket is a list. If it is, add all values in the list.
+        """
+
+        if type(socket_return) == list:
+            if not socket_return:
+                output = np.zeros_like(self.data.inst['wl_bins'])
+            else:
+                output = np.zeros_like(socket_return[0])
+                for _, noise in enumerate(socket_return):
+                    output += noise
+        else:
+            output = socket_return
+
+        return output
+
     def get_snr(self,
                 save_mode: bool = False):
         """
@@ -287,20 +305,29 @@ class Instrument(InstrumentModule):
         noise_list_thermal = self.run_socket(s_name='photon_noise_instrument',
                                              method='noise',
                                              index=None)
+
+        noise_thermal = self._unpack_socket(noise_list_thermal)
+
+        noise_inst = (
+                np.sum(noise_thermal, axis=0)
+                * integration_time
+                * self.data.options.array['quantum_eff']
+                * self.data.options.array['num_outputs']
+        )
+
+        # if type(noise_list_thermal) == list:
+        #     if not noise_list_thermal:
+        #         noise_thermal = np.zeros_like(self.data.inst['wl_bins'])
+        #     else:
+        #         noise_thermal = np.zeros_like(noise_list_thermal[0])
+        #         for _, noise in enumerate(noise_list_thermal):
+        #             noise_thermal += noise
+        # else:
+        #     noise_thermal = noise_list_thermal
         
-        if type(noise_list_thermal) == list:
-            if not noise_list_thermal:
-                noise_thermal = np.zeros_like(self.data.inst['wl_bins'])
-            else:
-                noise_thermal = np.zeros_like(noise_list_thermal[0])
-                for _, noise in enumerate(noise_list_thermal):
-                    noise_thermal += noise
-        else:
-            noise_thermal = noise_list_thermal
-        
-        noise_inst = (noise_thermal[0] * integration_time * self.data.inst['eff_tot'] * self.data.options.array['num_outputs']) \
-                         + (noise_thermal[1] * integration_time * self.data.options.array['quantum_eff'] * self.data.options.array['num_outputs'])
-        
+        # noise_inst = (noise_thermal[0] * integration_time * self.data.inst['eff_tot'] * self.data.options.array['num_outputs']) \
+        #                  + (noise_thermal[1] * integration_time * self.data.options.array['quantum_eff'] * self.data.options.array['num_outputs'])
+
         # calculate the dark current noise from the detector once, since it is the same for all planets
         noise_dc_list = self.run_socket(s_name='electron_noise_detector',
                                         method='noise',
@@ -698,19 +725,28 @@ class Instrument(InstrumentModule):
                                              method='noise',
                                              index=None)
 
-        if type(noise_list_thermal) == list:
-            if not noise_list_thermal:
-                noise_thermal = np.zeros_like(self.data.inst['wl_bins'])
-            else:
-                noise_thermal = np.zeros_like(noise_list_thermal[0])
-                for _, noise in enumerate(noise_list_thermal):
-                    noise_thermal += noise
-        else:
-            noise_thermal = noise_list_thermal
+        noise_thermal = self._unpack_socket(noise_list_thermal)
 
-        # output is two arrays (due to mirror and detector leakage) so combine like this
-        noise_inst = (noise_thermal[0] * integration_time * self.data.inst['eff_tot'] * self.data.options.array['num_outputs']) \
-                         + (noise_thermal[1] * integration_time * self.data.options.array['quantum_eff'] * self.data.options.array['num_outputs'])
+        noise_inst = (
+                np.sum(noise_thermal, axis=0)
+                * integration_time
+                * self.data.options.array['quantum_eff']
+                * self.data.options.array['num_outputs']
+        )
+
+        # if type(noise_list_thermal) == list:
+        #     if not noise_list_thermal:
+        #         noise_thermal = np.zeros_like(self.data.inst['wl_bins'])
+        #     else:
+        #         noise_thermal = np.zeros_like(noise_list_thermal[0])
+        #         for _, noise in enumerate(noise_list_thermal):
+        #             noise_thermal += noise
+        # else:
+        #     noise_thermal = noise_list_thermal
+        #
+        # # output is two arrays (due to mirror and detector leakage) so combine like this
+        # noise_inst = (noise_thermal[0] * integration_time * self.data.inst['eff_tot'] * self.data.options.array['num_outputs']) \
+        #                  + (noise_thermal[1] * integration_time * self.data.options.array['quantum_eff'] * self.data.options.array['num_outputs'])
 
         # calculate the dark current noise from the detector
         noise_dc_list = self.run_socket(s_name='electron_noise_detector',
@@ -739,7 +775,7 @@ class Instrument(InstrumentModule):
         else:
             return ([self.data.inst['wl_bins'], snr_spec],
                     flux_planet,
-                    [noise, noise_bg_list_star, noise_bg_list_universe, noise_thermal, noise_dc_list])
+                    [noise, noise_bg_list_star, noise_bg_list_universe, noise_thermal, noise_dc_list, noise_inst])
 
 
     def get_signal(self,

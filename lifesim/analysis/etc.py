@@ -1,3 +1,17 @@
+# Top of run_tse.py, BEFORE any other imports.
+# astroquery.gaia.core runs `Gaia = GaiaClass()` at import time, which
+# calls get_status_messages() -> a blocking HTTP GET to ESA's TAP server.
+# ESA's archive is currently hanging on that endpoint, so we stub the GET.
+from astroquery.utils.tap.conn.tapconn import TapConn
+
+def _noop_get(self, *args, **kwargs):
+    class _Resp:
+        status = 500
+        def __iter__(self): return iter(())
+    return _Resp()
+
+TapConn.execute_tapget = _noop_get
+
 import os
 import sys
 import warnings
@@ -34,7 +48,8 @@ def etc(
         target_snr: float,
         wl_optimized: Union[str, float] = 'bulk',
         verbose: bool = True,
-        additional_options: dict = None
+        additional_options: dict = None,
+        return_noise: bool = False
 ):
     console = Console()
 
@@ -76,7 +91,9 @@ def etc(
     bus.add_module(local)
     bus.add_module(star)
 
-    if (bus.data.options.array['primary_temp'] != 0.) or (bus.data.options.array['d_temp'] != 0.):
+    if ((bus.data.options.thermal['ota_temperature'] != 0.)
+            or (bus.data.options.thermal['instrument_temperature'] != 0.)
+            or (bus.data.options.thermal['detector_temperature'] != 0.)):
         _status("Adding therman noise modules...")
         mirror = lifesim.PhotonNoiseThermal(name='mirror')
         bus.add_module(mirror)
@@ -91,9 +108,12 @@ def etc(
     instrument.apply_options()
 
     # ---------- Load sources ----------
-    _status(f"Loading source config: [dim]{sources_config_file}[/dim]")
-    with open(sources_config_file) as file:
-        sources = yaml.load(file, Loader=yaml.FullLoader)
+    if type(sources_config_file) == str:
+        _status(f"Loading source config: [dim]{sources_config_file}[/dim]")
+        with open(sources_config_file) as file:
+            sources = yaml.load(file, Loader=yaml.FullLoader)
+    else:
+        sources = sources_config_file
 
     # ---------- Planet flux ----------
     if 'ph_flux' in sources['planet']:
@@ -148,7 +168,7 @@ def etc(
 
     # ---------- Final integration ----------
     _status(f"Running final integration ({np.round(integration_time_new / (24 * 60 * 60), 2)}d)...")
-    snr, _, _ = instrument.get_spectrum(temp_s=sources['star']['temperature'],
+    snr, _, noise = instrument.get_spectrum(temp_s=sources['star']['temperature'],
                                         radius_s=sources['star']['radius'],
                                         distance_s=sources['star']['distance'],
                                         lat_s=sources['star']['latitude'],
@@ -156,7 +176,7 @@ def etc(
                                         angsep=sources['planet']['separation'] / sources['star']['distance'],
                                         flux_planet_spectrum=flux_planet_spectrum,
                                         integration_time=integration_time_new,
-                                        safe_mode=False)
+                                        safe_mode=True)
 
     snr_fundamental = snr[1]
 
@@ -199,7 +219,10 @@ def etc(
 
     _print(result_table)
 
-    return integration_time_new, bus
+    if return_noise:
+        return integration_time_new, bus, noise
+    else:
+        return integration_time_new, bus
 
 @contextlib.contextmanager
 def _suppress_output():
@@ -314,7 +337,7 @@ class SourceConfig(object):
             self._status("Querying TESS Input Catalog (TIC) via Vizier...")
             v = Vizier(
                 catalog="IV/38",
-                columns=['TIC', 'Teff', 'Rad', 'Dist', 'SpType', 'Vmag', 'ELAT', '_r'],
+                columns=['TIC', 'Teff', 'Rad', 'Dist', 'SpType', 'Vmag', 'ELAT', 'ELON', '_r'],
             )
             v.ucd = "pos.angDistance"
             v.ROW_LIMIT = 500
@@ -337,6 +360,7 @@ class SourceConfig(object):
                                     'radius': best_match['Rad'],
                                     'distance': best_match['Dist'],
                                     'latitude': np.deg2rad(best_match['ELAT']),
+                                    'longitude': np.deg2rad(best_match['ELON']),
                                     'l_sun': lum_s,
                                     'name': star_name}
 
@@ -434,6 +458,11 @@ class SourceConfig(object):
                                   'separation': angsep * self.sources['star']['distance'],
                                   'ph_flux': ph_flux.value,
                                   }
+
+    def list_lband(self):
+        catalog = pd.read_csv(str(files("lifesim.analysis") / "etc_data" / "reliable_photometry.csv"))
+        return catalog['planet_name'].tolist()
+
     def add_exozodi(self,
                     z: float):
         self.sources['exozodi'] = {'z': z,}

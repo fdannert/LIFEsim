@@ -463,6 +463,7 @@ class Bus(object):
         version_dict['version'] = __version__
 
         config_dict = {'array': convert_to_list(self.data.options.array),
+                       'thermal': convert_to_list(self.data.options.thermal),
                        'models': convert_to_list(self.data.options.models),
                        'optimization': convert_to_list(self.data.options.optimization),
                        'other': convert_to_list(self.data.options.other),
@@ -481,6 +482,7 @@ class Bus(object):
             # config_dict = yaml.safe_load(file)
 
         self.data.options.array = convert_to_np(config_dict['array'])
+        self.data.options.thermal = convert_to_np(config_dict['thermal'])
         self.data.options.optimization = convert_to_np(config_dict['optimization'])
         self.data.options.models = config_dict['models']
         self.data.options.other = config_dict['other']
