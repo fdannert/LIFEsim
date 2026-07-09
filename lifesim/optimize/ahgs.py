@@ -88,16 +88,11 @@ class AhgsModule(SlopeModule):
                 if (not self.data.catalog.loc[idx, 'detected']) and \
                         (self.data.catalog.loc[idx, 'snr_current']
                          >= self.data.options.optimization['snr_target']):
-                    self.data.catalog.loc[idx, 'detected'] = True
-                    self.data.catalog.loc[idx, 't_detected'] = deepcopy(self.tot_time + int_time)
-                    exp_cols = [col for col in self.data.catalog.columns if col.startswith('exp_')]
-                    true_experiments = [col[4:] for col in exp_cols if self.data.catalog.loc[idx, col]]
-                    for exp in true_experiments:
-                        self.data.optm['exp_detected'][exp] += 1
-                        self.data.optm['exp_detected_uni'][exp][
-                            1,
-                            self.data.optm['exp_detected_uni'][exp][0, :] == self.data.catalog.loc[idx, 'nuniverse']
-                        ] += 1
+                    self.data.catalog.loc[i, 'detected'] = True
+                    if self.data.catalog.habitable.iloc[i]:
+                        self.data.optm['sum_detected'][
+                            np.where(np.array(list(self.data.options.optimization['limit'].keys()))
+                                     == self.data.catalog.stype.iloc[i])] += 1
         else:
             raise ValueError('Delete mode not implemented for AHGS optimizer.')
 
