@@ -121,6 +121,18 @@ class TransmissionMapSBW(TransmissionModule):
 
         tm = np.sin(np.pi * self.data.inst['bl'] * alpha / wl_bins) ** 2
 
+        if self.data.options.models['fov_taper'] == 'gaussian':
+            fov_taper = np.exp(- (np.pi / 4 / hfov * np.sqrt(alpha ** 2 + beta ** 2)) ** 2)
+            tm *= fov_taper
+        elif self.data.options.models['fov_taper'] == 'none':
+            pass
+        else:
+            raise ValueError('Nonexistent FoV tapering function')
+
+        if self.data.options.array['on_axis_null_depth'] is not None:
+            visibility = 1 - 2 * self.data.options.array['on_axis_null_depth']
+            tm = tm * visibility + (1 - visibility) / 2
+
         # transmission map of mode 1
         if 'tm1' in map_selection:
             tm1 = tm
@@ -137,20 +149,8 @@ class TransmissionMapSBW(TransmissionModule):
         if 'tm4' in map_selection:
             tm4 = tm
 
-        # add FoV taper
-        for tm in [tm1, tm2, tm3, tm4]:
-            if tm is not None:
-                if self.data.options.models['fov_taper'] == 'gaussian':
-                    fov_taper = np.exp(- (np.pi / 4 / hfov * np.sqrt(alpha ** 2 + beta ** 2)) ** 2)
-                    tm *= fov_taper
-                elif self.data.options.models['fov_taper'] == 'none':
-                    pass
-                else:
-                    raise ValueError('Nonexistent FoV tapering function')
-
         # difference of transmission maps 3 and 4 = "chopped transmission"
         if 'tm_chop' in map_selection:
-
             tm_chop = tm
 
         return tm1, tm2, tm3, tm4, tm_chop

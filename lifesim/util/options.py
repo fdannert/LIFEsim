@@ -73,16 +73,23 @@ class Options(object):
                       'ratio': 0.,
                       't_slew': 0.,
                       't_efficiency': 0.,
-                      'primary_temp': 0.,
-                      'primary_emissivity': 0.,
-                      'd_temp': 0.,
                       'pixel_size': 0.,
                       'dc_per_pix': 0.,
-                      'detector_wl_min': 0.,
-                      'detector_wl_max': 0.,
                       'pix_per_wl': 0.,
                       'num_apertures': 0,
-                      'num_outputs': 0}
+                      'num_outputs': 0,
+                      'fixed_baseline': False,}
+
+        self.thermal = {
+            'ota_temperature': 0.,
+            'ota_emissivity': 0.,
+            'ota_throughput': 0.,
+            'instrument_temperature': 0.,
+            'instrument_emissivity': 0.,
+            'detector_temperature': 0.,
+            'detector_wl_min': 0.,
+            'detector_wl_max': 0.,
+        }
 
         self.other = {'image_size': 0,
                       'wl_optimal': 0.,
@@ -104,7 +111,8 @@ class Options(object):
                              'snr_char': 0.,
                              'opt_limit': 'time',
                              'opt_limit_factor': 0.5,
-                             'n_orbits': 1}
+                             'n_orbits': 1,
+                             'iwa_cut': None}
 
     def set_scenario(self,
                      case: str):
@@ -127,16 +135,19 @@ class Options(object):
         self.array['ratio'] = 6.
         self.array['t_slew'] = 10. * 60. * 60.
         self.array['t_efficiency'] = 0.8
-        self.array['primary_temp'] = 48
-        self.array['primary_emissivity'] = 0.025
-        self.array['d_temp'] = 23
         self.array['pixel_size'] = 23 * 1e-6
-        self.array['dc_per_pix'] = 1
-        self.array['detector_wl_min'] = 5e-6
-        self.array['detector_wl_max'] = 28e-6
+        # self.array['dc_per_pix'] = 1
         self.array['pix_per_wl'] = 2.2
         self.array['num_apertures'] = 4
         self.array['num_outputs'] = 2
+        self.array['on_axis_null_depth'] = None
+
+        self.thermal['ota_emissivity'] = 0.06
+        self.thermal['ota_throughput'] = 0.94
+        self.thermal['instrument_emissivity'] = 1.
+        self.thermal['instrument_throughput'] = 1.
+        self.thermal['detector_wl_min'] = 5e-6
+        self.thermal['detector_wl_max'] = 28e-6
 
         self.other['image_size'] = 256  # TODO: or 512?
         self.other['wl_optimal'] = 15
@@ -144,7 +155,7 @@ class Options(object):
         self.other['fov_threshold'] = 0.01
 
         self.models['localzodi'] = 'darwinsim'
-        self.models['habitable'] = 'MS'
+        self.models['hz_model'] = 'MS'
         self.models['fov_taper'] = 'gaussian'
 
         self.optimization['N_pf'] = 25
@@ -212,7 +223,7 @@ class Options(object):
             option_set = False
 
             # check if the key exists in any of the options dictionaries
-            for sub_dict in [self.array, self.other, self.models, self.optimization]:
+            for sub_dict in [self.array, self.other, self.models, self.optimization, self.thermal]:
                 if key in sub_dict:
 
                     # set the option

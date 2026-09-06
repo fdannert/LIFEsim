@@ -1,0 +1,27 @@
+PREREQUISITES:
+- directories yields/catalogs and yields/runs
+- catalogs with right naming format imported by date in yields/catalogs
+(right naming format is three '_' and then either SAG13_baseline/optimistic/pessimistic, Dressing2015_baseline/optimistic/pessimistic, or Bryson2021_hab2high/low)
+- virtual environment with right version of lifesim (python 3.12 works)
+
+AUTOMATION:
+- activate virtual environment
+- run either lifesim-yieldanalysis or lifesim-yieldanalysis init, this will create a config file in the current working directory
+- adjust the config file
+- run lifesim-yieldanalysis config_file.py
+- wait :)
+
+COMMANDS: 
+- lifesim-yieldanalysis or lifesim-yieldanalysis init: creates yield_config template
+- lifesim-yieldanalysis lifesim_config: creates lifesim config template
+- lifesim-yieldanalysis catalog_merge: creates catalog_merge csv template
+- lifesim-yieldanalysis optimizer_scenarios: creates optimizer_scenarios csv template
+- lifesim-yieldanalysis yield_config.py: runs the yield calculation
+
+WHAT THE AUTOMATION DOES:
+- creates all necessary files to go through the entire yields process
+- creates directories per catalog and calculates the snr_1h, merges data from the catalogs, optimises mission time
+- sends everything to the euler queue, with dependencies
+
+NOTES:
+- catalogs are split after the third '_' for easier readability, adjust if naming convention of catalogs is changed, also adjust the optimizer csvs

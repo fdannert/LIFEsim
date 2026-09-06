@@ -1,6 +1,5 @@
 import numpy as np
 from typing import Union
-from lifesim.util import constants
 
 from lifesim.core.modules import PhotonNoiseInstrumentModule
 from lifesim.util.radiation import black_body
@@ -8,7 +7,7 @@ from lifesim.util.radiation import black_body
 
 class PhotonNoiseThermal(PhotonNoiseInstrumentModule):
     """
-    This class simulates the thermal noise contribution of the mirror to the interferometric
+    This class simulates the thermal noise contribution of the mirror and detector to the interferometric
     measurement of LIFE.
     """
 
@@ -45,41 +44,51 @@ class PhotonNoiseThermal(PhotonNoiseInstrumentModule):
         Notes
         -----
         All of the following parameters are needed for the calculation of the thermal mirror and detector noise
-        contribution and should be specified either in `data.catalog` or `data.single` or 'data.inst'.
+        contribution and should be specified either in 'data.inst' or 'data.options'.
 
+        data.inst['hfov'] : np.ndarray
+            Contains the half field of view of the observatory in [rad] for each of the spectral bins.
         data.inst['wl_bins'] : np.ndarray
             Central values of the spectral bins in the wavelength regime in [m].
         data.inst['wl_widths'] : np.ndarray
             Widths of the spectral wavelength bins in [m].
+        data.options.array['primary_temp'] : float
+            Temperature of the mirror in [K].
+        data.options.array['primary_emissivity'] : float
+            Emissivity of the mirror (dimensionless).
         data.inst['telescope_area'] : float
             Area of all array apertures combined in [m^2].
-        data.options.array['diameter'] : float
-            Diameter of the array in [m].
-        data.options.array['m_temp'] : float
-            Temperature of the mirror in [K].
-        data.options.array['m_emissivity'] : float
-            Emissivity of the mirror (dimensionless).
-        data.options.array['d_temp'] : float
-            Temperature of the detector in [K].
+        data.options.array['num_apertures'] : int
+            Number of apertures in the array.
         data.options.array['pixel_size'] : float
             Size of the pixels in [m]. (length of one side of the square pixel)
-        data.options.array['beam_size'] : float
-            Diameter of the beam in [m].
+        data.options.array['pix_per_wl'] : int
+            Number of pixels per wavelength bin (Nyquist rate).
+        data.options.array['detector_wl_min'] : float
+            Minimum wavelength of the detector sensitivity range in [m].
+        data.options.array['detector_wl_max'] : float
+            Maximum wavelength of the detector sensitivity range in [m].
+        data.options.array['d_temp'] : float
+            Temperature of the detector environment in [K].
         """
 
-        # solid angle is governed by the fiber pick-up, which for single mode is lambda / D
-        solid_angle = np.pi * (self.data.inst['hfov'])**2
-        
-        # calculate noise from the mirror
-        mirror_bb = black_body(mode='wavelength',
-                                            bins=self.data.inst['wl_bins'],
-                                            width=self.data.inst['wl_bin_widths'],
-                                            temp=self.data.options.array['primary_temp'])
+        # etendue for single mode
+        etendue_sm = self.data.inst['wl_bins']**2
 
-        tm_leak = (solid_angle
-                   * self.data.options.array['primary_emissivity']
-                   * self.data.inst['telescope_area']
-                   * mirror_bb)
+        # get thermal flux from OTA
+        thermal_leak_ota = self._get_thermal_noise(
+            etendue=etendue_sm,
+            emissivity=self.data.options.thermal['ota_emissivity'],
+            sub_throughput=self.data.options.array['throughput'] / self.data.options.thermal['ota_throughput'],
+            temperature=self.data.options.thermal['ota_temperature']
+        )
+
+        thermal_leak_instrument = self._get_thermal_noise(
+            etendue=etendue_sm,
+            emissivity=self.data.options.thermal['instrument_emissivity'],
+            sub_throughput=(1 + self.data.options.array['throughput'] / self.data.options.thermal['ota_throughput']) / 2,
+            temperature=self.data.options.thermal['instrument_temperature']
+        )
 
         # detector collects thermal noise photons across its whole sensitivity range (at least from the detector
         # housing). Define temporary wl bins. Delta_wl is chosen to be small enough to capture the shape of the black
@@ -87,10 +96,10 @@ class PhotonNoiseThermal(PhotonNoiseInstrumentModule):
 
         delta_wl = 1e-7
         total_area = self.data.options.array['pixel_size'] ** 2 * self.data.options.array['pix_per_wl'] # minimum number of detector pixels (nyquist rate)
-        solid_angle = 2 * np.pi  # half sphere, since the detector can receive photons from all directions
+        solid_angle = np.pi  # half sphere, considering angle relevant to the normal of the detector surface for the irradiance and spherical coordinates
 
-        wl_bins = np.arange(self.data.options.array['detector_wl_min'],
-                            self.data.options.array['detector_wl_max'],
+        wl_bins = np.arange(self.data.options.thermal['detector_wl_min'],
+                            self.data.options.thermal['detector_wl_max'],
                             step=delta_wl)
         wl_bin_widths = np.full_like(wl_bins, delta_wl)
 
@@ -98,11 +107,29 @@ class PhotonNoiseThermal(PhotonNoiseInstrumentModule):
         detector_bb = black_body(mode='wavelength',
                                  bins=wl_bins,
                                  width=wl_bin_widths,
-                                 temp=self.data.options.array['d_temp']) / wl_bin_widths
+                                 temp=self.data.options.thermal['detector_temperature']) / wl_bin_widths
 
         # integral over all wavelengths
-        detector_bb_int = np.trapezoid(y=detector_bb, x=wl_bins)
+        if hasattr(np, 'trapezoid'): # old versions of numpy do not have the trapezoid function
+            detector_bb_int = np.trapezoid(y=detector_bb, x=wl_bins)
+        else:
+            detector_bb_int = np.trapz(y=detector_bb, x=wl_bins)
 
-        td_leak = solid_angle * total_area * detector_bb_int * np.ones_like(self.data.inst['wl_bins'])
+        thermal_leak_detector = solid_angle * total_area * detector_bb_int * np.ones_like(self.data.inst['wl_bins'])
 
-        return tm_leak, td_leak
+        return thermal_leak_ota, thermal_leak_instrument, thermal_leak_detector
+
+    def _get_thermal_noise(self,
+                           etendue: np.ndarray,
+                           emissivity: float,
+                           sub_throughput: float,
+                           temperature: float):
+
+        flux_bb = black_body(mode='wavelength',
+                             bins=self.data.inst['wl_bins'],
+                             width=self.data.inst['wl_bin_widths'],
+                             temp=temperature)
+
+        thermal_leak = etendue * emissivity * sub_throughput * flux_bb
+
+        return thermal_leak

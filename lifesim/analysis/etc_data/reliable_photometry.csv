@@ -1,0 +1,20 @@
+﻿planet_name,witp_name,l_band_mag,l_band_mag_unc_plus,l_band_mag_unc_minus,mag_source,filter_id,angsep_arcsec,angsep_error,angsep_source
+2MASS J12073346-3932539 b,noorbit,15.28,0.14,0.14,https://www.aanda.org/articles/aa/abs/2004/38/aagg222/aagg222.html,Paranal/NACO.Lp,0.78,,https://www.aanda.org/articles/aa/pdf/2004/38/aagg222.pdf
+AB Pic b,abpicb,13.9,0.1,0.1,https://arxiv.org/pdf/1302.5367,Paranal/NACO.Lp,,,
+DH Tau b,dhtaub,12.86,0.24,0.24,https://iopscience.iop.org/article/10.3847/1538-3881/ac3745/pdf,WISE/WISE.W1,,,
+HD 100546 b,noorbit,13.2,0.4,0.4,https://iopscience.iop.org/article/10.1088/2041-8205/766/1/L1/pdf,Paranal/NACO.Lp,0.48,0.04,https://iopscience.iop.org/article/10.1088/2041-8205/766/1/L1/pdf
+HD 106906 b,noorbit,14.6,0.1,0.1,https://iopscience.iop.org/article/10.1088/2041-8205/780/1/L4/pdf,MMT/Clio.Lp_MKO,7.11,0.03,https://iopscience.iop.org/article/10.1088/2041-8205/780/1/L4/pdf
+HD 95086 b,hd95086b,16.49,0.53,0.53,https://iopscience.iop.org/article/10.1088/2041-8205/772/2/L15/pdf,Paranal/NACO.Lp,,,
+HIP 65426 b,hip65426b,15.26,0.15,0.15,https://www.aanda.org/articles/aa/pdf/2019/02/aa34112-18.pdf,Paranal/NACO.Lp,,,
+HR 8799 b,hr8799b,15.74,0.11,0.11,https://www.science.org/doi/epdf/10.1126/science.1166585,Keck/NIRC2.Lp,,,
+HR 8799 c,hr8799c,14.82,0.09,0.09,https://www.science.org/doi/epdf/10.1126/science.1166585,Keck/NIRC2.Lp,,,
+HR 8799 d,hr8799d,14.64,0.16,0.16,https://www.science.org/doi/epdf/10.1126/science.1166585,Keck/NIRC2.Lp,,,
+HR 8799 e,hr8799e,14.69,0.12,0.12,https://arxiv.org/pdf/1011.4918,Keck/NIRC2.Lp,,,
+bet Pic b,betapicb,11.25,0.26,0.26,https://www.aanda.org/articles/aa/pdf/2020/03/aa37159-19.pdf,Paranal/NACO.NB374,,,
+WISPIT 2 c,noorbit,15.3,0.05,0.05,https://iopscience.iop.org/article/10.3847/2041-8213/adf7a5/pdf,LBT/LMIRCam.L_77K,0.318,0.002,https://iopscience.iop.org/article/10.3847/2041-8213/adf721/pdf
+HD 4113 C,noorbit,16.74,0.1,0.1,Priv. Comm.,Paranal/NACO.Lp,0.65,0.1,Priv. Comm.
+PDS 70 b,pds70b,14.75,0.62,0.62,https://www.aanda.org/articles/aa/pdf/2018/09/aa32957-18.pdf,Paranal/NACO.Lp,,,
+PDS 70 c,pds70c,14.51,0.2,0.2,https://www.nature.com/articles/s41550-019-0780-5,Paranal/NACO.Lp,,,
+kap And b,kappaandb,13.13,0.2,0.2,https://arxiv.org/pdf/1308.3859,Keck/NIRC2.Lp,,,
+GJ 504 b,gj504b,16.7,0.17,0.17,https://arxiv.org/pdf/1511.09183,LBT/LMIRCam.L_77K,,,
+51 Eri b,51erib,16.2,0.11,0.11,https://iopscience.iop.org/article/10.3847/1538-3881/aa74db/pdf,Keck/NIRC2.Lp,,,

@@ -25,7 +25,8 @@ class TransmissionMap(TransmissionModule):
                          d_alpha: np.ndarray = None,
                          d_beta: np.ndarray = None,
                          image_angle: np.ndarray = None,
-                         image_size: int = None):
+                         image_size: int = None,
+                         fov_taper: Union[str, None] = None):
         """
         Return the transmission map of a double-Bracewell configuration for the LIFE array.
 
@@ -142,20 +143,8 @@ class TransmissionMap(TransmissionModule):
             tm4 = np.sin(2 * np.pi * L * alpha / wl_bins) ** 2 * np.cos(
                 2 * self.data.options.array['ratio'] * np.pi * L * beta / wl_bins + np.pi / 4) ** 2
 
-        # add FoV taper
-        for tm in [tm1, tm2, tm3, tm4]:
-            if tm is not None:
-                if self.data.options.models['fov_taper'] == 'gaussian':
-                    fov_taper = np.exp(- (np.pi / 4 / hfov * np.sqrt(alpha ** 2 + beta ** 2)) ** 2)
-                    tm *= fov_taper
-                elif self.data.options.models['fov_taper'] == 'none':
-                    pass
-                else:
-                    raise ValueError('Nonexistent FoV tapering function')
-
         # difference of transmission maps 3 and 4 = "chopped transmission"
         if 'tm_chop' in map_selection:
-
             # if tm3 and tm4 exist, calculate the chopped transmission directly from the difference
             if (tm3 is not None) and (tm4 is not None):
                 tm_chop = tm3 - tm4
@@ -165,6 +154,20 @@ class TransmissionMap(TransmissionModule):
                 # chopped transm. map
                 tm_chop = np.sin(2 * np.pi * L * alpha / wl_bins) ** 2 * np.sin(
                     4 * self.data.options.array['ratio'] * np.pi * L * beta / wl_bins)
+
+        # add FoV taper
+        if fov_taper is None:
+            fov_taper = self.data.options.models['fov_taper']
+
+        for tm in [tm1, tm2, tm3, tm4, tm_chop]:
+            if tm is not None:
+                if self.data.options.models['fov_taper'] == 'gaussian':
+                    fov_taper = np.exp(- (np.pi / 4 / hfov * np.sqrt(alpha ** 2 + beta ** 2)) ** 2)
+                    tm *= fov_taper
+                elif self.data.options.models['fov_taper'] == 'none':
+                    pass
+                else:
+                    raise ValueError('Nonexistent FoV tapering function')
 
         return tm1, tm2, tm3, tm4, tm_chop
 

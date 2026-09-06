@@ -1,0 +1,8 @@
+Input 1,Input 2,Output
+SAG13_baseline,Dressing2015_baseline,${today}_SAGxDressing_baseline
+SAG13_optimistic,Dressing2015_optimistic,${today}_SAGxDressing_optimistic
+SAG13_pessimistic,Dressing2015_pessimistic,${today}_SAGxDressing_pessimistic
+Bryson2021_hab2high,Dressing2015_optimistic,${today}_BrysonxDressing_optimistic
+Bryson2021_hab2high,Dressing2015_baseline,${today}_BrysonxDressing_baseline_plus
+Bryson2021_hab2low,Dressing2015_baseline,${today}_BrysonxDressing_baseline_minus
+Bryson2021_hab2low,Dressing2015_pessimistic,${today}_BrysonxDressing_pessimistic
